@@ -54,7 +54,7 @@ class _OfflineHnAppState extends State<OfflineHnApp> {
       title: appName,
       theme: lightTheme,
       darkTheme: darkTheme,
-      home: HomePage(services: widget.services),
+      home: const HomePage(),
     );
   }
 }
