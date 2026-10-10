@@ -7,13 +7,21 @@ environment:
   sdk: ^3.13.1
 
 dependencies:
+  drift: ^2.35.2
+  drift_flutter: ^0.3.1
   flutter:
     sdk: flutter
+  http: ^1.6.0
+  path: ^1.9.1
+  path_provider: ^2.1.6
+  sqlite3: ^3.7.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  drift_dev: ^2.35.1
+  build_runner: ^2.16.2
 
 flutter:
   uses-material-design: true
