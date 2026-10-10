@@ -33,12 +33,15 @@ class CaptureTooling(private val context: Context, private val assetPrefix: Stri
 
     private fun filters(request: CaptureRequest): FilterSet? {
         if (!request.blockRequests && !request.hideElements) return null
-        val file = request.filterListsDirectory?.let { File(it, FILTERS_FILE) }?.takeIf { it.isFile }
+        val files = request.filterListsDirectory?.let(::File)
+            ?.listFiles { file -> file.extension == LIST_EXTENSION }
+            ?.sortedBy { it.name }
+            ?.takeIf { it.isNotEmpty() }
             ?: return null
-        val key = "${file.length()}:${file.lastModified()}"
+        val key = files.joinToString { "${it.name}:${it.length()}:${it.lastModified()}" }
         cachedFilters?.takeIf { it.first == key }?.let { return it.second }
         return try {
-            file.bufferedReader().use(FilterSet::parse).also { cachedFilters = key to it }
+            FilterSet.parseAll(files).also { cachedFilters = key to it }
         } catch (e: IOException) {
             null
         }
@@ -59,7 +62,7 @@ class CaptureTooling(private val context: Context, private val assetPrefix: Stri
         context.assets.open("$assetPrefix/$name").use { it.readBytes().toString(Charsets.UTF_8) }
 
     private companion object {
-        const val FILTERS_FILE = "filters.tsv"
+        const val LIST_EXTENSION = "tsv"
         const val KEEP_MILLIS = 120_000L
     }
 }

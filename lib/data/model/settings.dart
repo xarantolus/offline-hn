@@ -1,6 +1,10 @@
+import 'dart:convert';
+
 import 'package:offline_hn/data/model/daily_time.dart';
 import 'package:offline_hn/data/model/feed_kind.dart';
+import 'package:offline_hn/data/model/filter_list_status.dart';
 import 'package:offline_hn/data/model/viewer_kind.dart';
+import 'package:page_capture/filters.dart';
 
 class Setting<T> {
   const Setting(this.key, this.defaultValue, this._decode, this._encode);
@@ -97,13 +101,19 @@ abstract final class Settings {
     _encodeBool,
   );
 
-  /// Null until the lists have been downloaded once; the bundled snapshot
-  /// covers captures until then.
-  static const filterListsUpdatedAt = Setting<DateTime?>(
-    'filterListsUpdatedAt',
-    null,
-    _decodeInstant,
-    _encodeInstant,
+  static const filterListUrls = Setting<List<String>>(
+    'filterListUrls',
+    FilterSources.defaultLists,
+    _decodeUrls,
+    jsonEncode,
+  );
+
+  /// Bookkeeping the downloader keeps per filter list URL.
+  static const filterListStatus = Setting<Map<String, FilterListStatus>>(
+    'filterListStatus',
+    {},
+    FilterListStatus.decodeAll,
+    FilterListStatus.encodeAll,
   );
 
   static const textRetentionDays = Setting<int>(
@@ -131,12 +141,14 @@ abstract final class Settings {
     _ => throw FormatException('bool', raw),
   };
 
-  static DateTime? _decodeInstant(String raw) =>
-      DateTime.tryParse(raw)?.toUtc() ??
-      (throw FormatException('instant', raw));
-
-  static String _encodeInstant(DateTime? value) =>
-      value?.toUtc().toIso8601String() ?? '';
+  static List<String> _decodeUrls(String raw) {
+    final decoded = jsonDecode(raw);
+    if (decoded is! List<Object?>) throw FormatException('urls', raw);
+    return [
+      for (final url in decoded)
+        if (url is String) url,
+    ];
+  }
 
   static String _encodeBool(bool value) => value.toString();
 
@@ -175,7 +187,8 @@ class AppSettings {
     required this.viewer,
     required this.adBlocking,
     required this.rejectCookiePopups,
-    required this.filterListsUpdatedAt,
+    required this.filterListUrls,
+    required this.filterListStatus,
     required this.textRetentionDays,
   });
 
@@ -192,7 +205,8 @@ class AppSettings {
     viewer: Settings.viewer.read(raw),
     adBlocking: Settings.adBlocking.read(raw),
     rejectCookiePopups: Settings.rejectCookiePopups.read(raw),
-    filterListsUpdatedAt: Settings.filterListsUpdatedAt.read(raw),
+    filterListUrls: Settings.filterListUrls.read(raw),
+    filterListStatus: Settings.filterListStatus.read(raw),
     textRetentionDays: Settings.textRetentionDays.read(raw),
   );
 
@@ -206,6 +220,7 @@ class AppSettings {
   final ViewerKind viewer;
   final bool adBlocking;
   final bool rejectCookiePopups;
-  final DateTime? filterListsUpdatedAt;
+  final List<String> filterListUrls;
+  final Map<String, FilterListStatus> filterListStatus;
   final int textRetentionDays;
 }

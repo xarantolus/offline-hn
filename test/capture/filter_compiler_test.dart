@@ -9,14 +9,10 @@ String _list(List<String> rules) =>
 void main() {
   group('FilterCompiler', () {
     test('writes a stamped header and one record per distinct rule', () {
-      final compiled = FilterCompiler.compile(
-        [
-          _list(['||a.com^', '||a.com^', '##.ad', '! comment']),
-          _list(['||b.com^\$script', 'example.org##.promo']),
-        ],
-        generated: _at,
-        minNetworkRulesPerList: 1,
-      );
+      final compiled = FilterCompiler.compile([
+        _list(['||a.com^', '||a.com^', '##.ad', '! comment']),
+        _list(['||b.com^\$script', 'example.org##.promo']),
+      ], generated: _at);
       final lines = compiled.text.trimRight().split('\n');
       expect(lines.first, '#offline-hn-filters\t1\t2026-10-10T12:30:15.000Z');
       expect(lines.skip(1), [
@@ -30,18 +26,14 @@ void main() {
     });
 
     test('counts what it skipped by reason', () {
-      final compiled = FilterCompiler.compile(
-        [
-          _list([
-            '||a.com^',
-            '||b.com^\$popup',
-            '||c.com^\$popup',
-            'x.com##p:has-text(y)',
-          ]),
-        ],
-        generated: _at,
-        minNetworkRulesPerList: 1,
-      );
+      final compiled = FilterCompiler.compile([
+        _list([
+          '||a.com^',
+          '||b.com^\$popup',
+          '||c.com^\$popup',
+          'x.com##p:has-text(y)',
+        ]),
+      ], generated: _at);
       expect(compiled.stats.skipped, {
         'option:popup': 2,
         'cosmetic:procedural': 1,
@@ -57,11 +49,21 @@ void main() {
       );
     });
 
-    test('rejects a list that lost most of its rules', () {
+    test('rejects a list with no network rules and honours a minimum', () {
       expect(
         () => FilterCompiler.compile([
-          _list(['||a.com^']),
+          _list(['##.ad']),
         ], generated: _at),
+        throwsA(isA<FilterListException>()),
+      );
+      expect(
+        () => FilterCompiler.compile(
+          [
+            _list(['||a.com^']),
+          ],
+          generated: _at,
+          minNetworkRulesPerList: 2,
+        ),
         throwsA(isA<FilterListException>()),
       );
     });

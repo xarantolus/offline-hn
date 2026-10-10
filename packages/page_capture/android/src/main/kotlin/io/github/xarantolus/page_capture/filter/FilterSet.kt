@@ -1,6 +1,7 @@
 package io.github.xarantolus.page_capture.filter
 
 import java.io.BufferedReader
+import java.io.File
 
 class FilterSet private constructor(
     private val blocks: RuleIndex,
@@ -16,12 +17,23 @@ class FilterSet private constructor(
     }
 
     companion object {
-        fun parse(reader: BufferedReader): FilterSet {
+        fun parse(reader: BufferedReader): FilterSet = build(listOf(reader))
+
+        fun parseAll(files: List<File>): FilterSet {
+            val readers = files.map { it.bufferedReader() }
+            try {
+                return build(readers)
+            } finally {
+                readers.forEach { it.close() }
+            }
+        }
+
+        private fun build(readers: List<BufferedReader>): FilterSet {
             val blocks = ArrayList<NetworkRule>()
             val exceptions = ArrayList<NetworkRule>()
             val hides = ArrayList<CosmeticRules.Rule>()
             val unhides = ArrayList<CosmeticRules.Rule>()
-            reader.forEachLine { line ->
+            for (reader in readers) reader.forEachLine { line ->
                 if (line.isEmpty() || line[0] == '#') return@forEachLine
                 val fields = line.split('\t')
                 if (fields.size < 3) return@forEachLine
@@ -34,7 +46,5 @@ class FilterSet private constructor(
             }
             return FilterSet(RuleIndex(blocks), RuleIndex(exceptions), CosmeticRules(hides, unhides))
         }
-
-        val empty: FilterSet = parse("".reader().buffered())
     }
 }

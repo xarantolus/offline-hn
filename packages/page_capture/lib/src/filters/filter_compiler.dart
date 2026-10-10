@@ -16,12 +16,12 @@ abstract final class FilterCompiler {
   static const formatVersion = 1;
   static const headerMarker = '#offline-hn-filters';
 
-  /// Throws [FilterListException] when a list does not look like a filter
-  /// list or holds fewer than [minNetworkRulesPerList] network rules.
+  /// Throws [FilterListException] when a list does not look like Adblock
+  /// syntax or holds fewer than [minNetworkRulesPerList] network rules.
   static CompiledFilters compile(
     List<String> lists, {
     required DateTime generated,
-    int minNetworkRulesPerList = 1000,
+    int minNetworkRulesPerList = 1,
   }) {
     final records = <String>{};
     final skipped = <String, int>{};
@@ -29,7 +29,8 @@ abstract final class FilterCompiler {
     var cosmetic = 0;
 
     for (final list in lists) {
-      if (!list.trimLeft().startsWith('[Adblock')) {
+      final head = list.trimLeft();
+      if (!head.startsWith('[Adblock') && !head.startsWith('!')) {
         throw const FilterListException('not an Adblock-syntax list');
       }
       var listNetwork = 0;

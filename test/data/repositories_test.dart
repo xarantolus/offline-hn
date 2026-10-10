@@ -5,6 +5,7 @@ import 'package:offline_hn/data/api/models.dart';
 import 'package:offline_hn/data/db/database.dart';
 import 'package:offline_hn/data/model/daily_time.dart';
 import 'package:offline_hn/data/model/feed_kind.dart';
+import 'package:offline_hn/data/model/filter_list_status.dart';
 import 'package:offline_hn/data/model/local_day.dart';
 import 'package:offline_hn/data/model/page_enums.dart';
 import 'package:offline_hn/data/model/settings.dart';
@@ -286,7 +287,8 @@ void main() {
       expect(settings.viewer, ViewerKind.customTab);
       expect(settings.adBlocking, isTrue);
       expect(settings.rejectCookiePopups, isTrue);
-      expect(settings.filterListsUpdatedAt, isNull);
+      expect(settings.filterListUrls, hasLength(2));
+      expect(settings.filterListStatus, isEmpty);
       expect(settings.textRetentionDays, 3);
     });
 
@@ -300,9 +302,20 @@ void main() {
         await store.set(Settings.viewer, ViewerKind.inApp);
         await store.set(Settings.commentTextScale, 1.25);
         final updated = DateTime.utc(2026, 10, 10, 12, 30);
-        await store.set(Settings.filterListsUpdatedAt, updated);
+        await store.set(Settings.filterListUrls, ['https://x.example/l.txt']);
+        await store.set(Settings.filterListStatus, {
+          'https://x.example/l.txt': FilterListStatus(
+            updatedAt: updated,
+            networkRules: 7,
+            error: 'late',
+          ),
+        });
         final loaded = await store.load();
-        expect(loaded.filterListsUpdatedAt, updated);
+        expect(loaded.filterListUrls, ['https://x.example/l.txt']);
+        final status = loaded.filterListStatus['https://x.example/l.txt']!;
+        expect(status.updatedAt, updated);
+        expect(status.networkRules, 7);
+        expect(status.error, 'late');
         expect(loaded.intervalHours, isNull);
         expect(loaded.dailyTime, const DailyTime(7, 5));
         expect(loaded.enabledFeeds, {FeedKind.ask, FeedKind.show});
