@@ -97,6 +97,15 @@ abstract final class Settings {
     _encodeBool,
   );
 
+  /// Null until the lists have been downloaded once; the bundled snapshot
+  /// covers captures until then.
+  static const filterListsUpdatedAt = Setting<DateTime?>(
+    'filterListsUpdatedAt',
+    null,
+    _decodeInstant,
+    _encodeInstant,
+  );
+
   static const textRetentionDays = Setting<int>(
     'textRetentionDays',
     3,
@@ -121,6 +130,13 @@ abstract final class Settings {
     'false' => false,
     _ => throw FormatException('bool', raw),
   };
+
+  static DateTime? _decodeInstant(String raw) =>
+      DateTime.tryParse(raw)?.toUtc() ??
+      (throw FormatException('instant', raw));
+
+  static String _encodeInstant(DateTime? value) =>
+      value?.toUtc().toIso8601String() ?? '';
 
   static String _encodeBool(bool value) => value.toString();
 
@@ -159,6 +175,7 @@ class AppSettings {
     required this.viewer,
     required this.adBlocking,
     required this.rejectCookiePopups,
+    required this.filterListsUpdatedAt,
     required this.textRetentionDays,
   });
 
@@ -175,6 +192,7 @@ class AppSettings {
     viewer: Settings.viewer.read(raw),
     adBlocking: Settings.adBlocking.read(raw),
     rejectCookiePopups: Settings.rejectCookiePopups.read(raw),
+    filterListsUpdatedAt: Settings.filterListsUpdatedAt.read(raw),
     textRetentionDays: Settings.textRetentionDays.read(raw),
   );
 
@@ -188,5 +206,6 @@ class AppSettings {
   final ViewerKind viewer;
   final bool adBlocking;
   final bool rejectCookiePopups;
+  final DateTime? filterListsUpdatedAt;
   final int textRetentionDays;
 }

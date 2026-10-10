@@ -286,6 +286,7 @@ void main() {
       expect(settings.viewer, ViewerKind.customTab);
       expect(settings.adBlocking, isTrue);
       expect(settings.rejectCookiePopups, isTrue);
+      expect(settings.filterListsUpdatedAt, isNull);
       expect(settings.textRetentionDays, 3);
     });
 
@@ -298,7 +299,10 @@ void main() {
         await store.set(Settings.enabledFeeds, {FeedKind.ask, FeedKind.show});
         await store.set(Settings.viewer, ViewerKind.inApp);
         await store.set(Settings.commentTextScale, 1.25);
+        final updated = DateTime.utc(2026, 10, 10, 12, 30);
+        await store.set(Settings.filterListsUpdatedAt, updated);
         final loaded = await store.load();
+        expect(loaded.filterListsUpdatedAt, updated);
         expect(loaded.intervalHours, isNull);
         expect(loaded.dailyTime, const DailyTime(7, 5));
         expect(loaded.enabledFeeds, {FeedKind.ask, FeedKind.show});
