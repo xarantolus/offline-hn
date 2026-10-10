@@ -1,11 +1,14 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:offline_hn/capture/capture_settings.dart';
 import 'package:offline_hn/data/db/database.dart';
 import 'package:offline_hn/data/model/page_enums.dart';
 import 'package:offline_hn/data/model/settings.dart';
+import 'package:offline_hn/data/model/sync_enums.dart';
 import 'package:offline_hn/data/policy/capture_scope.dart';
 import 'package:offline_hn/data/repository/page_repository.dart';
+import 'package:offline_hn/sync/connection_probe.dart';
 import 'package:offline_hn/sync/page_files.dart';
 import 'package:offline_hn/sync/pdf_downloader.dart';
 import 'package:page_capture/page_capture.dart';
@@ -30,7 +33,8 @@ Future<CaptureResult> captureWithPlugin(
 );
 
 abstract interface class StoryPageSaver {
-  /// Null when the save was cancelled and nothing was recorded.
+  /// Null when nothing was recorded because the save was cancelled or the
+  /// connection is gone: the page is still owed, not failed.
   Future<PageStatus?> save(StoryRow story, AppSettings settings);
 
   void cancel();
@@ -44,6 +48,7 @@ class PageSaver implements StoryPageSaver {
     required this.pages,
     required this.capture,
     required this.pdf,
+    required this.probe,
     required this.filterListsDirectory,
     DateTime Function()? clock,
     this.watchdog = const Duration(seconds: 150),
@@ -53,6 +58,7 @@ class PageSaver implements StoryPageSaver {
   final PageRepository pages;
   final CaptureFn capture;
   final PdfDownloader pdf;
+  final ConnectionProbe probe;
   final String filterListsDirectory;
   final Duration watchdog;
   final DateTime Function() _clock;
@@ -101,7 +107,15 @@ class PageSaver implements StoryPageSaver {
     }
 
     switch (result) {
-      case CaptureSuccess(:final bytes):
+      case CaptureSuccess(:final bytes, :final timings):
+        debugPrintSynchronously(
+          'capture $id ${result.duration.inMilliseconds} ms: '
+          'load ${timings.load.inMilliseconds} '
+          'idle ${timings.idle.inMilliseconds} '
+          'scroll ${timings.scroll.inMilliseconds} '
+          'cleanup ${timings.cleanup.inMilliseconds} '
+          'save ${timings.save.inMilliseconds}',
+        );
         if (exceedsPageLimit(bytes)) {
           await files.delete(relative);
           return _tooLarge(id, PageKind.mhtml);
@@ -130,10 +144,17 @@ class PageSaver implements StoryPageSaver {
         );
       case CaptureFailure(:final kind, :final message, :final httpStatus):
         await files.delete(relative);
+        if (_looksOffline(kind) &&
+            await probe.current() == ConnectionKind.none) {
+          return null;
+        }
         final detail = httpStatus == null ? message : 'HTTP $httpStatus';
         return _failed(id, PageKind.mhtml, '${kind.name}: $detail');
     }
   }
+
+  bool _looksOffline(CaptureFailureKind kind) =>
+      kind == CaptureFailureKind.network || kind == CaptureFailureKind.timeout;
 
   Future<PageStatus?> _savePdf(int id, Uri url) async {
     final relative = files.relativePathFor(id, PageKind.pdf);

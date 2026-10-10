@@ -8,6 +8,7 @@ import 'package:http/testing.dart';
 import 'package:offline_hn/data/db/database.dart';
 import 'package:offline_hn/data/model/page_enums.dart';
 import 'package:offline_hn/data/model/settings.dart';
+import 'package:offline_hn/data/model/sync_enums.dart';
 import 'package:offline_hn/data/repository/page_repository.dart';
 import 'package:offline_hn/sync/page_files.dart';
 import 'package:offline_hn/sync/page_saver.dart';
@@ -23,6 +24,7 @@ void main() {
   late List<(Uri, String, CaptureOptions)> captures;
   late CaptureFn capture;
   late http.Client client;
+  late FakeProbe probe;
   final settings = AppSettings.defaults();
   final at = DateTime.utc(2026, 10, 10, 6);
 
@@ -45,6 +47,7 @@ void main() {
         pages: pages,
         capture: capture,
         pdf: PdfDownloader(client: client),
+        probe: probe,
         filterListsDirectory: '/lists',
         clock: () => at,
         watchdog: watchdog,
@@ -54,6 +57,7 @@ void main() {
     db = AppDatabase(NativeDatabase.memory());
     pages = PageRepository(db);
     files = tempPageFiles();
+    probe = FakeProbe();
     captures = [];
     client = MockClient.streaming(
       (request, body) async => http.StreamedResponse(
@@ -143,6 +147,32 @@ void main() {
     final row = await stored(1);
     expect(row.status, PageStatus.failed);
     expect(row.error, 'http: HTTP 403');
+  });
+
+  test('a network failure with no connection is owed, not failed', () async {
+    probe.kind = ConnectionKind.none;
+    capture = (url, path, options, cancellation) async => const CaptureFailure(
+      duration: Duration.zero,
+      kind: CaptureFailureKind.network,
+      message: '-2 net::ERR_NAME_NOT_RESOLVED',
+    );
+    expect(
+      await saver().save(story(1, 'https://example.com/a'), settings),
+      isNull,
+    );
+    expect(await pages.forStories([1]), isEmpty);
+  });
+
+  test('the same failure with a connection is the page failing', () async {
+    capture = (url, path, options, cancellation) async => const CaptureFailure(
+      duration: Duration.zero,
+      kind: CaptureFailureKind.network,
+      message: '-2 net::ERR_NAME_NOT_RESOLVED',
+    );
+    expect(
+      await saver().save(story(1, 'https://example.com/a'), settings),
+      PageStatus.failed,
+    );
   });
 
   test('a download response is fetched as a PDF instead', () async {

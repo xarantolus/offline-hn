@@ -124,6 +124,7 @@ class FakeSaver implements StoryPageSaver {
   final DateTime Function() clock;
   final saved = <int>[];
   final failing = <int>{};
+  final unreachable = <int>{};
   void Function(int id)? onSave;
   var cancelled = false;
 
@@ -134,6 +135,7 @@ class FakeSaver implements StoryPageSaver {
   Future<PageStatus?> save(StoryRow story, AppSettings settings) async {
     saved.add(story.id);
     onSave?.call(story.id);
+    if (unreachable.contains(story.id)) return null;
     if (failing.contains(story.id)) {
       await pages.recordFailed(
         storyId: story.id,
@@ -172,8 +174,9 @@ class FakeQueue implements WorkQueue {
   @override
   Future<void> scheduleDaily(
     Duration delay,
-    NetworkRequirement network,
-  ) async => daily.add((delay, network));
+    NetworkRequirement network, {
+    bool afterRun = false,
+  }) async => daily.add((delay, network));
 
   @override
   Future<void> schedulePeriodic(

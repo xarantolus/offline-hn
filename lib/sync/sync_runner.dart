@@ -308,11 +308,25 @@ class SyncRunner {
     }
   }
 
+  /// Pages need the right kind of connection. With none at all the run waits
+  /// for one rather than ending: the job is retried when the network is back.
+  Future<SyncResult?> _pagesGate(_Context context) async {
+    final connection = await _probe.current();
+    final allowance = syncAllowance(
+      trigger: context.trigger,
+      connection: connection,
+      settings: context.settings,
+    );
+    if (allowance == SyncAllowance.textAndPages) return null;
+    return connection == ConnectionKind.none
+        ? SyncResult.paused
+        : SyncResult.completed;
+  }
+
   Future<SyncResult?> _savePages(_Context context) async {
-    if (await _allowance(context.trigger, context.settings) !=
-        SyncAllowance.textAndPages) {
-      return null;
-    }
+    final gate = await _pagesGate(context);
+    if (gate == SyncResult.paused) return gate;
+    if (gate != null) return null;
     await _freshenLists();
 
     final rankings = await _rankings(context.settings);
@@ -335,12 +349,13 @@ class SyncRunner {
     for (final id in pending) {
       final stop = _checkpoint(context, _pageWorstCase);
       if (stop != null) return stop;
-      if (await _allowance(context.trigger, context.settings) !=
-          SyncAllowance.textAndPages) {
-        return null;
-      }
+      final open = await _pagesGate(context);
+      if (open == SyncResult.paused) return open;
+      if (open != null) return null;
       final outcome = await _savePage(id, context.settings);
-      if (outcome.status == null) return SyncResult.stopped;
+      if (outcome.status == null) {
+        return _stopRequested ? SyncResult.stopped : SyncResult.paused;
+      }
       await _syncs.markItem(
         context.run.id,
         SyncItemKind.page,

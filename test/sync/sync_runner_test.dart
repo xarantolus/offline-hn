@@ -233,6 +233,35 @@ void main() {
     );
   });
 
+  test(
+    'no connection at all in the pages phase pauses the run to be retried',
+    () async {
+      saver.onSave = (_) => probe.kind = ConnectionKind.none;
+      expect(await runner.run(SyncTrigger.manual), SyncResult.paused);
+      expect((await runs()).single.finishedAt, isNull);
+
+      probe.kind = ConnectionKind.wifi;
+      saver.onSave = null;
+      expect(await runner.run(SyncTrigger.manual), SyncResult.completed);
+      expect(saver.saved.toSet(), {1, 2, 3, 4});
+    },
+  );
+
+  test(
+    'a page the saver could not attempt for want of a network pauses',
+    () async {
+      saver.unreachable.add(2);
+      expect(await runner.run(SyncTrigger.manual), SyncResult.paused);
+      expect(
+        (await items(SyncItemKind.page))
+            .where((i) => i.storyId == 2)
+            .single
+            .status,
+        SyncItemStatus.pending,
+      );
+    },
+  );
+
   test('a page that is already saved is not captured again', () async {
     await pages.recordCaptured(
       storyId: 1,
