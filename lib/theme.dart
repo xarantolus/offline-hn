@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
-const _lightSurfaceAccent = Color.fromRGBO(0xB0, 0x3F, 0x00, 1.0);
-const _darkSurfaceAccent = Color.fromRGBO(0xFF, 0x9A, 0x5C, 1.0);
+import 'package:offline_hn/ui/tokens.dart';
 
 // HN orange (#FF6600) is 2.9:1 against white; this is the lightest orange
 // that carries white text at 4.5:1.
@@ -15,8 +13,9 @@ const _secondaryColorDark = Color.fromRGBO(0xC2, 0x4D, 0x00, 1.0);
 extension SurfaceAccent on ColorScheme {
   /// Brand colour for text and icons drawn on a surface. [primary] is a fill
   /// that white sits on, and is too close to the surface to be read as text.
-  Color get surfaceAccent =>
-      brightness == Brightness.dark ? _darkSurfaceAccent : _lightSurfaceAccent;
+  Color get surfaceAccent => brightness == Brightness.dark
+      ? AppTokens.dark.accent
+      : AppTokens.light.accent;
 }
 
 // Fade-upwards, not the Android default side slide: pages are pushed from a
@@ -25,12 +24,52 @@ const _pageTransitions = PageTransitionsTheme(
   builders: {TargetPlatform.android: FadeUpwardsPageTransitionsBuilder()},
 );
 
-ThemeData get lightTheme =>
+ThemeData _withComponents(ThemeData base, AppTokens tokens) {
+  final scheme = base.colorScheme;
+  Color pick(Set<WidgetState> s, Color on, Color off) =>
+      s.contains(WidgetState.selected) ? on : off;
+  return base.copyWith(
+    extensions: [tokens],
+    listTileTheme: const ListTileThemeData(
+      contentPadding: EdgeInsets.symmetric(horizontal: Spacing.gutter),
+    ),
+    popupMenuTheme: PopupMenuThemeData(color: scheme.surface),
+    switchTheme: SwitchThemeData(
+      thumbColor: WidgetStateProperty.resolveWith(
+        (s) => pick(s, scheme.surface, scheme.outline),
+      ),
+      trackColor: WidgetStateProperty.resolveWith(
+        (s) => pick(s, scheme.surfaceAccent, tokens.hairline),
+      ),
+      trackOutlineColor: WidgetStateProperty.resolveWith(
+        (s) => pick(s, Colors.transparent, scheme.outline),
+      ),
+    ),
+    sliderTheme: SliderThemeData(
+      trackHeight: 4,
+      activeTrackColor: scheme.surfaceAccent,
+      inactiveTrackColor: tokens.hairline,
+      thumbColor: scheme.surfaceAccent,
+      overlayColor: scheme.surfaceAccent.withValues(alpha: 0.16),
+      activeTickMarkColor: scheme.surface,
+      inactiveTickMarkColor: scheme.outline,
+      valueIndicatorColor: scheme.surfaceAccent,
+      valueIndicatorTextStyle: TextStyle(color: scheme.surface),
+    ),
+    progressIndicatorTheme: ProgressIndicatorThemeData(
+      color: scheme.surfaceAccent,
+      linearTrackColor: tokens.hairline,
+    ),
+  );
+}
+
+ThemeData get _lightBase =>
     ThemeData.from(
       colorScheme: const ColorScheme.light().copyWith(
         primary: _themeColor,
         secondary: _secondaryColor,
-        surface: Colors.grey[200],
+        surface: AppTokens.light.page,
+        onSurface: AppTokens.light.text,
         surfaceContainerHighest: Colors.transparent,
         surfaceContainerLowest: Colors.transparent,
         onSecondary: Colors.white,
@@ -64,12 +103,14 @@ ThemeData get lightTheme =>
       ),
     );
 
-ThemeData get darkTheme =>
+ThemeData get _darkBase =>
     ThemeData.from(
       colorScheme: const ColorScheme.dark().copyWith(
         primary: _themeColorDark,
+        onPrimary: Colors.white,
         secondary: _secondaryColorDark,
-        surface: Colors.grey[900],
+        surface: AppTokens.dark.page,
+        onSurface: AppTokens.dark.text,
         surfaceContainerHighest: Colors.transparent,
         surfaceContainerLowest: Colors.transparent,
         onSecondary: Colors.white,
@@ -101,3 +142,7 @@ ThemeData get darkTheme =>
         ),
       ),
     );
+
+ThemeData get lightTheme => _withComponents(_lightBase, AppTokens.light);
+
+ThemeData get darkTheme => _withComponents(_darkBase, AppTokens.dark);
