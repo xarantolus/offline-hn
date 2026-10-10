@@ -1,0 +1,1 @@
+enum ViewerKind { customTab, inApp }
