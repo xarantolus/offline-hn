@@ -483,7 +483,10 @@ class CardsLook extends LookKit {
             color: p.surface,
             borderRadius: BorderRadius.circular(_radius),
             clipBehavior: Clip.antiAlias,
-            child: Column(children: children),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: children,
+            ),
           ),
         ],
       ),
