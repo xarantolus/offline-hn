@@ -85,4 +85,18 @@ void main() {
       isFalse,
     );
   });
+
+  test('phase timings arrive in milliseconds, missing ones as zero', () {
+    final result = CaptureResult.fromMap({
+      'ok': true,
+      'millis': 9000,
+      'bytes': 1,
+      'phases': {'load': 3000, 'idle': 1500, 'scroll': 4000, 'save': 400},
+    }) as CaptureSuccess;
+    expect(result.timings.load, const Duration(seconds: 3));
+    expect(result.timings.idle, const Duration(milliseconds: 1500));
+    expect(result.timings.scroll, const Duration(seconds: 4));
+    expect(result.timings.cleanup, Duration.zero);
+    expect(result.timings.save, const Duration(milliseconds: 400));
+  });
 }

@@ -48,6 +48,9 @@ class CaptureSession(
     private var scrollSteps = 0
     private var cleanUpBegan: Long? = null
     private var consentSettled = false
+    private var loadedAt: Long? = null
+    private var scrollBeganAt: Long? = null
+    private var saveBeganAt: Long? = null
 
     private val deadline get() = startedAt + request.overallMillis
     private val now get() = SystemClock.elapsedRealtime()
@@ -150,7 +153,10 @@ class CaptureSession(
     private fun waitForLoad() {
         failure?.let { return finish(it) }
         when {
-            loaded -> waitForQuiet(QUIET_AFTER_LOAD_MILLIS, ::scroll)
+            loaded -> {
+                loadedAt = now
+                waitForQuiet(QUIET_AFTER_LOAD_MILLIS, ::scroll)
+            }
             now > deadline -> finish(CaptureOutcome.Failure.timeout("page did not finish loading"))
             else -> later(POLL_MILLIS, ::waitForLoad)
         }
@@ -167,6 +173,7 @@ class CaptureSession(
     }
 
     private fun scroll() {
+        if (scrollBeganAt == null) scrollBeganAt = now
         if (now > deadline || scrollSteps >= MAX_SCROLL_STEPS) {
             return waitForQuiet(QUIET_AFTER_SCROLL_MILLIS, ::cleanUp)
         }
@@ -209,6 +216,7 @@ class CaptureSession(
 
     private fun save() {
         val view = web ?: return
+        saveBeganAt = now
         val output = File(request.outputPath)
         output.parentFile?.mkdirs()
         output.delete()
@@ -228,10 +236,27 @@ class CaptureSession(
                         consent?.handlers ?: emptyList(),
                         view.url,
                         (request.blockRequests || request.hideElements) && tools.filters == null,
+                        phases(),
                     ),
                 )
             }
         }
+    }
+
+    /** Milliseconds per phase; a phase the capture never reached is 0. */
+    private fun phases(): Map<String, Long> {
+        val end = now
+        val loaded = loadedAt ?: end
+        val scrolling = scrollBeganAt ?: loaded
+        val cleaning = cleanUpBegan ?: scrolling
+        val saving = saveBeganAt ?: cleaning
+        return mapOf(
+            "load" to loaded - startedAt,
+            "idle" to scrolling - loaded,
+            "scroll" to cleaning - scrolling,
+            "cleanup" to saving - cleaning,
+            "save" to end - saving,
+        )
     }
 
     private fun evaluate(script: String, then: (String) -> Unit) {

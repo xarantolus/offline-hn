@@ -11,6 +11,7 @@ sealed interface CaptureOutcome {
         private val consent: List<String>,
         private val finalUrl: String?,
         private val listsMissing: Boolean,
+        private val phases: Map<String, Long>,
     ) : CaptureOutcome {
         override fun toMap(millis: Long) = mapOf(
             "ok" to true,
@@ -22,6 +23,7 @@ sealed interface CaptureOutcome {
             "consent" to consent,
             "finalUrl" to finalUrl,
             "listsMissing" to listsMissing,
+            "phases" to phases,
         )
     }
 

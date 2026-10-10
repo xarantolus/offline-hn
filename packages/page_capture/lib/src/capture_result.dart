@@ -1,3 +1,44 @@
+/// Where a capture spent its time. A phase it never reached is zero.
+class CaptureTimings {
+  const CaptureTimings({
+    this.load = Duration.zero,
+    this.idle = Duration.zero,
+    this.scroll = Duration.zero,
+    this.cleanup = Duration.zero,
+    this.save = Duration.zero,
+  });
+
+  factory CaptureTimings.fromMap(Object? raw) {
+    Duration phase(String name) {
+      final value = raw is Map<Object?, Object?> ? raw[name] : null;
+      return Duration(milliseconds: value is num ? value.toInt() : 0);
+    }
+
+    return CaptureTimings(
+      load: phase('load'),
+      idle: phase('idle'),
+      scroll: phase('scroll'),
+      cleanup: phase('cleanup'),
+      save: phase('save'),
+    );
+  }
+
+  /// Until the main document finished loading.
+  final Duration load;
+
+  /// Waiting for the page's resources to go quiet after that.
+  final Duration idle;
+
+  /// Scrolling through the page, then waiting for quiet again.
+  final Duration scroll;
+
+  /// Consent popup wait and settle, overlay and element removal, final settle.
+  final Duration cleanup;
+
+  /// `saveWebArchive`.
+  final Duration save;
+}
+
 enum CaptureFailureKind {
   timeout,
   http,
@@ -27,6 +68,7 @@ sealed class CaptureResult {
         ],
         finalUrl: map['finalUrl'] as String?,
         listsMissing: map['listsMissing'] == true,
+        timings: CaptureTimings.fromMap(map['phases']),
       );
     }
     return CaptureFailure(
@@ -60,6 +102,7 @@ class CaptureSuccess extends CaptureResult {
     this.consentHandlers = const [],
     this.finalUrl,
     this.listsMissing = false,
+    this.timings = const CaptureTimings(),
   });
 
   final int bytes;
@@ -74,6 +117,7 @@ class CaptureSuccess extends CaptureResult {
   /// Network or element blocking was asked for but no filter list was
   /// available, so the page was captured without it.
   final bool listsMissing;
+  final CaptureTimings timings;
 }
 
 class CaptureFailure extends CaptureResult {
