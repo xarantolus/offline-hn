@@ -1,0 +1,28 @@
+name: page_capture
+description: Saves web pages as web archives with a headless WebView and opens them offline.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.13.1
+  flutter: '>=3.3.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.6.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  assets:
+    - assets/autoconsent/
+    - assets/filters/
+  plugin:
+    platforms:
+      android:
+        package: io.github.xarantolus.page_capture
+        pluginClass: PageCapturePlugin

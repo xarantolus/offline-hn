@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Refreshes the vendored @duckduckgo/autoconsent in the page_capture plugin:
+# the injectable script, its rules and its licence. Needs npm.
+# Optional argument: the version (default: latest).
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+target="$root/packages/page_capture/assets/autoconsent"
+version="${1:-latest}"
+
+work="$(mktemp -d)"
+trap 'rm -r "$work"' EXIT
+
+(cd "$work" && npm pack "@duckduckgo/autoconsent@$version" --silent >/dev/null)
+tar xzf "$work"/duckduckgo-autoconsent-*.tgz -C "$work"
+
+cp "$work/package/dist/autoconsent.playwright.js" "$target/autoconsent.js"
+cp "$work/package/rules/rules.json" "$target/rules.json"
+cp "$work/package/LICENSE" "$target/LICENSE"
+sed -n 's/.*"version": "\(.*\)".*/\1/p' "$work/package/package.json" | head -n 1 > "$target/VERSION"
+echo "autoconsent $(cat "$target/VERSION")"

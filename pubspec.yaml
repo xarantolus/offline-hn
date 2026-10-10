@@ -13,6 +13,8 @@ dependencies:
     sdk: flutter
   http: ^1.6.0
   path: ^1.9.1
+  page_capture:
+    path: packages/page_capture
   path_provider: ^2.1.6
   sqlite3: ^3.7.0
 

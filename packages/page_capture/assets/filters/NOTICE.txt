@@ -1,0 +1,8 @@
+Ad and tracker blocking rules, and the element-hiding rules, are derived from
+EasyList and EasyPrivacy (https://easylist.to/), copyright the EasyList
+authors. They are dual licensed under the Creative Commons Attribution-
+ShareAlike 3.0 Unported license and the GNU General Public License v3 or
+later. See https://easylist.to/pages/licence.html for the terms.
+
+The bundled file is a compiled, deduplicated subset of those lists (the rule
+forms the app supports), changed in format only.
