@@ -39,6 +39,7 @@ class CaptureSession(
 
     @Volatile private var lastResource = startedAt
     @Volatile private var pageHost = hostOf(request.url)
+    private var mainUrl = request.url
     @Volatile private var failure: CaptureOutcome.Failure? = null
     private var web: WebView? = null
     private var loaded = false
@@ -46,6 +47,7 @@ class CaptureSession(
     private var removed = 0
     private var scrollSteps = 0
     private var cleanUpBegan: Long? = null
+    private var consentSettled = false
 
     private val deadline get() = startedAt + request.overallMillis
     private val now get() = SystemClock.elapsedRealtime()
@@ -109,6 +111,7 @@ class CaptureSession(
         }
 
         override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
+            mainUrl = url
             pageHost = hostOf(url)
             loaded = false
         }
@@ -135,7 +138,7 @@ class CaptureSession(
 
         override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
             handler.cancel()
-            fail(CaptureOutcome.Failure.ssl())
+            if (error.url.equals(mainUrl, ignoreCase = true)) fail(CaptureOutcome.Failure.ssl())
         }
 
         override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
@@ -185,15 +188,18 @@ class CaptureSession(
         if (consent != null && consent.pending > 0 && now - began < CONSENT_GRACE_MILLIS) {
             return later(POLL_MILLIS, ::cleanUp)
         }
-        val filters = tools.filters
-        if (request.hideElements && filters != null) {
-            val selectors = filters.cosmetic.selectorsFor(pageHost)
+        if (consent != null && consent.handlers.isNotEmpty() && !consentSettled) {
+            consentSettled = true
+            return later(CONSENT_SETTLE_MILLIS) { waitForQuiet(QUIET_AFTER_SCROLL_MILLIS, ::cleanUp) }
+        }
+        if (!request.hideElements) return settle()
+        evaluate(PageScripts.REMOVE_OVERLAYS) { overlays ->
+            removed += overlays.toIntOrNull() ?: 0
+            val selectors = tools.filters?.cosmetic?.selectorsFor(pageHost).orEmpty()
             evaluate(PageScripts.removeElements(selectors)) { count ->
-                removed = count.toIntOrNull() ?: 0
+                removed += count.toIntOrNull() ?: 0
                 settle()
             }
-        } else {
-            settle()
         }
     }
 
@@ -266,6 +272,7 @@ class CaptureSession(
         const val QUIET_AFTER_LOAD_MILLIS = 25_000L
         const val QUIET_AFTER_SCROLL_MILLIS = 10_000L
         const val CONSENT_GRACE_MILLIS = 8_000L
+        const val CONSENT_SETTLE_MILLIS = 2_500L
         const val MAX_SCROLL_STEPS = 50
         const val HTTP_ERROR = 400
     }
