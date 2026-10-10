@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
-
-enum FeedKind { top, best, ask, show }
+import 'package:offline_hn/ui/comment_block.dart';
+import 'package:offline_hn/ui/feed_switcher.dart';
 
 enum StoryKind { news, ask, show }
 
@@ -41,29 +41,8 @@ class MockStory {
   final bool read;
   final bool saved;
   final MockSavedCopy? savedCopy;
-}
 
-@immutable
-sealed class CommentBlock {
-  const CommentBlock();
-}
-
-class Paragraph extends CommentBlock {
-  const Paragraph(this.text);
-
-  final String text;
-}
-
-class Quote extends CommentBlock {
-  const Quote(this.text);
-
-  final String text;
-}
-
-class CodeBlock extends CommentBlock {
-  const CodeBlock(this.code);
-
-  final String code;
+  int get dayOffset => age.inDays;
 }
 
 @immutable
@@ -594,15 +573,15 @@ MockStory get mockThreadStory => mockStories[2];
 
 MockStory get mockShortThreadStory => mockStories[5];
 
-List<MockStory> storiesFor(FeedKind kind) {
+const mockDayOffsets = <int>[0, 1, 2];
+
+List<MockStory> storiesFor(FeedKind kind, int dayOffset) {
+  final day = mockStories.where((s) => s.dayOffset == dayOffset);
   return switch (kind) {
-    FeedKind.top => mockStories,
-    FeedKind.best => [
-      ...mockStories,
-    ]..sort((a, b) => b.points.compareTo(a.points)),
-    FeedKind.ask => mockStories.where((s) => s.kind == StoryKind.ask).toList(),
-    FeedKind.show =>
-      mockStories.where((s) => s.kind == StoryKind.show).toList(),
+    FeedKind.top => day.toList(),
+    FeedKind.best => day.toList()..sort((a, b) => b.points.compareTo(a.points)),
+    FeedKind.ask => day.where((s) => s.kind == StoryKind.ask).toList(),
+    FeedKind.show => day.where((s) => s.kind == StoryKind.show).toList(),
   };
 }
 
