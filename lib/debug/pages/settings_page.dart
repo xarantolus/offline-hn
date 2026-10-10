@@ -15,11 +15,14 @@ class MockSettingsPage extends StatefulWidget {
 class _MockSettingsPageState extends State<MockSettingsPage> {
   double _textSize = 15;
   TimeOfDay _schedule = const TimeOfDay(hour: 5, minute: 0);
+  int? _intervalHours = 2;
   bool _wifiOnly = true;
+  bool _pagesOnMobile = false;
   double _budgetGb = 1;
   final Set<FeedKind> _feeds = {FeedKind.top, FeedKind.ask};
 
   static const _usedGb = 0.7;
+  static const _intervals = <int?>[null, 1, 2, 4, 6, 12];
 
   Future<void> _pickSchedule() async {
     final picked = await showTimePicker(
@@ -94,6 +97,26 @@ class _MockSettingsPageState extends State<MockSettingsPage> {
                   trailing: Text(clock, style: t.label),
                   onTap: _pickSchedule,
                 ),
+                ListTile(
+                  title: Text('Also refresh every', style: t.label),
+                  subtitle: Text(
+                    'Keeps comment threads current during the day',
+                    style: t.hint,
+                  ),
+                  trailing: DropdownButton<int?>(
+                    value: _intervalHours,
+                    underline: const SizedBox.shrink(),
+                    style: t.label,
+                    items: [
+                      for (final h in _intervals)
+                        DropdownMenuItem(
+                          value: h,
+                          child: Text(h == null ? 'Off' : '$h h'),
+                        ),
+                    ],
+                    onChanged: (h) => setState(() => _intervalHours = h),
+                  ),
+                ),
                 SwitchListTile(
                   title: Text('Wi-Fi only', style: t.label),
                   subtitle: Text(
@@ -103,6 +126,17 @@ class _MockSettingsPageState extends State<MockSettingsPage> {
                   value: _wifiOnly,
                   onChanged: (v) => setState(() => _wifiOnly = v),
                 ),
+                if (!_wifiOnly)
+                  SwitchListTile(
+                    title: Text('Saved copies on mobile data', style: t.label),
+                    subtitle: Text(
+                      'Otherwise only stories and comments, pages wait for '
+                      'Wi-Fi',
+                      style: t.hint,
+                    ),
+                    value: _pagesOnMobile,
+                    onChanged: (v) => setState(() => _pagesOnMobile = v),
+                  ),
               ],
             ),
             gap,
