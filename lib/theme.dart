@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-const _lightSurfaceAccent = Color.fromRGBO(0x2B, 0x66, 0xBF, 1.0);
-const _darkSurfaceAccent = Color.fromRGBO(0x6F, 0xA8, 0xFF, 1.0);
+const _lightSurfaceAccent = Color.fromRGBO(0xB0, 0x3F, 0x00, 1.0);
+const _darkSurfaceAccent = Color.fromRGBO(0xFF, 0x9A, 0x5C, 1.0);
 
-const _themeColor = Color.fromRGBO(0x3A, 0x88, 0xFF, 1.0);
-const _secondaryColor = Color.fromARGB(255, 70, 135, 255);
+// HN orange (#FF6600) is 2.9:1 against white; this is the lightest orange
+// that carries white text at 4.5:1.
+const _themeColor = Color.fromRGBO(0xC9, 0x4F, 0x00, 1.0);
+const _secondaryColor = Color.fromRGBO(0xD4, 0x58, 0x00, 1.0);
 
-const _themeColorDark = Color.fromRGBO(0x2B, 0x66, 0xBF, 1.0);
-const _secondaryColorDark = Color.fromARGB(255, 58, 111, 207);
+const _themeColorDark = Color.fromRGBO(0xB3, 0x44, 0x00, 1.0);
+const _secondaryColorDark = Color.fromRGBO(0xC2, 0x4D, 0x00, 1.0);
 
 extension SurfaceAccent on ColorScheme {
   /// Brand colour for text and icons drawn on a surface. [primary] is a fill

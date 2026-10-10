@@ -16,7 +16,7 @@ void main() {
       final bar = entry.value.appBarTheme;
       expect(
         _contrast(bar.foregroundColor!, bar.backgroundColor!),
-        greaterThanOrEqualTo(3.0),
+        greaterThanOrEqualTo(4.5),
       );
     });
 
