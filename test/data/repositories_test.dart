@@ -368,6 +368,7 @@ void main() {
         SyncItemKind.comments,
         1,
         SyncItemStatus.done,
+        t0,
       );
 
       final again = await sync.beginOrResume(
@@ -402,6 +403,7 @@ void main() {
         SyncItemKind.page,
         7,
         SyncItemStatus.failed,
+        t0,
         error: 'x',
       );
       await sync.enqueue(run.id, SyncItemKind.page, [7]);
@@ -441,13 +443,14 @@ void main() {
       );
       await Future<void>.delayed(const Duration(milliseconds: 50));
       final run = await sync.beginOrResume(SyncTrigger.manual, t0);
-      await sync.setPhase(run.id, SyncPhase.comments);
+      await sync.setPhase(run.id, SyncPhase.comments, t0);
       await sync.enqueue(run.id, SyncItemKind.comments, [1, 2]);
       await sync.markItem(
         run.id,
         SyncItemKind.comments,
         1,
         SyncItemStatus.done,
+        t0,
       );
       await sync.finish(run.id, SyncOutcome.succeeded, t0);
       await Future<void>.delayed(const Duration(milliseconds: 50));
@@ -457,6 +460,77 @@ void main() {
       expect(values, contains('comments 0/2'));
       expect(values, contains('comments 1/2'));
       expect(values.last, 'idle');
+    });
+  });
+
+  group('what a run reads back', () {
+    test(
+      'the newest snapshot of each feed, in rank order, with urls',
+      () async {
+        await stories.upsertStories([
+          _story(1),
+          _story(2, url: 'https://b.example'),
+          const RemoteStory(id: 3, title: 'Ask'),
+        ], t0);
+        await stories.recordSnapshot(FeedKind.top, [9, 10], t0);
+        await stories.recordSnapshot(FeedKind.top, [
+          2,
+          1,
+          3,
+          77,
+        ], t0.add(const Duration(hours: 1)));
+        await stories.setHidden(1, value: true);
+
+        final rankings = await stories.latestRankings([
+          FeedKind.top,
+          FeedKind.ask,
+        ]);
+
+        expect(rankings.keys, [FeedKind.top]);
+        final top = rankings[FeedKind.top]!;
+        expect([for (final s in top) s.id], [2, 1, 3, 77]);
+        expect(top[0].url, 'https://b.example');
+        expect(top[1].url, isNull, reason: 'hidden');
+        expect(top[2].url, isNull, reason: 'no link');
+        expect(top[3].url, isNull, reason: 'not fetched yet');
+      },
+    );
+
+    test('thread candidates carry fetch time, opening and saving', () async {
+      await stories.upsertStories([_story(1), _story(2)], t0);
+      await stories.replaceThread(
+        RemoteThread(story: _story(1), comments: const []),
+        t0,
+      );
+      await stories.setSaved(2, value: true);
+      await ThreadStateRepository(db)
+          .markOpened(1, t0.add(const Duration(hours: 2)));
+
+      final byId = {
+        for (final c in await stories.threadCandidates()) c.storyId: c,
+      };
+      expect(byId[1]!.commentsFetchedAt!.toUtc(), t0);
+      expect(byId[1]!.lastOpenedAt!.toUtc(), t0.add(const Duration(hours: 2)));
+      expect(byId[2]!.saved, isTrue);
+      expect(byId[2]!.commentsFetchedAt, isNull);
+    });
+
+    test('every checkpoint is a sign of life', () async {
+      final sync = SyncRepository(db);
+      final run = await sync.beginOrResume(SyncTrigger.manual, t0);
+      await sync.enqueue(run.id, SyncItemKind.page, [1]);
+      final later = t0.add(const Duration(minutes: 7));
+      await sync.markItem(
+        run.id,
+        SyncItemKind.page,
+        1,
+        SyncItemStatus.done,
+        later,
+      );
+
+      final progress = (await sync.watchProgress().first)!;
+      expect(progress.heartbeatAt.toUtc(), later);
+      expect(progress.done, 1);
     });
   });
 

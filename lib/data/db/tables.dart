@@ -89,6 +89,7 @@ class SyncRuns extends Table {
   TextColumn get trigger => textEnum<SyncTrigger>()();
   TextColumn get phase => textEnum<SyncPhase>()();
   DateTimeColumn get startedAt => dateTime()();
+  DateTimeColumn get heartbeatAt => dateTime().nullable()();
   DateTimeColumn get finishedAt => dateTime().nullable()();
   TextColumn get outcome => textEnum<SyncOutcome>().nullable()();
   TextColumn get error => text().nullable()();

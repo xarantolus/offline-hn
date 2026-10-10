@@ -89,4 +89,53 @@ void main() {
       expect(countNewComments([seen], null), 0);
     });
   });
+
+  group('orderTopLevel', () {
+    RemoteComment root(int id) => RemoteComment(id: id);
+
+    test('follows HN order and keeps replies with their comment', () {
+      final ordered = orderTopLevel(
+        [
+          RemoteComment(id: 1, children: [root(10)]),
+          root(2),
+          root(3),
+        ],
+        [3, 1, 2],
+      );
+      expect([for (final c in ordered) c.id], [3, 1, 2]);
+      expect(ordered[1].children.single.id, 10);
+    });
+
+    test('comments HN does not list follow in their own order', () {
+      final ordered = orderTopLevel(
+        [root(1), root(2), root(3), root(4)],
+        [3, 1],
+      );
+      expect([for (final c in ordered) c.id], [3, 1, 2, 4]);
+    });
+
+    test('without a ranking the order is untouched', () {
+      final ordered = orderTopLevel([root(5), root(4)], const []);
+      expect([for (final c in ordered) c.id], [5, 4]);
+    });
+
+    test('ids HN lists that are gone are ignored', () {
+      final ordered = orderTopLevel([root(1), root(2)], [9, 2, 8, 1]);
+      expect([for (final c in ordered) c.id], [2, 1]);
+    });
+
+    test('the flattened position is the HN rank', () {
+      final flat = flattenComments(
+        orderTopLevel(
+          [
+            RemoteComment(id: 1, children: [root(10)]),
+            root(2),
+          ],
+          [2, 1],
+        ),
+      );
+      expect([for (final f in flat) f.comment.id], [2, 1, 10]);
+      expect([for (final f in flat) f.position], [0, 1, 2]);
+    });
+  });
 }

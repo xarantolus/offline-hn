@@ -21,6 +21,7 @@ abstract final class FirebaseParser {
       time: jsonEpochSeconds(item['time']),
       type: jsonString(item['type']) ?? 'story',
       text: jsonString(item['text']),
+      kids: ids(item['kids']),
     );
   }
 

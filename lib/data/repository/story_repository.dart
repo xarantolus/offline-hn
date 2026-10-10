@@ -5,7 +5,9 @@ import 'package:offline_hn/data/model/comment_tree.dart';
 import 'package:offline_hn/data/model/domain.dart';
 import 'package:offline_hn/data/model/feed_kind.dart';
 import 'package:offline_hn/data/model/local_day.dart';
+import 'package:offline_hn/data/policy/capture_scope.dart';
 import 'package:offline_hn/data/policy/day_grouping.dart';
+import 'package:offline_hn/data/policy/sync_scope.dart';
 
 class FeedEntry {
   const FeedEntry({required this.story, required this.bestRank, this.page});
@@ -75,6 +77,68 @@ class StoryRepository {
         for (final row in rows) ?row.read(fetchedAt),
       ], offsetAt: offsetAt),
     );
+  }
+
+  Future<StoryRow?> story(int id) => (_db.select(
+    _db.stories,
+  )..where((s) => s.id.equals(id))).getSingleOrNull();
+
+  /// Each feed's newest snapshot in rank order. A story with no metadata yet,
+  /// or hidden by the user, has no url to capture.
+  Future<Map<FeedKind, List<RankedStory>>> latestRankings(
+    Iterable<FeedKind> kinds,
+  ) async {
+    final snapshots = _db.feedSnapshots;
+    final highest = snapshots.fetchId.max();
+    final result = <FeedKind, List<RankedStory>>{};
+    for (final kind in kinds) {
+      final newest =
+          await (_db.selectOnly(snapshots)
+                ..addColumns([highest])
+                ..where(snapshots.feedKind.equalsValue(kind)))
+              .map((row) => row.read(highest))
+              .getSingle();
+      if (newest == null) continue;
+      final rows =
+          await (_db.select(snapshots).join([
+                  leftOuterJoin(
+                    _db.stories,
+                    _db.stories.id.equalsExp(snapshots.storyId),
+                  ),
+                ])
+                ..where(snapshots.fetchId.equals(newest))
+                ..orderBy([OrderingTerm.asc(snapshots.rank)]))
+              .get();
+      result[kind] = [
+        for (final row in rows)
+          RankedStory(
+            row.readTable(snapshots).storyId,
+            _capturableUrl(row.readTableOrNull(_db.stories)),
+          ),
+      ];
+    }
+    return result;
+  }
+
+  String? _capturableUrl(StoryRow? story) =>
+      story == null || story.hidden ? null : story.url;
+
+  Future<List<ThreadCandidate>> threadCandidates() async {
+    final rows = await _db.select(_db.stories).join([
+      leftOuterJoin(
+        _db.threadStates,
+        _db.threadStates.storyId.equalsExp(_db.stories.id),
+      ),
+    ]).get();
+    return [
+      for (final row in rows)
+        ThreadCandidate(
+          storyId: row.readTable(_db.stories).id,
+          saved: row.readTable(_db.stories).saved,
+          commentsFetchedAt: row.readTable(_db.stories).commentsFetchedAt,
+          lastOpenedAt: row.readTableOrNull(_db.threadStates)?.lastOpenedAt,
+        ),
+    ];
   }
 
   Stream<StoryRow?> watchStory(int id) => (_db.select(

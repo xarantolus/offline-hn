@@ -10,6 +10,7 @@ class SyncProgress {
     required this.phase,
     required this.total,
     required this.done,
+    required this.heartbeatAt,
   });
 
   final int runId;
@@ -17,6 +18,9 @@ class SyncProgress {
   final SyncPhase phase;
   final int total;
   final int done;
+
+  /// Last sign of life from whoever is running it.
+  final DateTime heartbeatAt;
 }
 
 class SyncRepository {
@@ -43,6 +47,7 @@ class SyncRepository {
                 trigger: trigger,
                 phase: SyncPhase.ranking,
                 startedAt: now,
+                heartbeatAt: Value(now),
               ),
             );
         await _trimHistory(id);
@@ -68,9 +73,14 @@ class SyncRepository {
     )..where((i) => i.runId.isSmallerOrEqualValue(cutoff))).go();
   }
 
-  Future<void> setPhase(int runId, SyncPhase phase) =>
+  Future<void> setPhase(int runId, SyncPhase phase, DateTime now) =>
       (_db.update(_db.syncRuns)..where((r) => r.id.equals(runId))).write(
-        SyncRunsCompanion(phase: Value(phase)),
+        SyncRunsCompanion(phase: Value(phase), heartbeatAt: Value(now)),
+      );
+
+  Future<void> heartbeat(int runId, DateTime now) =>
+      (_db.update(_db.syncRuns)..where((r) => r.id.equals(runId))).write(
+        SyncRunsCompanion(heartbeatAt: Value(now)),
       );
 
   Future<void> finish(
@@ -115,18 +125,19 @@ class SyncRepository {
     int runId,
     SyncItemKind kind,
     int storyId,
-    SyncItemStatus status, {
+    SyncItemStatus status,
+    DateTime now, {
     String? error,
-  }) =>
-      (_db.update(_db.syncItems)..where(
-            (i) =>
-                i.runId.equals(runId) &
-                i.kind.equalsValue(kind) &
-                i.storyId.equals(storyId),
-          ))
-          .write(
-            SyncItemsCompanion(status: Value(status), error: Value(error)),
-          );
+  }) => _db.transaction(() async {
+    await (_db.update(_db.syncItems)..where(
+          (i) =>
+              i.runId.equals(runId) &
+              i.kind.equalsValue(kind) &
+              i.storyId.equals(storyId),
+        ))
+        .write(SyncItemsCompanion(status: Value(status), error: Value(error)));
+    await heartbeat(runId, now);
+  });
 
   Future<DateTime?> lastSuccessfulSync() async {
     final row = await _lastSuccess().getSingleOrNull();
@@ -146,6 +157,7 @@ class SyncRepository {
   Stream<SyncProgress?> watchProgress() => _db
       .customSelect(
         'SELECT r.id AS id, r."trigger" AS trigger, r.phase AS phase, '
+        'COALESCE(r.heartbeat_at, r.started_at) AS heartbeat_at, '
         '(SELECT COUNT(*) FROM sync_items i WHERE i.run_id = r.id) AS total, '
         "(SELECT COUNT(*) FROM sync_items i WHERE i.run_id = r.id AND i.status <> 'pending') AS done "
         'FROM sync_runs r WHERE r.finished_at IS NULL ORDER BY r.id DESC LIMIT 1',
@@ -161,6 +173,9 @@ class SyncRepository {
           phase: SyncPhase.values.byName(row.read<String>('phase')),
           total: row.read<int>('total'),
           done: row.read<int>('done'),
+          heartbeatAt: DateTime.fromMillisecondsSinceEpoch(
+            row.read<int>('heartbeat_at') * 1000,
+          ),
         );
       });
 }

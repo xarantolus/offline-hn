@@ -9,6 +9,13 @@ class SettingsStore {
   Future<AppSettings> load() async =>
       AppSettings.fromRaw(_toMap(await _db.select(_db.settingEntries).get()));
 
+  Future<T> read<T>(Setting<T> setting) async {
+    final row = await (_db.select(
+      _db.settingEntries,
+    )..where((e) => e.key.equals(setting.key))).getSingleOrNull();
+    return setting.read({if (row != null) row.key: row.value});
+  }
+
   Stream<AppSettings> watch() => _db
       .select(_db.settingEntries)
       .watch()

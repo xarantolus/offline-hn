@@ -9,6 +9,7 @@ class RemoteStory {
     this.time,
     this.type = 'story',
     this.text,
+    this.kids = const [],
   });
 
   final int id;
@@ -20,6 +21,9 @@ class RemoteStory {
   final DateTime? time;
   final String type;
   final String? text;
+
+  /// Top-level comment ids in HN's ranked order. Only Firebase carries them.
+  final List<int> kids;
 }
 
 class RemoteComment {

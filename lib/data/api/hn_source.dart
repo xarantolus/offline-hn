@@ -2,10 +2,11 @@ import 'package:offline_hn/data/api/algolia_client.dart';
 import 'package:offline_hn/data/api/endpoints.dart';
 import 'package:offline_hn/data/api/firebase_client.dart';
 import 'package:offline_hn/data/api/hn_http.dart';
+import 'package:offline_hn/data/api/hn_reader.dart';
 import 'package:offline_hn/data/api/models.dart';
 import 'package:offline_hn/data/model/feed_kind.dart';
 
-class HnSource {
+class HnSource implements HnReader {
   const HnSource({required this.algolia, required this.firebase});
 
   factory HnSource.create({HnHttp? http}) {
@@ -21,11 +22,13 @@ class HnSource {
   final AlgoliaClient algolia;
   final FirebaseClient firebase;
 
+  @override
   Future<List<int>> ranking(FeedKind kind) => firebase.ranking(kind);
 
   /// Metadata in the order of [ids]. Ids neither source knows are omitted;
   /// an Algolia failure propagates rather than costing one Firebase request
   /// per id.
+  @override
   Future<List<RemoteStory>> stories(List<int> ids) async {
     final found = <int, RemoteStory>{};
     for (var i = 0; i < ids.length; i += HnEndpoints.maxIdsPerSearch) {
@@ -52,6 +55,7 @@ class HnSource {
 
   /// A story Algolia has not indexed yet comes back from Firebase with no
   /// comments: its tree would take one request per comment.
+  @override
   Future<RemoteThread?> thread(int id) async {
     final indexed = await algolia.thread(id);
     if (indexed != null) return indexed;
@@ -59,4 +63,8 @@ class HnSource {
     if (story == null) return null;
     return RemoteThread(story: story, comments: const []);
   }
+
+  @override
+  Future<List<int>> rankedTopLevel(int storyId) async =>
+      (await firebase.story(storyId))?.kids ?? const [];
 }

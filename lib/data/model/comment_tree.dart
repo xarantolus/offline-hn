@@ -26,3 +26,19 @@ List<FlatComment> flattenComments(List<RemoteComment> roots) {
   }
   return out;
 }
+
+/// [roots] in the order of [ranked]; comments it does not list keep their
+/// relative order after the listed ones.
+List<RemoteComment> orderTopLevel(List<RemoteComment> roots, List<int> ranked) {
+  final place = {for (var i = 0; i < ranked.length; i++) ranked[i]: i};
+  final indexed = [for (var i = 0; i < roots.length; i++) (i, roots[i])];
+  indexed.sort((a, b) {
+    final left = place[a.$2.id];
+    final right = place[b.$2.id];
+    if (left != null && right != null) return left.compareTo(right);
+    if (left != null) return -1;
+    if (right != null) return 1;
+    return a.$1.compareTo(b.$1);
+  });
+  return [for (final entry in indexed) entry.$2];
+}
