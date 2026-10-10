@@ -34,6 +34,10 @@ ThemeData get lightTheme =>
         surfaceContainerHighest: Colors.transparent,
         surfaceContainerLowest: Colors.transparent,
         onSecondary: Colors.white,
+        secondaryContainer: const Color(0xFFFCE8DA),
+        onSecondaryContainer: const Color(0xFF5C2200),
+        outline: const Color(0xFF857F76),
+        outlineVariant: const Color(0xFFD5CFC6),
       ),
       textTheme: Typography.blackHelsinki.copyWith(
         bodyMedium: const TextStyle(fontSize: 14),
@@ -69,6 +73,10 @@ ThemeData get darkTheme =>
         surfaceContainerHighest: Colors.transparent,
         surfaceContainerLowest: Colors.transparent,
         onSecondary: Colors.white,
+        secondaryContainer: const Color(0xFF4A2A15),
+        onSecondaryContainer: const Color(0xFFFFDCC8),
+        outline: const Color(0xFF9A948B),
+        outlineVariant: const Color(0xFF4A453F),
       ),
       textTheme: Typography.whiteHelsinki.copyWith(
         bodyMedium: TextStyle(color: Colors.grey[200], fontSize: 14),

@@ -20,6 +20,14 @@ void main() {
       );
     });
 
+    test('${entry.key} tonal containers keep their label legible', () {
+      final scheme = entry.value.colorScheme;
+      expect(
+        _contrast(scheme.onSecondaryContainer, scheme.secondaryContainer),
+        greaterThanOrEqualTo(4.5),
+      );
+    });
+
     test('${entry.key} surface accent reads on the surface', () {
       final scheme = entry.value.colorScheme;
       expect(
