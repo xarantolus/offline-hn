@@ -119,6 +119,13 @@ abstract final class Settings {
     _encodeInt,
   );
 
+  static const askedForNotifications = Setting<bool>(
+    'askedForNotifications',
+    false,
+    _decodeBool,
+    _encodeBool,
+  );
+
   static DailyTime _decodeDailyTime(String raw) =>
       DailyTime.tryParse(raw) ?? (throw FormatException('daily time', raw));
 

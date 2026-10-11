@@ -37,13 +37,6 @@ class AppServices {
     required this.notifier,
   });
 
-  static const _askedForNotifications = Setting<bool>(
-    'askedForNotifications',
-    false,
-    bool.parse,
-    _encodeBool,
-  );
-
   final AppDatabase db;
   final SettingsStore settings;
   final StoryRepository stories;
@@ -52,8 +45,6 @@ class AppServices {
   final SyncController sync;
   final Scheduler scheduler;
   final SyncNotifier notifier;
-
-  static String _encodeBool(bool value) => value.toString();
 
   static Future<AppServices> open() async {
     await Workmanager().initialize(syncCallbackDispatcher);
@@ -105,8 +96,8 @@ class AppServices {
   /// Asks for notification permission the first time only. A refusal is final
   /// and the app stays silent.
   Future<void> askForNotificationsOnce() async {
-    if (await settings.read(_askedForNotifications)) return;
-    await settings.set(_askedForNotifications, true);
+    if (await settings.read(Settings.askedForNotifications)) return;
+    await settings.set(Settings.askedForNotifications, true);
     await notifier.requestPermission();
   }
 }
