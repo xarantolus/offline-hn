@@ -19,6 +19,7 @@ dev_dependencies:
 
 flutter:
   assets:
+    - assets/adblock/
     - assets/autoconsent/
     - assets/filters/
   plugin:

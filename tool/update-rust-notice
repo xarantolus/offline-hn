@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Regenerates the licence notice for the Rust crates linked into the
+# page_capture library (names, versions and licences from Cargo.lock) and
+# refreshes the MPL-2.0 text from the adblock crate. Needs cargo and python3.
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+target="$root/packages/page_capture/assets/adblock"
+export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PATH"
+
+cd "$root/packages/page_capture/rust"
+cargo metadata --format-version 1 --locked | python3 -I -c '
+import json, shutil, sys
+meta = json.load(sys.stdin)
+target = sys.argv[1]
+crates = sorted(
+    (p["name"], p["version"], p.get("license") or "see the crate")
+    for p in meta["packages"]
+    if p["name"] != "page_capture_adblock"
+)
+adblock = next(p for p in meta["packages"] if p["name"] == "adblock")
+shutil.copy(adblock["manifest_path"].replace("Cargo.toml", "LICENSE"), target + "/LICENSE")
+with open(target + "/NOTICE.txt", "w") as out:
+    out.write(
+        "The page cleanup engine is adblock-rust by Brave Software, under the Mozilla\n"
+        "Public License 2.0 (the licence text follows). Its source is at\n"
+        "https://github.com/brave/adblock-rust. It links the Rust crates below, each\n"
+        "under the licence listed (MIT, Apache-2.0, Unicode-3.0, MPL-2.0 or the\n"
+        "Unlicense); their texts are in the crates themselves.\n\n"
+    )
+    for name, version, licence in crates:
+        out.write(f"{name} {version}: {licence}\n")
+' "$target"

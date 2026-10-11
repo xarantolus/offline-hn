@@ -1,8 +1,15 @@
-Ad and tracker blocking rules, and the element-hiding rules, are derived from
-EasyList and EasyPrivacy (https://easylist.to/), copyright the EasyList
-authors. They are dual licensed under the Creative Commons Attribution-
-ShareAlike 3.0 Unported license and the GNU General Public License v3 or
-later. See https://easylist.to/pages/licence.html for the terms.
+Ad, tracker and annoyance blocking rules are downloaded when the app runs;
+none of them is part of the app. The default lists are EasyList, EasyPrivacy
+and Fanboy's Annoyance List (which includes the EasyList Cookie List), all
+from https://easylist.to/ and copyright the EasyList authors, dual licensed
+under the Creative Commons Attribution-ShareAlike 3.0 Unported license and
+the GNU General Public License v3 or later (see
+https://easylist.to/pages/licence.html), and uBlock Origin's cookie notice
+and annoyance lists from https://github.com/uBlockOrigin/uAssets, GNU General
+Public License v3.
 
-The bundled file is a compiled, deduplicated subset of those lists (the rule
-forms the app supports), changed in format only.
+Scriptlets and redirect resources are likewise downloaded: the uBlock Origin
+resources (GNU General Public License v3, https://github.com/gorhill/uBlock)
+as packaged and published by Ghostery (https://github.com/ghostery/adblocker).
+They are data the blocking engine runs inside the pages being saved, and are
+not linked into the app.
