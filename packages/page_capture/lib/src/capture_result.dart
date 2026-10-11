@@ -1,3 +1,7 @@
+import 'package:json_annotation/json_annotation.dart';
+
+part 'capture_result.g.dart';
+
 /// Where a capture spent its time. A phase it never reached is zero.
 class CaptureTimings {
   const CaptureTimings({
@@ -8,11 +12,9 @@ class CaptureTimings {
     this.save = Duration.zero,
   });
 
-  factory CaptureTimings.fromMap(Object? raw) {
-    Duration phase(String name) {
-      final value = raw is Map<Object?, Object?> ? raw[name] : null;
-      return Duration(milliseconds: value is num ? value.toInt() : 0);
-    }
+  factory CaptureTimings.fromJson(Map<Object?, Object?> json) {
+    Duration phase(String name) =>
+        Duration(milliseconds: json[name] as int? ?? 0);
 
     return CaptureTimings(
       load: phase('load'),
@@ -50,48 +52,30 @@ enum CaptureFailureKind {
   internal,
 }
 
+Duration _milliseconds(int value) => Duration(milliseconds: value);
+
+CaptureTimings _timings(Map<Object?, Object?> value) =>
+    CaptureTimings.fromJson(value);
+
 sealed class CaptureResult {
   const CaptureResult({required this.duration});
 
+  /// The payload comes from this package's own native side, so a payload that
+  /// does not match throws.
   factory CaptureResult.fromMap(Map<Object?, Object?> map) {
-    final duration = Duration(milliseconds: _int(map['millis']) ?? 0);
-    if (map['ok'] == true) {
-      return CaptureSuccess(
-        duration: duration,
-        bytes: _int(map['bytes']) ?? 0,
-        resourceCount: _int(map['resources']) ?? 0,
-        blockedRequests: _int(map['blocked']) ?? 0,
-        removedElements: _int(map['removed']) ?? 0,
-        consentHandlers: [
-          for (final name in map['consent'] as List<Object?>? ?? const [])
-            if (name is String) name,
-        ],
-        finalUrl: map['finalUrl'] as String?,
-        listsMissing: map['listsMissing'] == true,
-        timings: CaptureTimings.fromMap(map['phases']),
-      );
-    }
-    return CaptureFailure(
-      duration: duration,
-      kind: _kind(map['error'] as String?),
-      message: map['message'] as String? ?? '',
-      httpStatus: _int(map['httpStatus']),
-      contentType: map['contentType'] as String?,
-    );
+    final json = Map<String, Object?>.from(map);
+    return switch (json['ok']) {
+      true => CaptureSuccess.fromJson(json),
+      false => CaptureFailure.fromJson(json),
+      final other => throw FormatException('capture result ok', other),
+    };
   }
 
+  @JsonKey(name: 'millis', fromJson: _milliseconds)
   final Duration duration;
-
-  static int? _int(Object? value) => value is num ? value.toInt() : null;
-
-  static CaptureFailureKind _kind(String? name) {
-    for (final kind in CaptureFailureKind.values) {
-      if (kind.name == name) return kind;
-    }
-    return CaptureFailureKind.internal;
-  }
 }
 
+@JsonSerializable(createToJson: false, checked: true)
 class CaptureSuccess extends CaptureResult {
   const CaptureSuccess({
     required super.duration,
@@ -105,21 +89,30 @@ class CaptureSuccess extends CaptureResult {
     this.timings = const CaptureTimings(),
   });
 
+  factory CaptureSuccess.fromJson(Map<String, Object?> json) =>
+      _$CaptureSuccessFromJson(json);
+
   final int bytes;
+  @JsonKey(name: 'resources')
   final int resourceCount;
+  @JsonKey(name: 'blocked')
   final int blockedRequests;
+  @JsonKey(name: 'removed')
   final int removedElements;
 
   /// Names of the consent managers whose popup was rejected.
+  @JsonKey(name: 'consent')
   final List<String> consentHandlers;
-  final String? finalUrl;
+  final Uri? finalUrl;
 
   /// Network or element blocking was asked for but no filter list was
   /// available, so the page was captured without it.
   final bool listsMissing;
+  @JsonKey(name: 'phases', fromJson: _timings)
   final CaptureTimings timings;
 }
 
+@JsonSerializable(createToJson: false, checked: true)
 class CaptureFailure extends CaptureResult {
   const CaptureFailure({
     required super.duration,
@@ -129,6 +122,10 @@ class CaptureFailure extends CaptureResult {
     this.contentType,
   });
 
+  factory CaptureFailure.fromJson(Map<String, Object?> json) =>
+      _$CaptureFailureFromJson(json);
+
+  @JsonKey(name: 'error')
   final CaptureFailureKind kind;
   final String message;
   final int? httpStatus;

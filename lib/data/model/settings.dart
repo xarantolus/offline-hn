@@ -17,11 +17,7 @@ class Setting<T> {
   T read(Map<String, String> raw) {
     final stored = raw[key];
     if (stored == null) return defaultValue;
-    try {
-      return _decode(stored);
-    } on FormatException {
-      return defaultValue;
-    }
+    return _decode(stored);
   }
 
   String encode(T value) => _encode(value);
@@ -142,12 +138,7 @@ abstract final class Settings {
   };
 
   static List<String> _decodeUrls(String raw) {
-    final decoded = jsonDecode(raw);
-    if (decoded is! List<Object?>) throw FormatException('urls', raw);
-    return [
-      for (final url in decoded)
-        if (url is String) url,
-    ];
+    return List<String>.from(jsonDecode(raw) as List<Object?>);
   }
 
   static String _encodeBool(bool value) => value.toString();
@@ -157,9 +148,8 @@ abstract final class Settings {
   static String _encodeDouble(double value) => value.toString();
 
   static Set<FeedKind> _decodeFeeds(String raw) => {
-    for (final name in raw.split(','))
-      for (final kind in FeedKind.values)
-        if (kind.name == name) kind,
+    if (raw.isNotEmpty)
+      for (final name in raw.split(',')) FeedKind.values.byName(name),
   };
 
   static String _encodeFeeds(Set<FeedKind> value) =>

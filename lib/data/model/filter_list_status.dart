@@ -1,6 +1,11 @@
 import 'dart:convert';
 
+import 'package:json_annotation/json_annotation.dart';
+
+part 'filter_list_status.g.dart';
+
 /// What the last attempts at one filter list achieved.
+@JsonSerializable(checked: true)
 class FilterListStatus {
   const FilterListStatus({
     this.updatedAt,
@@ -10,12 +15,19 @@ class FilterListStatus {
     this.error,
   });
 
+  factory FilterListStatus.fromJson(Map<String, Object?> json) =>
+      _$FilterListStatusFromJson(json);
+
   /// When a good copy was last stored; null if there never was one.
+  @JsonKey(toJson: _utc)
   final DateTime? updatedAt;
 
   /// When a download was last tried, successful or not.
+  @JsonKey(toJson: _utc)
   final DateTime? checkedAt;
+  @JsonKey(defaultValue: 0)
   final int networkRules;
+  @JsonKey(defaultValue: 0)
   final int cosmeticRules;
 
   /// Why the last attempt failed; null after a success.
@@ -31,39 +43,15 @@ class FilterListStatus {
     error: message,
   );
 
-  Map<String, Object?> toJson() => {
-    'updatedAt': updatedAt?.toUtc().toIso8601String(),
-    'checkedAt': checkedAt?.toUtc().toIso8601String(),
-    'networkRules': networkRules,
-    'cosmeticRules': cosmeticRules,
-    'error': error,
-  };
-
-  static FilterListStatus fromJson(Map<String, Object?> json) =>
-      FilterListStatus(
-        updatedAt: _time(json['updatedAt']),
-        checkedAt: _time(json['checkedAt']),
-        networkRules: json['networkRules'] is int
-            ? json['networkRules']! as int
-            : 0,
-        cosmeticRules: json['cosmeticRules'] is int
-            ? json['cosmeticRules']! as int
-            : 0,
-        error: json['error'] is String ? json['error']! as String : null,
-      );
-
-  static DateTime? _time(Object? value) =>
-      value is String ? DateTime.tryParse(value)?.toUtc() : null;
+  Map<String, Object?> toJson() => _$FilterListStatusToJson(this);
 
   static Map<String, FilterListStatus> decodeAll(String raw) {
-    final decoded = jsonDecode(raw);
-    if (decoded is! Map<String, Object?>) {
-      throw FormatException('filter list status', raw);
-    }
+    final decoded = jsonDecode(raw) as Map<String, Object?>;
     return {
       for (final entry in decoded.entries)
-        if (entry.value is Map<String, Object?>)
-          entry.key: fromJson(entry.value! as Map<String, Object?>),
+        entry.key: FilterListStatus.fromJson(
+          entry.value! as Map<String, Object?>,
+        ),
     };
   }
 
@@ -71,3 +59,5 @@ class FilterListStatus {
     {for (final entry in statuses.entries) entry.key: entry.value.toJson()},
   );
 }
+
+String? _utc(DateTime? time) => time?.toUtc().toIso8601String();

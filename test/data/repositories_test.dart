@@ -325,26 +325,40 @@ void main() {
       },
     );
 
-    test('an unreadable stored value falls back to the default', () async {
-      await db
-          .into(db.settingEntries)
-          .insert(
-            SettingEntriesCompanion.insert(
-              key: Settings.dailyTime.key,
-              value: '99:99',
-            ),
-          );
+    test('an unreadable stored value throws instead of hiding', () async {
+      final bad = {
+        Settings.dailyTime.key: '99:99',
+        Settings.wifiOnly.key: 'maybe',
+        Settings.enabledFeeds.key: 'top,nope',
+        Settings.filterListUrls.key: '[1]',
+        Settings.filterListStatus.key: '{"u":{"networkRules":"7"}}',
+      };
+      for (final entry in bad.entries) {
+        await db.delete(db.settingEntries).go();
+        await db
+            .into(db.settingEntries)
+            .insert(
+              SettingEntriesCompanion.insert(
+                key: entry.key,
+                value: entry.value,
+              ),
+            );
+        await expectLater(SettingsStore(db).load(), throwsA(anything));
+      }
+    });
+
+    test('a missing value is the default', () async {
       await db
           .into(db.settingEntries)
           .insert(
             SettingEntriesCompanion.insert(
               key: Settings.wifiOnly.key,
-              value: 'maybe',
+              value: 'false',
             ),
           );
       final loaded = await SettingsStore(db).load();
+      expect(loaded.wifiOnly, isFalse);
       expect(loaded.dailyTime, const DailyTime(5, 0));
-      expect(loaded.wifiOnly, isTrue);
     });
 
     test('watch reports a change', () async {

@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:json_annotation/json_annotation.dart';
 import 'package:page_capture/page_capture.dart';
 
 void main() {
@@ -21,7 +22,7 @@ void main() {
     expect(success.blockedRequests, 14);
     expect(success.removedElements, 3);
     expect(success.consentHandlers, ['onetrust']);
-    expect(success.finalUrl, 'https://example.com/a');
+    expect(success.finalUrl, Uri.parse('https://example.com/a'));
   });
 
   test('each failure kind maps to its type and details', () {
@@ -40,6 +41,7 @@ void main() {
   test('an HTTP failure keeps the status', () {
     final failure = CaptureResult.fromMap({
       'ok': false,
+      'millis': 5,
       'error': 'http',
       'httpStatus': 403,
     }) as CaptureFailure;
@@ -50,6 +52,7 @@ void main() {
   test('a PDF is recognised from the content type the browser saw', () {
     final failure = CaptureResult.fromMap({
       'ok': false,
+      'millis': 5,
       'error': 'unsupportedContent',
       'contentType': 'application/pdf',
     }) as CaptureFailure;
@@ -64,12 +67,26 @@ void main() {
     );
   });
 
-  test('an unknown error name is an internal failure, not a crash', () {
-    final failure = CaptureResult.fromMap({
-      'ok': false,
-      'error': 'brand-new',
-    }) as CaptureFailure;
-    expect(failure.kind, CaptureFailureKind.internal);
+  test('a payload that does not match throws', () {
+    expect(
+      () => CaptureResult.fromMap({'ok': false, 'error': 'brand-new'}),
+      throwsA(isA<CheckedFromJsonException>()),
+    );
+    expect(
+      () => CaptureResult.fromMap({'ok': true, 'millis': '5', 'bytes': 1}),
+      throwsA(isA<CheckedFromJsonException>()),
+    );
+    expect(
+      () => CaptureResult.fromMap({
+        'ok': true,
+        'millis': 5,
+        'bytes': 1,
+        'resources': 1,
+        'phases': {'load': 'slow'},
+      }),
+      throwsA(isA<CheckedFromJsonException>()),
+    );
+    expect(() => CaptureResult.fromMap({}), throwsFormatException);
   });
 
   test('options describe the cleanup layers the native side reads', () {
@@ -91,6 +108,7 @@ void main() {
       'ok': true,
       'millis': 9000,
       'bytes': 1,
+      'resources': 1,
       'phases': {'load': 3000, 'idle': 1500, 'scroll': 4000, 'save': 400},
     }) as CaptureSuccess;
     expect(result.timings.load, const Duration(seconds: 3));
