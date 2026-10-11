@@ -54,6 +54,9 @@ class _SavedPageViewerState extends State<SavedPageViewer> {
               allowFileAccess: true,
               javaScriptEnabled: false,
               useWideViewPort: true,
+              // Left unset, WebView scales text by the system font size and
+              // breaks the page's layout; pinch zoom is there instead.
+              textZoom: 100,
               supportZoom: true,
               builtInZoomControls: true,
               displayZoomControls: false,
