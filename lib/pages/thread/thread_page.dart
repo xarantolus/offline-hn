@@ -15,6 +15,7 @@ import 'package:offline_hn/pages/story_opener.dart';
 import 'package:offline_hn/pages/thread/copy_info.dart';
 import 'package:offline_hn/pages/thread/thread_header_view.dart';
 import 'package:offline_hn/ui/comment_tile.dart';
+import 'package:offline_hn/ui/reveal.dart';
 import 'package:offline_hn/ui/tokens.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
@@ -36,6 +37,9 @@ class _ThreadPageState extends State<ThreadPage> {
   final _scroll = ItemScrollController();
   final _blocks = <int, List<CommentBlock>>{};
   final _subscriptions = <StreamSubscription<Object?>>[];
+  Timer? _settle;
+  Set<int> _closing = {};
+  Set<int> _entering = {};
 
   late final AppServices _services = AppServicesScope.of(context);
   late final StoryOpener _opener = StoryOpener(_services);
@@ -59,6 +63,7 @@ class _ThreadPageState extends State<ThreadPage> {
 
   @override
   void dispose() {
+    _settle?.cancel();
     for (final subscription in _subscriptions) {
       unawaited(subscription.cancel());
     }
@@ -127,12 +132,18 @@ class _ThreadPageState extends State<ThreadPage> {
 
   void _rearrange() {
     final arranged = arrangeComments(_open.shown, _settings.commentOrder);
-    _visible = visibleEntries(
-      arranged,
-      collapsed: _collapsed,
-      idOf: (c) => c.row.id,
-      depthOf: (c) => c.depth,
+    _show(
+      visibleEntries(
+        arranged,
+        collapsed: _collapsed,
+        idOf: (c) => c.row.id,
+        depthOf: (c) => c.depth,
+      ),
     );
+  }
+
+  void _show(List<ArrangedComment> visible) {
+    _visible = visible;
     _topLevel = [
       for (var i = 0; i < _visible.length; i++)
         if (_visible[i].depth == 0) i + 1,
@@ -146,13 +157,53 @@ class _ThreadPageState extends State<ThreadPage> {
   }
 
   void _toggle(int id) {
-    if (!_collapsed.remove(id)) _collapsed.add(id);
+    _finishSettling();
+    final before = _visible;
+    final collapsing = !_collapsed.remove(id);
+    if (collapsing) _collapsed.add(id);
     _rearrange();
+    final ids = {for (final c in _visible) c.row.id};
+    final beforeIds = {for (final c in before) c.row.id};
+    if (collapsing) {
+      _closing = beforeIds.difference(ids);
+      _show(before);
+      _keepBylineInView(id);
+    } else {
+      _entering = ids.difference(beforeIds);
+    }
+    _settle = Timer(revealDuration, _finishSettling);
     setState(() {});
     unawaited(
       _services.threadStates.setCollapsed(widget.storyId, {
         ..._collapsed,
       }, DateTime.now()),
+    );
+  }
+
+  void _finishSettling() {
+    final pending = _settle;
+    if (pending == null) return;
+    pending.cancel();
+    _settle = null;
+    final wasClosing = _closing.isNotEmpty;
+    _closing = {};
+    _entering = {};
+    if (wasClosing) _rearrange();
+    if (mounted) setState(() {});
+  }
+
+  void _keepBylineInView(int id) {
+    final index = _visible.indexWhere((c) => c.row.id == id) + 1;
+    final position = _positions.itemPositions.value
+        .where((p) => p.index == index)
+        .firstOrNull;
+    if (position == null || position.itemLeadingEdge >= 0) return;
+    unawaited(
+      _scroll.scrollTo(
+        index: index,
+        duration: revealDuration,
+        curve: Curves.easeOut,
+      ),
     );
   }
 
@@ -279,7 +330,7 @@ class _ThreadPageState extends State<ThreadPage> {
           final entry = _visible[index - 1];
           final row = entry.row;
           final time = row.time;
-          return CommentTile(
+          final tile = CommentTile(
             key: ValueKey(row.id),
             author: row.author ?? '[removed]',
             age: time == null ? Duration.zero : now.difference(time),
@@ -294,6 +345,14 @@ class _ThreadPageState extends State<ThreadPage> {
             textSize: textSize,
             onToggle: () => _toggle(row.id),
             onLink: (link) => unawaited(_openLink(link)),
+          );
+          final closing = _closing.contains(row.id);
+          if (!closing && !_entering.contains(row.id)) return tile;
+          return Reveal(
+            key: ValueKey(row.id),
+            open: !closing,
+            animateIn: !closing,
+            child: tile,
           );
         },
       ),

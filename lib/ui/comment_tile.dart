@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:offline_hn/comments/comment_block.dart';
 import 'package:offline_hn/ui/comment_body.dart';
 import 'package:offline_hn/ui/format.dart';
+import 'package:offline_hn/ui/reveal.dart';
 import 'package:offline_hn/ui/tokens.dart';
 
 class CommentTile extends StatelessWidget {
@@ -53,14 +54,17 @@ class CommentTile extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _Byline(row: this),
-              if (!collapsed) ...[
-                const SizedBox(height: 3),
-                CommentBody(
-                  blocks: blocks,
-                  textSize: textSize - 1,
-                  onLink: onLink,
+              Reveal(
+                open: !collapsed,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 3),
+                  child: CommentBody(
+                    blocks: blocks,
+                    textSize: textSize - 1,
+                    onLink: onLink,
+                  ),
                 ),
-              ],
+              ),
             ],
           ),
         ),
