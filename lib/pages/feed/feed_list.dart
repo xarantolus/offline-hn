@@ -65,32 +65,29 @@ class _FeedListState extends State<FeedList> {
       builder: (context, snapshot) {
         final entries = snapshot.data;
         if (entries == null) return const SizedBox.shrink();
-        return RefreshIndicator(
-          onRefresh: widget.onRefresh,
-          child: entries.isEmpty
-              ? LayoutBuilder(
-                  builder: (context, box) => SingleChildScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    child: SizedBox(
-                      height: box.maxHeight,
-                      child: widget.kind == null
-                          ? EmptyMessage(
-                              title: 'Nothing saved',
-                              hint:
-                                  'Bookmark a story to keep it here, even '
-                                  'after it leaves the feeds.',
-                              tokens: context.tokens,
-                            )
-                          : EmptyFeed(
-                              services: widget.services,
-                              storeEmpty: widget.storeEmpty,
-                              onFetch: () => unawaited(widget.onRefresh()),
-                            ),
-                    ),
+        return entries.isEmpty
+            ? LayoutBuilder(
+                builder: (context, box) => SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: SizedBox(
+                    height: box.maxHeight,
+                    child: widget.kind == null
+                        ? EmptyMessage(
+                            title: 'Nothing saved',
+                            hint:
+                                'Bookmark a story to keep it here, even '
+                                'after it leaves the feeds.',
+                            tokens: context.tokens,
+                          )
+                        : EmptyFeed(
+                            services: widget.services,
+                            storeEmpty: widget.storeEmpty,
+                            onFetch: () => unawaited(widget.onRefresh()),
+                          ),
                   ),
-                )
-              : _stories(entries),
-        );
+                ),
+              )
+            : _stories(entries);
       },
     );
   }
@@ -99,7 +96,6 @@ class _FeedListState extends State<FeedList> {
     final now = DateTime.now();
     return ListView.separated(
       key: PageStorageKey<(FeedKind?, LocalDay?)>((widget.kind, widget.day)),
-      physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.only(
         bottom: MediaQuery.viewPaddingOf(context).bottom,
       ),

@@ -1,10 +1,32 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:offline_hn/app_name.dart';
+import 'package:offline_hn/data/db/database.dart';
 import 'package:offline_hn/data/policy/run_progress.dart';
 import 'package:offline_hn/data/repository/sync_repository.dart';
 import 'package:offline_hn/sync/foreground_marker.dart';
+import 'package:offline_hn/sync/sync_controller.dart';
+import 'package:offline_hn/sync/work_queue.dart';
+
+/// The Stop button on the progress notification. It runs without the app on
+/// screen, so it opens what it needs itself.
+@pragma('vm:entry-point')
+Future<void> stopSyncFromNotification(NotificationResponse response) async {
+  if (response.actionId != SyncNotifier.stopAction) return;
+  DartPluginRegistrant.ensureInitialized();
+  final db = AppDatabase.open();
+  try {
+    await stopRunning(
+      SyncRepository(db),
+      const WorkmanagerQueue(),
+      DateTime.now(),
+    );
+  } finally {
+    await db.close();
+  }
+}
 
 abstract interface class RunNotifier {
   /// Clears any earlier notification, then shows progress unless the app is
@@ -24,6 +46,7 @@ class SyncNotifier implements RunNotifier {
 
   static const _id = 1;
   static const _channelId = 'sync';
+  static const stopAction = 'stop';
 
   final FlutterLocalNotificationsPlugin _plugin;
   final ForegroundMarker _marker;
@@ -35,6 +58,7 @@ class SyncNotifier implements RunNotifier {
     settings: const InitializationSettings(
       android: AndroidInitializationSettings('@mipmap/ic_launcher'),
     ),
+    onDidReceiveBackgroundNotificationResponse: stopSyncFromNotification,
   );
 
   /// Android 13+ asks; earlier versions have nothing to ask. A refusal leaves
@@ -109,6 +133,7 @@ class SyncNotifier implements RunNotifier {
         showProgress: true,
         maxProgress: 100,
         progress: percent,
+        actions: const [AndroidNotificationAction(stopAction, 'Stop')],
         playSound: false,
         enableVibration: false,
         channelShowBadge: false,

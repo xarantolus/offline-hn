@@ -10,16 +10,18 @@ SyncAllowance syncAllowance({
   required ConnectionKind connection,
   required AppSettings settings,
 }) {
-  final userInitiated = trigger == SyncTrigger.manual;
+  final userInitiated = trigger.userInitiated;
 
   switch (connection) {
     case ConnectionKind.none:
       return SyncAllowance.nothing;
     case ConnectionKind.wifi:
-      return SyncAllowance.textAndPages;
+      return trigger.textOnly
+          ? SyncAllowance.textOnly
+          : SyncAllowance.textAndPages;
     case ConnectionKind.mobile:
       if (settings.wifiOnly && !userInitiated) return SyncAllowance.nothing;
-      return settings.pagesOnMobile
+      return settings.pagesOnMobile && !trigger.textOnly
           ? SyncAllowance.textAndPages
           : SyncAllowance.textOnly;
   }

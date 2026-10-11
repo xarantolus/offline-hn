@@ -1,4 +1,16 @@
-enum SyncTrigger { scheduled, periodic, catchUp, manual }
+/// [refresh] is the light update behind the refresh button: text only, and
+/// only for threads that changed. [manual] is the full update asked for.
+enum SyncTrigger {
+  scheduled,
+  periodic,
+  catchUp,
+  manual,
+  refresh;
+
+  bool get userInitiated => this == manual || this == refresh;
+
+  bool get textOnly => this == refresh;
+}
 
 enum SyncPhase { ranking, metadata, comments, pages, done }
 

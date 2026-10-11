@@ -147,4 +147,68 @@ void main() {
       );
     });
   });
+
+  group('light refresh targets', () {
+    ThreadCandidate stored(int id, {int? count, DateTime? fetched}) =>
+        ThreadCandidate(
+          storyId: id,
+          saved: false,
+          commentCount: count,
+          commentsFetchedAt: fetched,
+        );
+    final fetched = _now.subtract(const Duration(hours: 2));
+
+    List<int> pick(List<ThreadCandidate> before, List<ThreadCandidate> after) =>
+        selectChangedThreads(
+          feedOrder: [1, 2, 3, 4],
+          before: before,
+          after: after,
+          now: _now,
+        );
+
+    test('a changed comment count is fetched, an unchanged one is not', () {
+      expect(
+        pick(
+          [
+            stored(1, count: 5, fetched: fetched),
+            stored(2, count: 7, fetched: fetched),
+          ],
+          [
+            stored(1, count: 5, fetched: fetched),
+            stored(2, count: 9, fetched: fetched),
+          ],
+        ),
+        [2],
+      );
+    });
+
+    test('a new story and a thread never fetched are fetched', () {
+      expect(
+        pick(
+          [stored(2, count: 3), stored(3, count: 0, fetched: fetched)],
+          [
+            stored(1, count: 4),
+            stored(2, count: 3),
+            stored(3, count: 0, fetched: fetched),
+          ],
+        ),
+        [1, 2],
+      );
+    });
+
+    test('a thread fetched a moment ago is left alone even when changed', () {
+      final justNow = _now.subtract(const Duration(minutes: 5));
+      expect(
+        pick(
+          [stored(1, count: 1, fetched: justNow)],
+          [stored(1, count: 2, fetched: justNow)],
+        ),
+        isEmpty,
+      );
+    });
+
+    test('stories outside the feeds are ignored', () {
+      expect(pick([stored(9, count: 1)], [stored(9, count: 2)]), isEmpty);
+    });
+  });
 }

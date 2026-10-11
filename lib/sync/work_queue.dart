@@ -20,6 +20,9 @@ abstract interface class WorkQueue {
 
   Future<void> schedulePeriodic(Duration every, NetworkRequirement network);
 
+  /// Cancels the sync waiting or running; what is running is told to stop.
+  Future<void> cancelSync();
+
   Future<void> cancelPeriodic();
 }
 
@@ -81,6 +84,10 @@ class WorkmanagerQueue implements WorkQueue {
         constraints: _constraints(network),
         existingWorkPolicy: ExistingPeriodicWorkPolicy.update,
       );
+
+  @override
+  Future<void> cancelSync() =>
+      Workmanager().cancelByUniqueName(SyncTasks.syncWork);
 
   @override
   Future<void> cancelPeriodic() =>

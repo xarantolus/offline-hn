@@ -8,6 +8,7 @@ const _commentsEnd = 25;
 /// Whole-run progress, 0 to 100. Text is quick and pages take most of the
 /// time, so the weights follow that rather than the item counts.
 int runPercent(SyncProgress progress) {
+  if (progress.trigger.textOnly) return _lightPercent(progress);
   double within(int from, int to) {
     final fraction = progress.total == 0
         ? 0.0
@@ -23,6 +24,20 @@ int runPercent(SyncProgress progress) {
     SyncPhase.done => 100.0,
   };
   return percent.floor();
+}
+
+/// A light refresh has no pages, so its comments take the rest of the bar.
+int _lightPercent(SyncProgress progress) {
+  final fraction = progress.commentsTotal == 0
+      ? 0.0
+      : (progress.commentsDone / progress.commentsTotal).clamp(0.0, 1.0);
+  return switch (progress.phase) {
+    SyncPhase.ranking => 0,
+    SyncPhase.metadata => _rankingEnd,
+    SyncPhase.comments =>
+      (_metadataEnd + (100 - _metadataEnd) * fraction).floor(),
+    SyncPhase.pages || SyncPhase.done => 100,
+  };
 }
 
 /// What the notification says, without counts.

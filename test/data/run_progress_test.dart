@@ -72,6 +72,28 @@ void main() {
     });
   });
 
+  group('light refresh', () {
+    SyncProgress light(SyncPhase phase, int done, int total) => SyncProgress(
+      runId: 1,
+      trigger: SyncTrigger.refresh,
+      phase: phase,
+      commentsDone: done,
+      commentsTotal: total,
+      heartbeatAt: DateTime(2026),
+    );
+
+    test('comments take the rest of the bar and it never goes back', () {
+      final steps = [
+        light(SyncPhase.ranking, 0, 0),
+        light(SyncPhase.metadata, 0, 0),
+        for (var i = 0; i <= 10; i++) light(SyncPhase.comments, i, 10),
+      ];
+      final percents = [for (final s in steps) runPercent(s)];
+      expect(percents, [...percents]..sort());
+      expect(percents.last, 100);
+    });
+  });
+
   group('NotifyPace', () {
     final t0 = DateTime(2026, 10, 11, 12);
 

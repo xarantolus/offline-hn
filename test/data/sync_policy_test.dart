@@ -55,6 +55,24 @@ void main() {
     }
   });
 
+  test(
+    'a light refresh is text only on every connection, Wi-Fi only or not',
+    () {
+      for (final connection in [ConnectionKind.wifi, ConnectionKind.mobile]) {
+        for (final wifiOnly in [true, false]) {
+          expect(
+            _decide(
+              SyncTrigger.refresh,
+              connection,
+              _settings(wifiOnly: wifiOnly, pagesOnMobile: true),
+            ),
+            SyncAllowance.textOnly,
+          );
+        }
+      }
+    },
+  );
+
   test('a manual fetch on mobile data still gets text, but not pages', () {
     expect(
       _decide(SyncTrigger.manual, ConnectionKind.mobile, _settings()),

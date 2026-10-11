@@ -183,6 +183,10 @@ class FakeQueue implements WorkQueue {
   final daily = <(Duration, NetworkRequirement)>[];
   final periodic = <(Duration, NetworkRequirement)>[];
   var periodicCancelled = 0;
+  var syncCancelled = 0;
+
+  @override
+  Future<void> cancelSync() async => syncCancelled++;
 
   @override
   Future<void> cancelPeriodic() async => periodicCancelled++;

@@ -19,6 +19,7 @@ class ThreadCandidate {
     this.commentsFetchedAt,
     this.lastOpenedAt,
     this.storyTime,
+    this.commentCount,
   });
 
   final int storyId;
@@ -26,6 +27,7 @@ class ThreadCandidate {
   final DateTime? commentsFetchedAt;
   final DateTime? lastOpenedAt;
   final DateTime? storyTime;
+  final int? commentCount;
 }
 
 /// One id list with the feeds merged by rank, so every feed's front page comes
@@ -68,6 +70,27 @@ List<int> selectCommentTargets({
   return [
     for (final id in ordered)
       if (!_fresh(known[id], now)) id,
+  ];
+}
+
+/// What the light refresh fetches comments for: threads never fetched, and
+/// threads whose comment count differs from what was stored before the
+/// listing was refreshed. Feed order, minus anything fetched a moment ago.
+List<int> selectChangedThreads({
+  required List<int> feedOrder,
+  required List<ThreadCandidate> before,
+  required List<ThreadCandidate> after,
+  required DateTime now,
+}) {
+  final was = {for (final t in before) t.storyId: t};
+  final is_ = {for (final t in after) t.storyId: t};
+  return [
+    for (final id in feedOrder.toSet())
+      if (is_[id] case final now_? when !_fresh(now_, now))
+        if (now_.commentsFetchedAt == null ||
+            was[id] == null ||
+            was[id]!.commentCount != now_.commentCount)
+          id,
   ];
 }
 

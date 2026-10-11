@@ -92,6 +92,42 @@ void main() {
     expect(lists.ensured, 1);
   });
 
+  group('light refresh', () {
+    test(
+      'fetches text for new threads only and never captures a page',
+      () async {
+        expect(await runner.run(SyncTrigger.manual), SyncResult.completed);
+        hn.threadCalls.clear();
+        saver.saved.clear();
+        now = now.add(const Duration(hours: 2));
+
+        expect(await runner.run(SyncTrigger.refresh), SyncResult.completed);
+
+        expect(hn.threadCalls, isEmpty, reason: 'nothing changed');
+        expect(saver.saved, isEmpty);
+      },
+    );
+
+    test('a story with a new comment count is refetched', () async {
+      expect(await runner.run(SyncTrigger.refresh), SyncResult.completed);
+      expect(hn.threadCalls.toSet(), {1, 2, 3, 4, 5});
+      expect(saver.saved, isEmpty);
+      expect((await runs()).single.outcome, SyncOutcome.succeeded);
+    });
+
+    test('it does not resume an unfinished full run', () async {
+      final open = await syncs.beginOrResume(SyncTrigger.manual, now);
+      await syncs.setPhase(open.id, SyncPhase.pages, now);
+
+      expect(await runner.run(SyncTrigger.refresh), SyncResult.completed);
+
+      final all = await runs();
+      expect(all, hasLength(2));
+      expect(all.first.outcome, SyncOutcome.abandoned);
+      expect(saver.saved, isEmpty);
+    });
+  });
+
   group('concurrency', () {
     setUp(() {
       hn.rankings[FeedKind.top] = [for (var i = 1; i <= 40; i++) i];

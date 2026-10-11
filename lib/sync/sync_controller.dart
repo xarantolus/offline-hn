@@ -19,6 +19,18 @@ enum SyncRequest {
   noConnection,
 }
 
+/// Ends the run in progress for good and tells the job running it to stop. The
+/// run is recorded first, so the stop cannot be mistaken for the platform
+/// taking the job away, which leaves the run to be resumed.
+Future<void> stopRunning(
+  SyncRepository syncs,
+  WorkQueue queue,
+  DateTime now,
+) async {
+  await syncs.abandonOpen(now);
+  await queue.cancelSync();
+}
+
 /// What the screens use. They never fetch: they ask here, and watch the
 /// database through [progress] and [lastSync].
 class SyncController {
@@ -79,6 +91,11 @@ class SyncController {
     if (isStale(await _syncs.lastSuccessfulSync(), _clock())) {
       await requestSync(SyncTrigger.catchUp);
     }
+  }
+
+  Future<void> stop() async {
+    await stopRunning(_syncs, _queue, _clock());
+    await _notifier.appOpened();
   }
 
   Future<void> appResumed() async {

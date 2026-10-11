@@ -174,6 +174,7 @@ class StoryRepository {
           commentsFetchedAt: row.readTable(_db.stories).commentsFetchedAt,
           lastOpenedAt: row.readTableOrNull(_db.threadStates)?.lastOpenedAt,
           storyTime: row.readTable(_db.stories).time,
+          commentCount: row.readTable(_db.stories).commentCount,
         ),
     ];
   }

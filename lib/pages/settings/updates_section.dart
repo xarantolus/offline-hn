@@ -1,4 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:offline_hn/app_services.dart';
+import 'package:offline_hn/data/model/sync_enums.dart';
+import 'package:offline_hn/sync/sync_controller.dart';
 import 'package:offline_hn/data/model/daily_time.dart';
 import 'package:offline_hn/data/model/settings.dart';
 import 'package:offline_hn/data/repository/settings_store.dart';
@@ -12,8 +17,10 @@ class UpdatesSection extends StatelessWidget {
     super.key,
     required this.store,
     required this.settings,
+    required this.services,
   });
 
+  final AppServices services;
   final SettingsStore store;
   final AppSettings settings;
 
@@ -27,6 +34,22 @@ class UpdatesSection extends StatelessWidget {
     await store.set(Settings.dailyTime, DailyTime(picked.hour, picked.minute));
   }
 
+  Future<void> _updateAll(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final result = await services.sync.requestSync(SyncTrigger.manual);
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            result == SyncRequest.noConnection
+                ? 'No connection. Nothing to fetch.'
+                : 'Updating in the background',
+          ),
+        ),
+      );
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
@@ -38,6 +61,15 @@ class UpdatesSection extends StatelessWidget {
     return SettingsSection(
       title: 'Updates',
       children: [
+        ListTile(
+          title: Text('Update everything now', style: t.label),
+          subtitle: Text(
+            'Stories, comments and saved copies, as in the daily update',
+            style: t.hint,
+          ),
+          trailing: const Icon(Icons.refresh),
+          onTap: () => unawaited(_updateAll(context)),
+        ),
         ListTile(
           title: Text('Refresh each day at', style: t.label),
           subtitle: Text(

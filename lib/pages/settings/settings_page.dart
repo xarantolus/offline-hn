@@ -45,7 +45,11 @@ class _SettingsPageState extends State<SettingsPage> {
                   order: settings.commentOrder,
                 ),
                 gap,
-                UpdatesSection(store: _services.settings, settings: settings),
+                UpdatesSection(
+                  services: _services,
+                  store: _services.settings,
+                  settings: settings,
+                ),
                 gap,
                 FeedsSection(
                   store: _services.settings,

@@ -32,7 +32,7 @@ enum SyncResult {
   /// Out of time; the run is open and a continuation picks it up.
   paused,
 
-  /// Told to stop; the run is open and the next one resumes it.
+  /// Told to stop, by the platform or the user.
   stopped,
 
   /// The process that was working on the run died, and this start came from
@@ -178,15 +178,22 @@ class SyncRunner {
       phase = SyncPhase.metadata;
     }
     if (phase == SyncPhase.metadata) {
+      final before = context.trigger.textOnly
+          ? await _stories.threadCandidates()
+          : const <ThreadCandidate>[];
       final stop = await _metadata(context);
       if (stop != null) return stop;
-      await _queueComments(context);
+      await _queueComments(context, before);
       await _syncs.setPhase(run.id, SyncPhase.comments, _clock());
       phase = SyncPhase.comments;
     }
     if (phase == SyncPhase.comments) {
       final stop = await _comments(context);
       if (stop != null) return stop;
+      if (context.trigger.textOnly) {
+        await _syncs.finish(run.id, SyncOutcome.succeeded, _clock());
+        return SyncResult.completed;
+      }
       await _syncs.setPhase(run.id, SyncPhase.pages, _clock());
     }
     final stop = await _savePages(context);
@@ -310,12 +317,24 @@ class SyncRunner {
     return null;
   }
 
-  Future<void> _queueComments(_Context context) async {
-    final targets = selectCommentTargets(
-      feedOrder: _idsByRank(await _rankings(context.settings)),
-      stored: await _stories.threadCandidates(),
-      now: _clock(),
-    );
+  Future<void> _queueComments(
+    _Context context,
+    List<ThreadCandidate> before,
+  ) async {
+    final feedOrder = _idsByRank(await _rankings(context.settings));
+    final stored = await _stories.threadCandidates();
+    final targets = context.trigger.textOnly
+        ? selectChangedThreads(
+            feedOrder: feedOrder,
+            before: before,
+            after: stored,
+            now: _clock(),
+          )
+        : selectCommentTargets(
+            feedOrder: feedOrder,
+            stored: stored,
+            now: _clock(),
+          );
     await _syncs.enqueue(context.run.id, SyncItemKind.comments, targets);
   }
 

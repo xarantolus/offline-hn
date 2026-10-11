@@ -9,6 +9,7 @@ import 'package:offline_hn/data/model/feed_tab.dart';
 import 'package:offline_hn/data/model/local_day.dart';
 import 'package:offline_hn/data/model/sync_enums.dart';
 import 'package:offline_hn/data/policy/day_grouping.dart';
+import 'package:offline_hn/data/repository/sync_repository.dart';
 import 'package:offline_hn/pages/feed/feed_list.dart';
 import 'package:offline_hn/pages/feed/sync_status.dart';
 import 'package:offline_hn/pages/settings/settings_page.dart';
@@ -105,7 +106,7 @@ class _FeedPageState extends State<FeedPage> {
 
   Future<void> _refresh() async {
     final messenger = ScaffoldMessenger.of(context);
-    final result = await _services.sync.requestSync(SyncTrigger.manual);
+    final result = await _services.sync.requestSync(SyncTrigger.refresh);
     if (result == SyncRequest.noConnection) {
       messenger
         ..hideCurrentSnackBar()
@@ -155,10 +156,19 @@ class _FeedPageState extends State<FeedPage> {
               today: today,
               onSelected: (d) => setState(() => _picked = d),
             ),
-          IconButton(
-            tooltip: 'Fetch now',
-            icon: const Icon(Icons.refresh),
-            onPressed: () => unawaited(_refresh()),
+          StreamBuilder<SyncProgress?>(
+            stream: _services.sync.progress,
+            builder: (context, progress) => progress.data == null
+                ? IconButton(
+                    tooltip: 'Refresh',
+                    icon: const Icon(Icons.refresh),
+                    onPressed: () => unawaited(_refresh()),
+                  )
+                : IconButton(
+                    tooltip: 'Stop updating',
+                    icon: const Icon(Icons.stop_circle_outlined),
+                    onPressed: () => unawaited(_services.sync.stop()),
+                  ),
           ),
           PopupMenuButton<void>(
             itemBuilder: (_) => [
