@@ -51,11 +51,11 @@ android {
         debug {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-dev"
-            manifestPlaceholders["applicationLabel"] = "Offline HN (debug)"
+            manifestPlaceholders["applicationLabel"] = "Hacker News (debug)"
             signingConfig = signingConfigs.getByName("debug")
         }
         release {
-            manifestPlaceholders["applicationLabel"] = "Offline HN"
+            manifestPlaceholders["applicationLabel"] = "Hacker News"
             signingConfig =
                 if (releaseStorePath != null) signingConfigs.getByName("release")
                 else signingConfigs.getByName("debug")
@@ -63,7 +63,7 @@ android {
         getByName("profile") {
             applicationIdSuffix = ".profile"
             versionNameSuffix = "-profile"
-            manifestPlaceholders["applicationLabel"] = "Offline HN (profile)"
+            manifestPlaceholders["applicationLabel"] = "Hacker News (profile)"
             signingConfig = signingConfigs.getByName("debug")
         }
     }
