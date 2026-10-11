@@ -8,8 +8,10 @@ SyncProgress _progress(SyncPhase phase, {int total = 0, int done = 0}) =>
       runId: 1,
       trigger: SyncTrigger.catchUp,
       phase: phase,
-      total: total,
-      done: done,
+      commentsTotal: phase == SyncPhase.pages ? 0 : total,
+      commentsDone: phase == SyncPhase.pages ? 0 : done,
+      pagesTotal: phase == SyncPhase.pages ? total : 0,
+      pagesDone: phase == SyncPhase.pages ? done : 0,
       heartbeatAt: DateTime(2026),
     );
 

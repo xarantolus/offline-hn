@@ -230,8 +230,8 @@ void main() {
             runId: 1,
             trigger: SyncTrigger.manual,
             phase: SyncPhase.comments,
-            total: 10,
-            done: 2,
+            commentsTotal: 10,
+            commentsDone: 2,
             heartbeatAt: clock,
           ),
         );
@@ -261,8 +261,7 @@ void main() {
             runId: 1,
             trigger: SyncTrigger.manual,
             phase: SyncPhase.pages,
-            total: 1,
-            done: 0,
+            pagesTotal: 1,
             heartbeatAt: DateTime.now(),
           ),
         );

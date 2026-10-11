@@ -8,16 +8,24 @@ class SyncProgress {
     required this.runId,
     required this.trigger,
     required this.phase,
-    required this.total,
-    required this.done,
+    this.commentsTotal = 0,
+    this.commentsDone = 0,
+    this.pagesTotal = 0,
+    this.pagesDone = 0,
     required this.heartbeatAt,
   });
 
   final int runId;
   final SyncTrigger trigger;
   final SyncPhase phase;
-  final int total;
-  final int done;
+  final int commentsTotal;
+  final int commentsDone;
+  final int pagesTotal;
+  final int pagesDone;
+
+  /// Of the items the current phase works through.
+  int get total => phase == SyncPhase.pages ? pagesTotal : commentsTotal;
+  int get done => phase == SyncPhase.pages ? pagesDone : commentsDone;
 
   /// Last sign of life from whoever is running it.
   final DateTime heartbeatAt;
@@ -163,9 +171,15 @@ class SyncRepository {
       .customSelect(
         'SELECT r.id AS id, r."trigger" AS trigger, r.phase AS phase, '
         'COALESCE(r.heartbeat_at, r.started_at) AS heartbeat_at, '
-        '(SELECT COUNT(*) FROM sync_items i WHERE i.run_id = r.id) AS total, '
-        "(SELECT COUNT(*) FROM sync_items i WHERE i.run_id = r.id AND i.status <> 'pending') AS done "
+        '(SELECT COUNT(*) FROM sync_items i WHERE i.run_id = r.id AND i.kind = ?1) AS comments_total, '
+        "(SELECT COUNT(*) FROM sync_items i WHERE i.run_id = r.id AND i.kind = ?1 AND i.status <> 'pending') AS comments_done, "
+        '(SELECT COUNT(*) FROM sync_items i WHERE i.run_id = r.id AND i.kind = ?2) AS pages_total, '
+        "(SELECT COUNT(*) FROM sync_items i WHERE i.run_id = r.id AND i.kind = ?2 AND i.status <> 'pending') AS pages_done "
         'FROM sync_runs r WHERE r.finished_at IS NULL ORDER BY r.id DESC LIMIT 1',
+        variables: [
+          Variable.withString(SyncItemKind.comments.name),
+          Variable.withString(SyncItemKind.page.name),
+        ],
         readsFrom: {_db.syncRuns, _db.syncItems},
       )
       .watch()
@@ -176,8 +190,10 @@ class SyncRepository {
           runId: row.read<int>('id'),
           trigger: SyncTrigger.values.byName(row.read<String>('trigger')),
           phase: SyncPhase.values.byName(row.read<String>('phase')),
-          total: row.read<int>('total'),
-          done: row.read<int>('done'),
+          commentsTotal: row.read<int>('comments_total'),
+          commentsDone: row.read<int>('comments_done'),
+          pagesTotal: row.read<int>('pages_total'),
+          pagesDone: row.read<int>('pages_done'),
           heartbeatAt: DateTime.fromMillisecondsSinceEpoch(
             row.read<int>('heartbeat_at') * 1000,
           ),

@@ -575,8 +575,41 @@ void main() {
 
       final progress = (await sync.watchProgress().first)!;
       expect(progress.heartbeatAt.toUtc(), later);
-      expect(progress.done, 1);
+      expect(progress.pagesDone, 1);
     });
+  });
+
+  group('progress counts', () {
+    test(
+      'the pages phase counts pages, not the comments already fetched',
+      () async {
+        final sync = SyncRepository(db);
+        final run = await sync.beginOrResume(SyncTrigger.manual, t0);
+        await sync.enqueue(run.id, SyncItemKind.comments, [1, 2, 3]);
+        await sync.enqueue(run.id, SyncItemKind.page, [1, 2]);
+        for (final id in [1, 2, 3]) {
+          await sync.markItem(
+            run.id,
+            SyncItemKind.comments,
+            id,
+            SyncItemStatus.done,
+            t0,
+          );
+        }
+        await sync.markItem(
+          run.id,
+          SyncItemKind.page,
+          1,
+          SyncItemStatus.done,
+          t0,
+        );
+        await sync.setPhase(run.id, SyncPhase.pages, t0);
+
+        final progress = (await sync.watchProgress().first)!;
+        expect((progress.done, progress.total), (1, 2));
+        expect((progress.commentsDone, progress.commentsTotal), (3, 3));
+      },
+    );
   });
 
   group('pruning end to end', () {
