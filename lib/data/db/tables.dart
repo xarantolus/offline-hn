@@ -20,6 +20,7 @@ class Stories extends Table {
   DateTimeColumn get commentsFetchedAt => dateTime().nullable()();
   BoolColumn get read => boolean().withDefault(const Constant(false))();
   BoolColumn get saved => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get savedAt => dateTime().nullable()();
   BoolColumn get hidden => boolean().withDefault(const Constant(false))();
 
   @override

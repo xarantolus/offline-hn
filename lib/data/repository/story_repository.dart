@@ -60,6 +60,35 @@ class StoryRepository {
     );
   }
 
+  /// Bookmarked stories, the latest bookmark first. A bookmark made before
+  /// the time was kept counts as made when the story was first seen.
+  Stream<List<FeedEntry>> watchSaved() {
+    final stories = _db.stories;
+    final savedWhen = coalesce([stories.savedAt, stories.firstSeen]);
+    final query =
+        _db.select(stories).join([
+            leftOuterJoin(
+              _db.pageCopies,
+              _db.pageCopies.storyId.equalsExp(stories.id),
+            ),
+          ])
+          ..where(stories.saved.equals(true) & stories.hidden.equals(false))
+          ..orderBy([
+            OrderingTerm.desc(savedWhen),
+            OrderingTerm.desc(stories.id),
+          ]);
+    return query.watch().map(
+      (rows) => [
+        for (final row in rows)
+          FeedEntry(
+            story: row.readTable(stories),
+            bestRank: 0,
+            page: row.readTableOrNull(_db.pageCopies),
+          ),
+      ],
+    );
+  }
+
   /// Days are computed at query time, so a timezone change shows on the next
   /// subscription rather than on an emission.
   Stream<List<LocalDay>> watchStoredDays(
@@ -144,6 +173,7 @@ class StoryRepository {
           saved: row.readTable(_db.stories).saved,
           commentsFetchedAt: row.readTable(_db.stories).commentsFetchedAt,
           lastOpenedAt: row.readTableOrNull(_db.threadStates)?.lastOpenedAt,
+          storyTime: row.readTable(_db.stories).time,
         ),
     ];
   }
@@ -272,8 +302,13 @@ class StoryRepository {
   Future<void> setRead(int id, {required bool value}) =>
       _write(id, StoriesCompanion(read: Value(value)));
 
-  Future<void> setSaved(int id, {required bool value}) =>
-      _write(id, StoriesCompanion(saved: Value(value)));
+  Future<void> setSaved(int id, {required bool value, DateTime? now}) => _write(
+    id,
+    StoriesCompanion(
+      saved: Value(value),
+      savedAt: Value(value ? (now ?? DateTime.now()) : null),
+    ),
+  );
 
   Future<void> setHidden(int id, {required bool value}) =>
       _write(id, StoriesCompanion(hidden: Value(value)));

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:offline_hn/app_services.dart';
 import 'package:offline_hn/app_services_scope.dart';
 import 'package:offline_hn/data/model/feed_kind.dart';
+import 'package:offline_hn/data/model/feed_tab.dart';
 import 'package:offline_hn/data/model/local_day.dart';
 import 'package:offline_hn/data/model/sync_enums.dart';
 import 'package:offline_hn/data/policy/day_grouping.dart';
@@ -35,9 +36,9 @@ class _FeedPageState extends State<FeedPage> {
       .distinct(setEquals);
   final _subscriptions = <StreamSubscription<Object?>>[];
   final _pages = PageController();
-  List<FeedKind> _shownKinds = FeedKind.values;
+  List<FeedTab> _shownTabs = FeedTab.values;
 
-  FeedKind _kind = FeedKind.top;
+  FeedTab _tab = FeedTab.top;
   LocalDay? _picked;
   bool _askedForNotifications = false;
 
@@ -70,11 +71,11 @@ class _FeedPageState extends State<FeedPage> {
     }
   }
 
-  void _select(FeedKind kind) {
-    if (kind == _kind) return;
-    final from = _shownKinds.indexOf(_kind);
-    final to = _shownKinds.indexOf(kind);
-    setState(() => _kind = kind);
+  void _select(FeedTab tab) {
+    if (tab == _tab) return;
+    final from = _shownTabs.indexOf(_tab);
+    final to = _shownTabs.indexOf(tab);
+    setState(() => _tab = tab);
     if ((from - to).abs() == 1) {
       unawaited(
         _pages.animateToPage(
@@ -89,14 +90,14 @@ class _FeedPageState extends State<FeedPage> {
   }
 
   void _pageChanged(int index) {
-    final kind = _shownKinds[index];
-    if (kind != _kind) setState(() => _kind = kind);
+    final tab = _shownTabs[index];
+    if (tab != _tab) setState(() => _tab = tab);
   }
 
-  void _followKinds(List<FeedKind> kinds) {
-    if (listEquals(kinds, _shownKinds)) return;
-    _shownKinds = kinds;
-    final index = kinds.indexOf(_kind);
+  void _followTabs(List<FeedTab> tabs) {
+    if (listEquals(tabs, _shownTabs)) return;
+    _shownTabs = tabs;
+    final index = tabs.indexOf(_tab);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_pages.hasClients) _pages.jumpToPage(index);
     });
@@ -126,18 +127,20 @@ class _FeedPageState extends State<FeedPage> {
     return StreamBuilder<Set<FeedKind>>(
       stream: _enabled,
       builder: (context, enabled) {
-        final kinds = _kindsFor(enabled.data);
-        _followKinds(kinds);
+        final tabs = _tabsFor(enabled.data);
+        _followTabs(tabs);
+        final kind = _tab.kind;
         return StreamBuilder<List<LocalDay>>(
-          stream: _days[_kind],
+          stream: kind == null ? null : _days[kind],
+          initialData: const <LocalDay>[],
           builder: (context, snapshot) =>
-              _scaffold(kinds, snapshot.data ?? const <LocalDay>[]),
+              _scaffold(tabs, snapshot.data ?? const <LocalDay>[]),
         );
       },
     );
   }
 
-  Widget _scaffold(List<FeedKind> kinds, List<LocalDay> days) {
+  Widget _scaffold(List<FeedTab> tabs, List<LocalDay> days) {
     final today = localDayOf(DateTime.now());
     final day = shownDay(days, _picked, today);
     return Scaffold(
@@ -145,12 +148,13 @@ class _FeedPageState extends State<FeedPage> {
         centerTitle: false,
         title: const HackerNewsTitle(),
         actions: [
-          DayMenu(
-            days: days,
-            selected: day,
-            today: today,
-            onSelected: (d) => setState(() => _picked = d),
-          ),
+          if (_tab.kind != null)
+            DayMenu(
+              days: days,
+              selected: day,
+              today: today,
+              onSelected: (d) => setState(() => _picked = d),
+            ),
           IconButton(
             tooltip: 'Fetch now',
             icon: const Icon(Icons.refresh),
@@ -169,8 +173,8 @@ class _FeedPageState extends State<FeedPage> {
       body: Column(
         children: [
           FeedSwitcher(
-            selected: _kind,
-            kinds: kinds,
+            selected: _tab,
+            tabs: tabs,
             onSelected: _select,
             status: SyncStatusLine(services: _services),
           ),
@@ -179,12 +183,12 @@ class _FeedPageState extends State<FeedPage> {
             child: PageView.builder(
               controller: _pages,
               physics: const BouncingScrollPhysics(),
-              itemCount: kinds.length,
+              itemCount: tabs.length,
               onPageChanged: _pageChanged,
               itemBuilder: (context, index) => _FeedPane(
                 services: _services,
-                kind: kinds[index],
-                days: _days[kinds[index]]!,
+                kind: tabs[index].kind,
+                days: _days[tabs[index].kind],
                 picked: _picked,
                 onRefresh: _refresh,
               ),
@@ -195,12 +199,14 @@ class _FeedPageState extends State<FeedPage> {
     );
   }
 
-  List<FeedKind> _kindsFor(Set<FeedKind>? enabled) {
-    if (enabled == null || enabled.isEmpty) return FeedKind.values;
-    return [
-      for (final kind in FeedKind.values)
-        if (enabled.contains(kind) || kind == _kind) kind,
-    ];
+  List<FeedTab> _tabsFor(Set<FeedKind>? enabled) {
+    final kinds = enabled == null || enabled.isEmpty
+        ? FeedKind.values
+        : [
+            for (final kind in FeedKind.values)
+              if (enabled.contains(kind) || FeedTab.of(kind) == _tab) kind,
+          ];
+    return [for (final kind in kinds) FeedTab.of(kind), FeedTab.saved];
   }
 }
 
@@ -214,13 +220,23 @@ class _FeedPane extends StatelessWidget {
   });
 
   final AppServices services;
-  final FeedKind kind;
-  final Stream<List<LocalDay>> days;
+  final FeedKind? kind;
+  final Stream<List<LocalDay>>? days;
   final LocalDay? picked;
   final Future<void> Function() onRefresh;
 
   @override
   Widget build(BuildContext context) {
+    final days = this.days;
+    if (days == null) {
+      return FeedList(
+        services: services,
+        kind: null,
+        day: null,
+        storeEmpty: false,
+        onRefresh: onRefresh,
+      );
+    }
     return StreamBuilder<List<LocalDay>>(
       stream: days,
       builder: (context, snapshot) {

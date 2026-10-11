@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:offline_hn/data/api/algolia_json.dart';
@@ -61,6 +62,60 @@ void main() {
       expect(row.firstSeen.toUtc(), t0);
       expect(row.lastSeen.toUtc(), later);
       expect(row.domain, 'example.com');
+    });
+
+    test(
+      'saved stories list the latest bookmark first and drop removed ones',
+      () async {
+        await stories.upsertStories([_story(1), _story(2), _story(3)], t0);
+        await stories.setSaved(
+          2,
+          value: true,
+          now: t0.add(const Duration(hours: 1)),
+        );
+        await stories.setSaved(
+          1,
+          value: true,
+          now: t0.add(const Duration(hours: 2)),
+        );
+        await stories.setSaved(
+          3,
+          value: true,
+          now: t0.add(const Duration(hours: 3)),
+        );
+        await stories.setSaved(3, value: false);
+
+        final saved = await stories.watchSaved().first;
+        expect([for (final e in saved) e.story.id], [1, 2]);
+      },
+    );
+
+    test(
+      'a bookmark without a time sorts by when the story was first seen',
+      () async {
+        await stories.upsertStories([_story(1)], t0);
+        await stories.upsertStories([
+          _story(2),
+        ], t0.add(const Duration(days: 1)));
+        await stories.setSaved(1, value: true);
+        await stories.setSaved(2, value: true);
+        await (db.update(db.stories)..where((s) => s.id.equals(1))).write(
+          const StoriesCompanion(savedAt: Value(null)),
+        );
+        await (db.update(db.stories)..where((s) => s.id.equals(2))).write(
+          const StoriesCompanion(savedAt: Value(null)),
+        );
+
+        final saved = await stories.watchSaved().first;
+        expect([for (final e in saved) e.story.id], [2, 1]);
+      },
+    );
+
+    test('a hidden story is not listed as saved', () async {
+      await stories.upsertStories([_story(1)], t0);
+      await stories.setSaved(1, value: true);
+      await stories.setHidden(1, value: true);
+      expect(await stories.watchSaved().first, isEmpty);
     });
 
     test('a story without a title is not stored', () async {

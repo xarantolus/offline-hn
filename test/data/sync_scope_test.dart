@@ -10,11 +10,13 @@ ThreadCandidate _thread(
   DateTime? fetched,
   DateTime? opened,
   bool saved = false,
+  DateTime? posted,
 }) => ThreadCandidate(
   storyId: id,
   saved: saved,
   commentsFetchedAt: fetched,
   lastOpenedAt: opened,
+  storyTime: posted,
 );
 
 void main() {
@@ -42,6 +44,7 @@ void main() {
             30,
             saved: true,
             fetched: _now.subtract(const Duration(days: 1)),
+            posted: _now.subtract(const Duration(days: 4)),
           ),
         ],
         now: _now,
@@ -99,6 +102,49 @@ void main() {
 
     test('is believed when the clock was set back', () {
       expect(runIsAlive(beat, beat.subtract(const Duration(hours: 1))), isTrue);
+    });
+  });
+
+  group('saved threads', () {
+    List<int> targets(List<ThreadCandidate> stored) =>
+        selectCommentTargets(feedOrder: const [], stored: stored, now: _now);
+    final old = _now.subtract(const Duration(days: 400));
+    final fetched = _now.subtract(const Duration(hours: 5));
+
+    test('a young bookmarked story is refreshed', () {
+      expect(
+        targets([
+          _thread(
+            1,
+            saved: true,
+            fetched: fetched,
+            posted: _now.subtract(const Duration(days: 3)),
+          ),
+        ]),
+        [1],
+      );
+    });
+
+    test('a bookmark on an old story nobody opened lately is left alone', () {
+      expect(
+        targets([_thread(1, saved: true, fetched: fetched, posted: old)]),
+        isEmpty,
+      );
+    });
+
+    test('an old bookmarked story opened lately is still refreshed', () {
+      expect(
+        targets([
+          _thread(
+            1,
+            saved: true,
+            fetched: fetched,
+            posted: old,
+            opened: _now.subtract(const Duration(days: 2)),
+          ),
+        ]),
+        [1],
+      );
     });
   });
 }

@@ -162,6 +162,17 @@ class $StoriesTable extends Stories with TableInfo<$StoriesTable, StoryRow> {
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _savedAtMeta = const VerificationMeta(
+    'savedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> savedAt = GeneratedColumn<DateTime>(
+    'saved_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _hiddenMeta = const VerificationMeta('hidden');
   @override
   late final GeneratedColumn<bool> hidden = GeneratedColumn<bool>(
@@ -192,6 +203,7 @@ class $StoriesTable extends Stories with TableInfo<$StoriesTable, StoryRow> {
     commentsFetchedAt,
     read,
     saved,
+    savedAt,
     hidden,
   ];
   @override
@@ -302,6 +314,12 @@ class $StoriesTable extends Stories with TableInfo<$StoriesTable, StoryRow> {
         saved.isAcceptableOrUnknown(data['saved']!, _savedMeta),
       );
     }
+    if (data.containsKey('saved_at')) {
+      context.handle(
+        _savedAtMeta,
+        savedAt.isAcceptableOrUnknown(data['saved_at']!, _savedAtMeta),
+      );
+    }
     if (data.containsKey('hidden')) {
       context.handle(
         _hiddenMeta,
@@ -377,6 +395,10 @@ class $StoriesTable extends Stories with TableInfo<$StoriesTable, StoryRow> {
         DriftSqlType.bool,
         data['${effectivePrefix}saved'],
       )!,
+      savedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}saved_at'],
+      ),
       hidden: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}hidden'],
@@ -406,6 +428,7 @@ class StoryRow extends DataClass implements Insertable<StoryRow> {
   final DateTime? commentsFetchedAt;
   final bool read;
   final bool saved;
+  final DateTime? savedAt;
   final bool hidden;
   const StoryRow({
     required this.id,
@@ -423,6 +446,7 @@ class StoryRow extends DataClass implements Insertable<StoryRow> {
     this.commentsFetchedAt,
     required this.read,
     required this.saved,
+    this.savedAt,
     required this.hidden,
   });
   @override
@@ -457,6 +481,9 @@ class StoryRow extends DataClass implements Insertable<StoryRow> {
     }
     map['read'] = Variable<bool>(read);
     map['saved'] = Variable<bool>(saved);
+    if (!nullToAbsent || savedAt != null) {
+      map['saved_at'] = Variable<DateTime>(savedAt);
+    }
     map['hidden'] = Variable<bool>(hidden);
     return map;
   }
@@ -484,6 +511,9 @@ class StoryRow extends DataClass implements Insertable<StoryRow> {
           : Value(commentsFetchedAt),
       read: Value(read),
       saved: Value(saved),
+      savedAt: savedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(savedAt),
       hidden: Value(hidden),
     );
   }
@@ -511,6 +541,7 @@ class StoryRow extends DataClass implements Insertable<StoryRow> {
       ),
       read: serializer.fromJson<bool>(json['read']),
       saved: serializer.fromJson<bool>(json['saved']),
+      savedAt: serializer.fromJson<DateTime?>(json['savedAt']),
       hidden: serializer.fromJson<bool>(json['hidden']),
     );
   }
@@ -533,6 +564,7 @@ class StoryRow extends DataClass implements Insertable<StoryRow> {
       'commentsFetchedAt': serializer.toJson<DateTime?>(commentsFetchedAt),
       'read': serializer.toJson<bool>(read),
       'saved': serializer.toJson<bool>(saved),
+      'savedAt': serializer.toJson<DateTime?>(savedAt),
       'hidden': serializer.toJson<bool>(hidden),
     };
   }
@@ -553,6 +585,7 @@ class StoryRow extends DataClass implements Insertable<StoryRow> {
     Value<DateTime?> commentsFetchedAt = const Value.absent(),
     bool? read,
     bool? saved,
+    Value<DateTime?> savedAt = const Value.absent(),
     bool? hidden,
   }) => StoryRow(
     id: id ?? this.id,
@@ -572,6 +605,7 @@ class StoryRow extends DataClass implements Insertable<StoryRow> {
         : this.commentsFetchedAt,
     read: read ?? this.read,
     saved: saved ?? this.saved,
+    savedAt: savedAt.present ? savedAt.value : this.savedAt,
     hidden: hidden ?? this.hidden,
   );
   StoryRow copyWithCompanion(StoriesCompanion data) {
@@ -595,6 +629,7 @@ class StoryRow extends DataClass implements Insertable<StoryRow> {
           : this.commentsFetchedAt,
       read: data.read.present ? data.read.value : this.read,
       saved: data.saved.present ? data.saved.value : this.saved,
+      savedAt: data.savedAt.present ? data.savedAt.value : this.savedAt,
       hidden: data.hidden.present ? data.hidden.value : this.hidden,
     );
   }
@@ -617,6 +652,7 @@ class StoryRow extends DataClass implements Insertable<StoryRow> {
           ..write('commentsFetchedAt: $commentsFetchedAt, ')
           ..write('read: $read, ')
           ..write('saved: $saved, ')
+          ..write('savedAt: $savedAt, ')
           ..write('hidden: $hidden')
           ..write(')'))
         .toString();
@@ -639,6 +675,7 @@ class StoryRow extends DataClass implements Insertable<StoryRow> {
     commentsFetchedAt,
     read,
     saved,
+    savedAt,
     hidden,
   );
   @override
@@ -660,6 +697,7 @@ class StoryRow extends DataClass implements Insertable<StoryRow> {
           other.commentsFetchedAt == this.commentsFetchedAt &&
           other.read == this.read &&
           other.saved == this.saved &&
+          other.savedAt == this.savedAt &&
           other.hidden == this.hidden);
 }
 
@@ -679,6 +717,7 @@ class StoriesCompanion extends UpdateCompanion<StoryRow> {
   final Value<DateTime?> commentsFetchedAt;
   final Value<bool> read;
   final Value<bool> saved;
+  final Value<DateTime?> savedAt;
   final Value<bool> hidden;
   const StoriesCompanion({
     this.id = const Value.absent(),
@@ -696,6 +735,7 @@ class StoriesCompanion extends UpdateCompanion<StoryRow> {
     this.commentsFetchedAt = const Value.absent(),
     this.read = const Value.absent(),
     this.saved = const Value.absent(),
+    this.savedAt = const Value.absent(),
     this.hidden = const Value.absent(),
   });
   StoriesCompanion.insert({
@@ -714,6 +754,7 @@ class StoriesCompanion extends UpdateCompanion<StoryRow> {
     this.commentsFetchedAt = const Value.absent(),
     this.read = const Value.absent(),
     this.saved = const Value.absent(),
+    this.savedAt = const Value.absent(),
     this.hidden = const Value.absent(),
   }) : title = Value(title),
        firstSeen = Value(firstSeen),
@@ -734,6 +775,7 @@ class StoriesCompanion extends UpdateCompanion<StoryRow> {
     Expression<DateTime>? commentsFetchedAt,
     Expression<bool>? read,
     Expression<bool>? saved,
+    Expression<DateTime>? savedAt,
     Expression<bool>? hidden,
   }) {
     return RawValuesInsertable({
@@ -752,6 +794,7 @@ class StoriesCompanion extends UpdateCompanion<StoryRow> {
       if (commentsFetchedAt != null) 'comments_fetched_at': commentsFetchedAt,
       if (read != null) 'read': read,
       if (saved != null) 'saved': saved,
+      if (savedAt != null) 'saved_at': savedAt,
       if (hidden != null) 'hidden': hidden,
     });
   }
@@ -772,6 +815,7 @@ class StoriesCompanion extends UpdateCompanion<StoryRow> {
     Value<DateTime?>? commentsFetchedAt,
     Value<bool>? read,
     Value<bool>? saved,
+    Value<DateTime?>? savedAt,
     Value<bool>? hidden,
   }) {
     return StoriesCompanion(
@@ -790,6 +834,7 @@ class StoriesCompanion extends UpdateCompanion<StoryRow> {
       commentsFetchedAt: commentsFetchedAt ?? this.commentsFetchedAt,
       read: read ?? this.read,
       saved: saved ?? this.saved,
+      savedAt: savedAt ?? this.savedAt,
       hidden: hidden ?? this.hidden,
     );
   }
@@ -842,6 +887,9 @@ class StoriesCompanion extends UpdateCompanion<StoryRow> {
     if (saved.present) {
       map['saved'] = Variable<bool>(saved.value);
     }
+    if (savedAt.present) {
+      map['saved_at'] = Variable<DateTime>(savedAt.value);
+    }
     if (hidden.present) {
       map['hidden'] = Variable<bool>(hidden.value);
     }
@@ -866,6 +914,7 @@ class StoriesCompanion extends UpdateCompanion<StoryRow> {
           ..write('commentsFetchedAt: $commentsFetchedAt, ')
           ..write('read: $read, ')
           ..write('saved: $saved, ')
+          ..write('savedAt: $savedAt, ')
           ..write('hidden: $hidden')
           ..write(')'))
         .toString();
@@ -3883,6 +3932,7 @@ typedef $$StoriesTableCreateCompanionBuilder = StoriesCompanion Function({
   Value<DateTime?> commentsFetchedAt,
   Value<bool> read,
   Value<bool> saved,
+  Value<DateTime?> savedAt,
   Value<bool> hidden,
 });
 typedef $$StoriesTableUpdateCompanionBuilder = StoriesCompanion Function({
@@ -3901,6 +3951,7 @@ typedef $$StoriesTableUpdateCompanionBuilder = StoriesCompanion Function({
   Value<DateTime?> commentsFetchedAt,
   Value<bool> read,
   Value<bool> saved,
+  Value<DateTime?> savedAt,
   Value<bool> hidden,
 });
 
@@ -3985,6 +4036,11 @@ class $$StoriesTableFilterComposer
 
   ColumnFilters<bool> get saved => $composableBuilder(
     column: $table.saved,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get savedAt => $composableBuilder(
+    column: $table.savedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4078,6 +4134,11 @@ class $$StoriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get savedAt => $composableBuilder(
+    column: $table.savedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get hidden => $composableBuilder(
     column: $table.hidden,
     builder: (column) => ColumnOrderings(column),
@@ -4142,6 +4203,9 @@ class $$StoriesTableAnnotationComposer
   GeneratedColumn<bool> get saved =>
       $composableBuilder(column: $table.saved, builder: (column) => column);
 
+  GeneratedColumn<DateTime> get savedAt =>
+      $composableBuilder(column: $table.savedAt, builder: (column) => column);
+
   GeneratedColumn<bool> get hidden =>
       $composableBuilder(column: $table.hidden, builder: (column) => column);
 }
@@ -4189,6 +4253,7 @@ class $$StoriesTableTableManager
                 Value<DateTime?> commentsFetchedAt = const Value.absent(),
                 Value<bool> read = const Value.absent(),
                 Value<bool> saved = const Value.absent(),
+                Value<DateTime?> savedAt = const Value.absent(),
                 Value<bool> hidden = const Value.absent(),
               }) => StoriesCompanion(
                 id: id,
@@ -4206,6 +4271,7 @@ class $$StoriesTableTableManager
                 commentsFetchedAt: commentsFetchedAt,
                 read: read,
                 saved: saved,
+                savedAt: savedAt,
                 hidden: hidden,
               ),
           createCompanionCallback:
@@ -4225,6 +4291,7 @@ class $$StoriesTableTableManager
                 Value<DateTime?> commentsFetchedAt = const Value.absent(),
                 Value<bool> read = const Value.absent(),
                 Value<bool> saved = const Value.absent(),
+                Value<DateTime?> savedAt = const Value.absent(),
                 Value<bool> hidden = const Value.absent(),
               }) => StoriesCompanion.insert(
                 id: id,
@@ -4242,6 +4309,7 @@ class $$StoriesTableTableManager
                 commentsFetchedAt: commentsFetchedAt,
                 read: read,
                 saved: saved,
+                savedAt: savedAt,
                 hidden: hidden,
               ),
           withReferenceMapper: (p0) => p0

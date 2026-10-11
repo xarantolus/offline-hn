@@ -8,18 +8,24 @@ const feedDepth = 100;
 /// schedule does not download every thread twelve times a day.
 const commentsFreshFor = Duration(minutes: 30);
 
+/// A bookmarked thread is only kept current while its story is this young or
+/// it was opened this recently; older ones have stopped moving.
+const savedRefreshWindow = Duration(days: 14);
+
 class ThreadCandidate {
   const ThreadCandidate({
     required this.storyId,
     required this.saved,
     this.commentsFetchedAt,
     this.lastOpenedAt,
+    this.storyTime,
   });
 
   final int storyId;
   final bool saved;
   final DateTime? commentsFetchedAt;
   final DateTime? lastOpenedAt;
+  final DateTime? storyTime;
 }
 
 /// One id list with the feeds merged by rank, so every feed's front page comes
@@ -50,7 +56,9 @@ List<int> selectCommentTargets({
   final known = {for (final t in stored) t.storyId: t};
   final opened = stored.where((t) => t.lastOpenedAt != null).toList()
     ..sort((a, b) => b.lastOpenedAt!.compareTo(a.lastOpenedAt!));
-  final saved = stored.where((t) => t.saved && t.commentsFetchedAt != null);
+  final saved = stored.where(
+    (t) => t.saved && t.commentsFetchedAt != null && _stillMoving(t, now),
+  );
 
   final ordered = <int>{
     for (final t in opened) t.storyId,
@@ -61,6 +69,12 @@ List<int> selectCommentTargets({
     for (final id in ordered)
       if (!_fresh(known[id], now)) id,
   ];
+}
+
+bool _stillMoving(ThreadCandidate thread, DateTime now) {
+  bool recent(DateTime? at) =>
+      at != null && now.difference(at) < savedRefreshWindow;
+  return recent(thread.storyTime) || recent(thread.lastOpenedAt);
 }
 
 bool _fresh(ThreadCandidate? thread, DateTime now) {

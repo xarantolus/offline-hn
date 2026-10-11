@@ -33,7 +33,7 @@ class _EmptyFeedState extends State<EmptyFeed> {
   Widget build(BuildContext context) {
     final t = context.tokens;
     if (!widget.storeEmpty) {
-      return _Message(
+      return EmptyMessage(
         title: 'Nothing here for this day',
         hint: 'Pick another day, or another feed.',
         tokens: t,
@@ -43,7 +43,7 @@ class _EmptyFeedState extends State<EmptyFeed> {
       stream: _progress,
       builder: (context, progress) {
         if (progress.data != null) {
-          return _Message(
+          return EmptyMessage(
             title: 'Fetching the first stories',
             hint: 'They appear here as they arrive.',
             tokens: t,
@@ -55,13 +55,13 @@ class _EmptyFeedState extends State<EmptyFeed> {
             future: widget.services.sync.canFetchAutomatically(),
             builder: (context, automatic) {
               if (automatic.data ?? true) {
-                return _Message(
+                return EmptyMessage(
                   title: 'Nothing downloaded yet',
                   hint: 'The first update starts by itself.',
                   tokens: t,
                 );
               }
-              return _Message(
+              return EmptyMessage(
                 title: 'Nothing downloaded yet',
                 hint:
                     'Automatic updates wait for Wi-Fi. You can fetch the '
@@ -80,8 +80,9 @@ class _EmptyFeedState extends State<EmptyFeed> {
   }
 }
 
-class _Message extends StatelessWidget {
-  const _Message({
+class EmptyMessage extends StatelessWidget {
+  const EmptyMessage({
+    super.key,
     required this.title,
     required this.hint,
     required this.tokens,

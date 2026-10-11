@@ -1,23 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:offline_hn/data/model/feed_kind.dart';
+import 'package:offline_hn/data/model/feed_tab.dart';
 import 'package:offline_hn/ui/tokens.dart';
-
-extension FeedKindLabel on FeedKind {
-  String get label => name[0].toUpperCase() + name.substring(1);
-}
 
 class FeedSwitcher extends StatelessWidget {
   const FeedSwitcher({
     super.key,
     required this.selected,
     required this.onSelected,
-    this.kinds = FeedKind.values,
+    this.tabs = FeedTab.values,
     this.status,
   });
 
-  final FeedKind selected;
-  final ValueChanged<FeedKind> onSelected;
-  final List<FeedKind> kinds;
+  final FeedTab selected;
+  final ValueChanged<FeedTab> onSelected;
+  final List<FeedTab> tabs;
   final Widget? status;
 
   @override
@@ -33,7 +29,7 @@ class FeedSwitcher extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SegmentedButton<FeedKind>(
+          SegmentedButton<FeedTab>(
             showSelectedIcon: false,
             expandedInsets: EdgeInsets.zero,
             style: SegmentedButton.styleFrom(
@@ -49,8 +45,8 @@ class FeedSwitcher extends StatelessWidget {
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
             segments: [
-              for (final kind in kinds)
-                ButtonSegment(value: kind, label: Text(kind.label)),
+              for (final tab in tabs)
+                ButtonSegment(value: tab, label: Text(tab.label)),
             ],
             selected: {selected},
             onSelectionChanged: (s) => onSelected(s.first),

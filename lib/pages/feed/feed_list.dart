@@ -15,6 +15,7 @@ import 'package:offline_hn/pages/story_opener.dart';
 import 'package:offline_hn/pages/thread/thread_pager.dart';
 import 'package:offline_hn/ui/small_caps.dart';
 import 'package:offline_hn/ui/story_tile.dart';
+import 'package:offline_hn/ui/tokens.dart';
 
 class FeedList extends StatefulWidget {
   const FeedList({
@@ -27,8 +28,10 @@ class FeedList extends StatefulWidget {
   });
 
   final AppServices services;
-  final FeedKind kind;
-  final LocalDay day;
+
+  /// Null lists the bookmarked stories, whatever the day.
+  final FeedKind? kind;
+  final LocalDay? day;
   final bool storeEmpty;
   final Future<void> Function() onRefresh;
 
@@ -39,8 +42,13 @@ class FeedList extends StatefulWidget {
 class _FeedListState extends State<FeedList> {
   late Stream<List<FeedEntry>> _entries = _watch();
 
-  Stream<List<FeedEntry>> _watch() =>
-      widget.services.stories.watchFeed(widget.kind, dayBoundsUtc(widget.day));
+  Stream<List<FeedEntry>> _watch() {
+    final kind = widget.kind;
+    final day = widget.day;
+    return kind == null || day == null
+        ? widget.services.stories.watchSaved()
+        : widget.services.stories.watchFeed(kind, dayBoundsUtc(day));
+  }
 
   @override
   void didUpdateWidget(FeedList oldWidget) {
@@ -65,11 +73,19 @@ class _FeedListState extends State<FeedList> {
                     physics: const AlwaysScrollableScrollPhysics(),
                     child: SizedBox(
                       height: box.maxHeight,
-                      child: EmptyFeed(
-                        services: widget.services,
-                        storeEmpty: widget.storeEmpty,
-                        onFetch: () => unawaited(widget.onRefresh()),
-                      ),
+                      child: widget.kind == null
+                          ? EmptyMessage(
+                              title: 'Nothing saved',
+                              hint:
+                                  'Bookmark a story to keep it here, even '
+                                  'after it leaves the feeds.',
+                              tokens: context.tokens,
+                            )
+                          : EmptyFeed(
+                              services: widget.services,
+                              storeEmpty: widget.storeEmpty,
+                              onFetch: () => unawaited(widget.onRefresh()),
+                            ),
                     ),
                   ),
                 )
@@ -82,7 +98,7 @@ class _FeedListState extends State<FeedList> {
   Widget _stories(List<FeedEntry> entries) {
     final now = DateTime.now();
     return ListView.separated(
-      key: PageStorageKey<(FeedKind, LocalDay)>((widget.kind, widget.day)),
+      key: PageStorageKey<(FeedKind?, LocalDay?)>((widget.kind, widget.day)),
       physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.only(
         bottom: MediaQuery.viewPaddingOf(context).bottom,
