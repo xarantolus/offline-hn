@@ -25,6 +25,12 @@ List<LocalDay> daysWithData(
   return days.toList()..sort((a, b) => b.compareTo(a));
 }
 
+/// The day to show: the picked one if this feed has it, else its newest.
+LocalDay shownDay(List<LocalDay> days, LocalDay? picked, LocalDay today) {
+  if (picked != null && days.contains(picked)) return picked;
+  return days.isEmpty ? today : days.first;
+}
+
 /// The offset at the answer can differ from the offset at the guess when a
 /// transition falls between them, so the guess is refined once.
 DateTime _localMidnightUtc(LocalDay day, UtcOffsetAt offsetAt) {

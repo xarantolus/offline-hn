@@ -100,4 +100,24 @@ void main() {
     expect(const LocalDay(2026, 2, 28).next(), const LocalDay(2026, 3, 1));
     expect(const LocalDay(2026, 12, 31).next(), const LocalDay(2027, 1, 1));
   });
+
+  group('shownDay', () {
+    const today = LocalDay(2026, 5, 3);
+    const older = LocalDay(2026, 5, 1);
+
+    test('keeps the picked day when the feed has it', () {
+      expect(shownDay([today, older], older, today), older);
+    });
+
+    test(
+      'falls back to the feed\'s newest day when it lacks the picked one',
+      () {
+        expect(shownDay([older], today, today), older);
+      },
+    );
+
+    test('an empty feed shows today', () {
+      expect(shownDay([], older, today), today);
+    });
+  });
 }

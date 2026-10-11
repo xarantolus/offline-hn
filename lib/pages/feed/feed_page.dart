@@ -25,12 +25,17 @@ class FeedPage extends StatefulWidget {
 
 class _FeedPageState extends State<FeedPage> {
   late final AppServices _services = AppServicesScope.of(context);
-  late Stream<List<LocalDay>> _days = _services.stories.watchStoredDays(_kind);
+  late final Map<FeedKind, Stream<List<LocalDay>>> _days = {
+    for (final kind in FeedKind.values)
+      kind: _services.stories.watchStoredDays(kind),
+  };
   late final Stream<Set<FeedKind>> _enabled = _services.settings
       .watch()
       .map((s) => s.enabledFeeds)
       .distinct(setEquals);
   final _subscriptions = <StreamSubscription<Object?>>[];
+  final _pages = PageController();
+  List<FeedKind> _shownKinds = FeedKind.values;
 
   FeedKind _kind = FeedKind.top;
   LocalDay? _picked;
@@ -49,6 +54,7 @@ class _FeedPageState extends State<FeedPage> {
     for (final subscription in _subscriptions) {
       unawaited(subscription.cancel());
     }
+    _pages.dispose();
     super.dispose();
   }
 
@@ -66,9 +72,33 @@ class _FeedPageState extends State<FeedPage> {
 
   void _select(FeedKind kind) {
     if (kind == _kind) return;
-    setState(() {
-      _kind = kind;
-      _days = _services.stories.watchStoredDays(kind);
+    final from = _shownKinds.indexOf(_kind);
+    final to = _shownKinds.indexOf(kind);
+    setState(() => _kind = kind);
+    if ((from - to).abs() == 1) {
+      unawaited(
+        _pages.animateToPage(
+          to,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        ),
+      );
+    } else {
+      _pages.jumpToPage(to);
+    }
+  }
+
+  void _pageChanged(int index) {
+    final kind = _shownKinds[index];
+    if (kind != _kind) setState(() => _kind = kind);
+  }
+
+  void _followKinds(List<FeedKind> kinds) {
+    if (listEquals(kinds, _shownKinds)) return;
+    _shownKinds = kinds;
+    final index = kinds.indexOf(_kind);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_pages.hasClients) _pages.jumpToPage(index);
     });
   }
 
@@ -93,75 +123,116 @@ class _FeedPageState extends State<FeedPage> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<LocalDay>>(
-      stream: _days,
-      builder: (context, snapshot) {
-        final days = snapshot.data ?? const <LocalDay>[];
-        final today = localDayOf(DateTime.now());
-        final picked = _picked;
-        final day = picked != null && days.contains(picked)
-            ? picked
-            : (days.isEmpty ? today : days.first);
-        return Scaffold(
-          appBar: AppBar(
-            centerTitle: false,
-            title: const HackerNewsTitle(),
-            actions: [
-              DayMenu(
-                days: days,
-                selected: day,
-                today: today,
-                onSelected: (d) => setState(() => _picked = d),
-              ),
-              IconButton(
-                tooltip: 'Fetch now',
-                icon: const Icon(Icons.refresh),
-                onPressed: () => unawaited(_refresh()),
-              ),
-              PopupMenuButton<void>(
-                itemBuilder: (_) => [
-                  PopupMenuItem<void>(
-                    onTap: _openSettings,
-                    child: const Text('Settings'),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          body: Column(
-            children: [
-              StreamBuilder<Set<FeedKind>>(
-                stream: _enabled,
-                builder: (context, enabled) => FeedSwitcher(
-                  selected: _kind,
-                  kinds: _kindsFor(enabled.data),
-                  onSelected: _select,
-                  status: SyncStatusLine(services: _services),
-                ),
-              ),
-              SyncBar(services: _services),
-              Expanded(
-                child: FeedList(
-                  services: _services,
-                  kind: _kind,
-                  day: day,
-                  storeEmpty: days.isEmpty,
-                  onRefresh: _refresh,
-                ),
-              ),
-            ],
-          ),
+    return StreamBuilder<Set<FeedKind>>(
+      stream: _enabled,
+      builder: (context, enabled) {
+        final kinds = _kindsFor(enabled.data);
+        _followKinds(kinds);
+        return StreamBuilder<List<LocalDay>>(
+          stream: _days[_kind],
+          builder: (context, snapshot) =>
+              _scaffold(kinds, snapshot.data ?? const <LocalDay>[]),
         );
       },
     );
   }
 
+  Widget _scaffold(List<FeedKind> kinds, List<LocalDay> days) {
+    final today = localDayOf(DateTime.now());
+    final day = shownDay(days, _picked, today);
+    return Scaffold(
+      appBar: AppBar(
+        centerTitle: false,
+        title: const HackerNewsTitle(),
+        actions: [
+          DayMenu(
+            days: days,
+            selected: day,
+            today: today,
+            onSelected: (d) => setState(() => _picked = d),
+          ),
+          IconButton(
+            tooltip: 'Fetch now',
+            icon: const Icon(Icons.refresh),
+            onPressed: () => unawaited(_refresh()),
+          ),
+          PopupMenuButton<void>(
+            itemBuilder: (_) => [
+              PopupMenuItem<void>(
+                onTap: _openSettings,
+                child: const Text('Settings'),
+              ),
+            ],
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          FeedSwitcher(
+            selected: _kind,
+            kinds: kinds,
+            onSelected: _select,
+            status: SyncStatusLine(services: _services),
+          ),
+          SyncBar(services: _services),
+          Expanded(
+            child: PageView.builder(
+              controller: _pages,
+              physics: const BouncingScrollPhysics(),
+              itemCount: kinds.length,
+              onPageChanged: _pageChanged,
+              itemBuilder: (context, index) => _FeedPane(
+                services: _services,
+                kind: kinds[index],
+                days: _days[kinds[index]]!,
+                picked: _picked,
+                onRefresh: _refresh,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   List<FeedKind> _kindsFor(Set<FeedKind>? enabled) {
     if (enabled == null || enabled.isEmpty) return FeedKind.values;
-    final shown = [
+    return [
       for (final kind in FeedKind.values)
         if (enabled.contains(kind) || kind == _kind) kind,
     ];
-    return shown;
+  }
+}
+
+class _FeedPane extends StatelessWidget {
+  const _FeedPane({
+    required this.services,
+    required this.kind,
+    required this.days,
+    required this.picked,
+    required this.onRefresh,
+  });
+
+  final AppServices services;
+  final FeedKind kind;
+  final Stream<List<LocalDay>> days;
+  final LocalDay? picked;
+  final Future<void> Function() onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<LocalDay>>(
+      stream: days,
+      builder: (context, snapshot) {
+        final stored = snapshot.data ?? const <LocalDay>[];
+        return FeedList(
+          services: services,
+          kind: kind,
+          day: shownDay(stored, picked, localDayOf(DateTime.now())),
+          storeEmpty: stored.isEmpty,
+          onRefresh: onRefresh,
+        );
+      },
+    );
   }
 }
