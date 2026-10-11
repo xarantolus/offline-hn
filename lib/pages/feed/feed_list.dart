@@ -12,7 +12,7 @@ import 'package:offline_hn/data/repository/story_repository.dart';
 import 'package:offline_hn/pages/feed/empty_feed.dart';
 import 'package:offline_hn/pages/feed/story_menu.dart';
 import 'package:offline_hn/pages/story_opener.dart';
-import 'package:offline_hn/pages/thread/thread_page.dart';
+import 'package:offline_hn/pages/thread/thread_pager.dart';
 import 'package:offline_hn/ui/small_caps.dart';
 import 'package:offline_hn/ui/story_tile.dart';
 
@@ -109,34 +109,41 @@ class _FeedListState extends State<FeedList> {
           read: story.read,
           saved: story.saved,
           hasCopy: hasCopy,
-          onTap: () => _openThread(story, openArticle: true),
-          onOpenComments: () => _openThread(story),
-          onLongPress: () => unawaited(_menu(story)),
+          onTap: () => _openThread(story, entries, openArticle: true),
+          onOpenComments: () => _openThread(story, entries),
+          onLongPress: () => unawaited(_menu(story, entries)),
         );
       },
     );
   }
 
-  void _openThread(StoryRow story, {bool openArticle = false}) {
+  void _openThread(
+    StoryRow story,
+    List<FeedEntry> entries, {
+    bool openArticle = false,
+  }) {
     unawaited(widget.services.stories.setRead(story.id, value: true));
     unawaited(
       Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) =>
-              ThreadPage(storyId: story.id, openArticle: openArticle),
+          builder: (_) => ThreadPager(
+            storyIds: [for (final e in entries) e.story.id],
+            storyId: story.id,
+            openArticle: openArticle,
+          ),
         ),
       ),
     );
   }
 
-  Future<void> _menu(StoryRow story) async {
+  Future<void> _menu(StoryRow story, List<FeedEntry> entries) async {
     final stories = widget.services.stories;
     final messenger = ScaffoldMessenger.of(context);
     final action = await showStoryMenu(context, story);
     if (action == null || !mounted) return;
     switch (action) {
       case StoryAction.comments:
-        _openThread(story);
+        _openThread(story, entries);
       case StoryAction.bookmark:
         await stories.setSaved(story.id, value: !story.saved);
       case StoryAction.read:

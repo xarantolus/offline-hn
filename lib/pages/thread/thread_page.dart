@@ -28,11 +28,18 @@ class ThreadPage extends StatefulWidget {
     required this.storyId,
     this.focusCommentId,
     this.openArticle = false,
+    this.onArticleOpened,
+    this.active = true,
   });
 
   final int storyId;
   final int? focusCommentId;
   final bool openArticle;
+  final VoidCallback? onArticleOpened;
+
+  /// False for a page a pager builds beside the one on screen: it loads, but
+  /// nothing counts as opened until it is active.
+  final bool active;
 
   @override
   State<ThreadPage> createState() => _ThreadPageState();
@@ -62,11 +69,19 @@ class _ThreadPageState extends State<ThreadPage> {
   List<ArrangedComment> _visible = const [];
   List<int> _topLevel = const [];
   int? _focusIndex;
+  StoryRow? _story;
+  bool _opened = false;
 
   @override
   void initState() {
     super.initState();
     unawaited(_start());
+  }
+
+  @override
+  void didUpdateWidget(ThreadPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.active && !oldWidget.active) unawaited(_activate());
   }
 
   @override
@@ -89,6 +104,7 @@ class _ThreadPageState extends State<ThreadPage> {
       setState(() => _missing = true);
       return;
     }
+    _story = story;
     _storyAuthor = story.by;
     _fetched = story.commentsFetchedAt != null;
     _collapsed = state?.collapsed ?? {};
@@ -110,8 +126,16 @@ class _ThreadPageState extends State<ThreadPage> {
           }
         }),
       );
+    await _activate();
+  }
+
+  Future<void> _activate() async {
+    final story = _story;
+    if (!widget.active || !_ready || _opened || story == null) return;
+    _opened = true;
     await _markOpened();
     if (widget.openArticle && mounted) {
+      widget.onArticleOpened?.call();
       await _opener.openArticle(context, story);
     }
   }
@@ -131,7 +155,7 @@ class _ThreadPageState extends State<ThreadPage> {
     if (!_open.receive(rows)) return;
     _rearrange();
     setState(() {});
-    unawaited(_markOpened());
+    if (_opened) unawaited(_markOpened());
   }
 
   void _onSettings(AppSettings settings) {
