@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:offline_hn/data/model/feed_kind.dart';
 import 'package:offline_hn/ui/small_caps.dart';
 import 'package:offline_hn/ui/tokens.dart';
 
-enum FeedKind { top, best, ask, show }
+extension FeedKindLabel on FeedKind {
+  String get label => name[0].toUpperCase() + name.substring(1);
+}
 
 class FeedSwitcher extends StatelessWidget {
   const FeedSwitcher({
@@ -46,12 +49,7 @@ class FeedSwitcher extends StatelessWidget {
             ),
             segments: [
               for (final kind in FeedKind.values)
-                ButtonSegment(
-                  value: kind,
-                  label: Text(
-                    kind.name[0].toUpperCase() + kind.name.substring(1),
-                  ),
-                ),
+                ButtonSegment(value: kind, label: Text(kind.label)),
             ],
             selected: {selected},
             onSelectionChanged: (s) => onSelected(s.first),

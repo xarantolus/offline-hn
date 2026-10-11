@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:offline_hn/ui/comment_block.dart';
+import 'package:offline_hn/comments/comment_parser.dart';
 import 'package:offline_hn/ui/comment_row.dart';
-import 'package:offline_hn/ui/feed_switcher.dart';
+import 'package:offline_hn/data/model/feed_kind.dart';
 import 'package:offline_hn/ui/settings_section.dart';
 import 'package:offline_hn/ui/tokens.dart';
 
@@ -73,13 +73,12 @@ class _MockSettingsPageState extends State<MockSettingsPage> {
                     age: const Duration(minutes: 22),
                     depth: 0,
                     textSize: _textSize,
-                    blocks: const [
-                      Paragraph(
-                        'Nice write-up. The retry section is the best part, '
-                        'and the backoff reference is worth a read: '
-                        'https://example.org/backoff',
-                      ),
-                    ],
+                    blocks: parseCommentHtml(
+                      'Nice write-up. The retry section is the best part, '
+                      'and the <i>backoff</i> reference is worth a read: '
+                      '<a href="https://example.org/backoff">'
+                      'https://example.org/backoff</a>',
+                    ),
                   ),
                 ),
               ],

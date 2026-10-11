@@ -1,42 +1,26 @@
 import 'package:flutter/material.dart';
-import 'package:offline_hn/ui/comment_block.dart';
+import 'package:flutter/gestures.dart';
+import 'package:offline_hn/comments/comment_block.dart';
 import 'package:offline_hn/ui/tokens.dart';
 
-final _link = RegExp(r'https?://\S+');
-
-List<InlineSpan> linkify(String text, TextStyle linkStyle) {
-  final spans = <InlineSpan>[];
-  var cursor = 0;
-  for (final m in _link.allMatches(text)) {
-    var url = m.group(0)!;
-    while (url.endsWith('.') || url.endsWith(',') || url.endsWith(')')) {
-      url = url.substring(0, url.length - 1);
-    }
-    if (m.start > cursor) {
-      spans.add(TextSpan(text: text.substring(cursor, m.start)));
-    }
-    spans.add(TextSpan(text: url, style: linkStyle));
-    cursor = m.start + url.length;
-  }
-  if (cursor < text.length) spans.add(TextSpan(text: text.substring(cursor)));
-  return spans;
-}
+typedef LinkHandler = void Function(LinkRun link);
 
 class CommentBody extends StatelessWidget {
-  const CommentBody({super.key, required this.blocks, required this.textSize});
+  const CommentBody({
+    super.key,
+    required this.blocks,
+    required this.textSize,
+    this.onLink,
+  });
 
   final List<CommentBlock> blocks;
   final double textSize;
+  final LinkHandler? onLink;
 
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
     final style = t.commentBody(textSize);
-    final link = style.copyWith(
-      color: t.accent,
-      decoration: TextDecoration.underline,
-      decorationColor: t.accent,
-    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -44,17 +28,29 @@ class CommentBody extends StatelessWidget {
       children: [
         for (final block in blocks)
           switch (block) {
-            Paragraph(:final text) => Text.rich(
-              TextSpan(children: linkify(text, link)),
+            Paragraph(:final inlines) => InlineText(
+              inlines: inlines,
               style: style,
+              onLink: onLink,
             ),
-            Quote(:final text) => DecoratedBox(
+            Quote(:final paragraphs) => DecoratedBox(
               decoration: BoxDecoration(
                 border: Border(left: BorderSide(color: t.hairline, width: 3)),
               ),
               child: Padding(
                 padding: const EdgeInsets.only(left: Spacing.md),
-                child: Text(text, style: style.copyWith(color: t.muted)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: 6,
+                  children: [
+                    for (final paragraph in paragraphs)
+                      InlineText(
+                        inlines: paragraph,
+                        style: style.copyWith(color: t.muted),
+                        onLink: onLink,
+                      ),
+                  ],
+                ),
               ),
             ),
             CodeBlock(:final code) => ScrollingCode(
@@ -64,6 +60,74 @@ class CommentBody extends StatelessWidget {
           },
       ],
     );
+  }
+}
+
+class InlineText extends StatefulWidget {
+  const InlineText({
+    super.key,
+    required this.inlines,
+    required this.style,
+    this.onLink,
+  });
+
+  final List<Inline> inlines;
+  final TextStyle style;
+  final LinkHandler? onLink;
+
+  @override
+  State<InlineText> createState() => _InlineTextState();
+}
+
+class _InlineTextState extends State<InlineText> {
+  final _recognizers = <TapGestureRecognizer>[];
+
+  @override
+  void dispose() {
+    _disposeRecognizers();
+    super.dispose();
+  }
+
+  void _disposeRecognizers() {
+    for (final recognizer in _recognizers) {
+      recognizer.dispose();
+    }
+    _recognizers.clear();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _disposeRecognizers();
+    final accent = context.tokens.accent;
+    final link = widget.style.copyWith(
+      color: accent,
+      decoration: TextDecoration.underline,
+      decorationColor: accent,
+    );
+    final spans = <InlineSpan>[];
+    for (final inline in widget.inlines) {
+      switch (inline) {
+        case TextRun(:final text, :final italic):
+          spans.add(
+            TextSpan(
+              text: text,
+              style: italic
+                  ? const TextStyle(fontStyle: FontStyle.italic)
+                  : null,
+            ),
+          );
+        case LinkRun():
+          final onLink = widget.onLink;
+          final recognizer = onLink == null
+              ? null
+              : (TapGestureRecognizer()..onTap = () => onLink(inline));
+          if (recognizer != null) _recognizers.add(recognizer);
+          spans.add(
+            TextSpan(text: inline.label, style: link, recognizer: recognizer),
+          );
+      }
+    }
+    return Text.rich(TextSpan(children: spans), style: widget.style);
   }
 }
 

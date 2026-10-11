@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:offline_hn/ui/comment_block.dart';
+import 'package:offline_hn/comments/comment_block.dart';
 import 'package:offline_hn/ui/comment_body.dart';
 import 'package:offline_hn/ui/format.dart';
 import 'package:offline_hn/ui/tokens.dart';
@@ -18,6 +18,7 @@ class CommentRow extends StatelessWidget {
     this.hasChildren = false,
     this.textSize = 15,
     this.onToggle,
+    this.onLink,
   });
 
   final String author;
@@ -31,6 +32,7 @@ class CommentRow extends StatelessWidget {
   final bool hasChildren;
   final double textSize;
   final VoidCallback? onToggle;
+  final LinkHandler? onLink;
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +53,11 @@ class CommentRow extends StatelessWidget {
               _Byline(row: this),
               if (!collapsed) ...[
                 const SizedBox(height: 3),
-                CommentBody(blocks: blocks, textSize: textSize - 1),
+                CommentBody(
+                  blocks: blocks,
+                  textSize: textSize - 1,
+                  onLink: onLink,
+                ),
               ],
             ],
           ),
