@@ -25,9 +25,7 @@ DateTime nextDailyRun(
 /// Automatic runs follow the Wi-Fi setting. A run the user asked for takes
 /// whatever connection there is, and the runner decides what it may fetch.
 NetworkRequirement networkFor(SyncTrigger trigger, AppSettings settings) {
-  final userInitiated =
-      trigger == SyncTrigger.manual || trigger == SyncTrigger.filterLists;
-  return settings.wifiOnly && !userInitiated
+  return settings.wifiOnly && trigger != SyncTrigger.manual
       ? NetworkRequirement.unmetered
       : NetworkRequirement.connected;
 }

@@ -143,10 +143,6 @@ void main() {
         networkFor(SyncTrigger.manual, wifiOnly),
         NetworkRequirement.connected,
       );
-      expect(
-        networkFor(SyncTrigger.filterLists, wifiOnly),
-        NetworkRequirement.connected,
-      );
     });
   });
 

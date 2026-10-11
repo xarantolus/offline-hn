@@ -417,13 +417,6 @@ void main() {
     },
   );
 
-  test('the filter list trigger updates the lists and nothing else', () async {
-    expect(await runner.run(SyncTrigger.filterLists), SyncResult.completed);
-    expect(lists.updated, 1);
-    expect(hn.rankingCalls, 0);
-    expect((await runs()).single.outcome, SyncOutcome.succeeded);
-  });
-
   test('turned-off feeds are not fetched', () async {
     await settings.set(Settings.enabledFeeds, {FeedKind.ask});
     await runner.run(SyncTrigger.manual);

@@ -5,8 +5,6 @@ abstract interface class FilterListSync {
 
   /// Downloads what is missing or old. Never throws for a failed list.
   Future<void> ensureFresh();
-
-  Future<void> updateNow();
 }
 
 class FilterListsSync implements FilterListSync {
@@ -19,7 +17,4 @@ class FilterListsSync implements FilterListSync {
 
   @override
   Future<void> ensureFresh() => _lists.ensureFresh(mayDownload: true);
-
-  @override
-  Future<void> updateNow() => _lists.update();
 }

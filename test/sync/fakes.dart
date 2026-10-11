@@ -119,16 +119,12 @@ class FakeNotifier implements RunNotifier {
 
 class FakeLists implements FilterListSync {
   var ensured = 0;
-  var updated = 0;
 
   @override
   String get directoryPath => '/lists';
 
   @override
   Future<void> ensureFresh() async => ensured++;
-
-  @override
-  Future<void> updateNow() async => updated++;
 }
 
 /// Records pages the way the real saver does, without a WebView.

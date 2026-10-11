@@ -103,21 +103,6 @@ void main() {
     );
   });
 
-  test('filter lists are never pages', () {
-    expect(
-      _decide(SyncTrigger.filterLists, ConnectionKind.wifi, _settings()),
-      SyncAllowance.textOnly,
-    );
-    expect(
-      _decide(
-        SyncTrigger.filterLists,
-        ConnectionKind.mobile,
-        _settings(pagesOnMobile: true),
-      ),
-      SyncAllowance.textOnly,
-    );
-  });
-
   group('staleness', () {
     final now = DateTime.utc(2026, 10, 10, 12);
 

@@ -142,7 +142,6 @@ class SyncRunner {
     if (await _allowance(trigger, settings) == SyncAllowance.nothing) {
       return SyncResult.skipped;
     }
-    if (trigger == SyncTrigger.filterLists) await _updateLists();
 
     final run = await _syncs.beginOrResume(trigger, started);
     if (run.executing) {
@@ -172,11 +171,6 @@ class SyncRunner {
 
   Future<SyncResult> _execute(_Context context) async {
     final run = context.run;
-    if (run.trigger == SyncTrigger.filterLists) {
-      await _syncs.finish(run.id, SyncOutcome.succeeded, _clock());
-      return SyncResult.completed;
-    }
-
     var phase = run.phase;
     if (phase == SyncPhase.ranking) {
       await _rank(context);
@@ -469,14 +463,6 @@ class SyncRunner {
   Future<void> _freshenLists() async {
     try {
       await _lists.ensureFresh().timeout(_listsTimeout);
-    } on Exception catch (e) {
-      debugPrintSynchronously('filter lists failed: $e');
-    }
-  }
-
-  Future<void> _updateLists() async {
-    try {
-      await _lists.updateNow().timeout(_listsTimeout);
     } on Exception catch (e) {
       debugPrintSynchronously('filter lists failed: $e');
     }

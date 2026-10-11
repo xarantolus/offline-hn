@@ -1,4 +1,4 @@
-enum SyncTrigger { scheduled, periodic, catchUp, manual, filterLists }
+enum SyncTrigger { scheduled, periodic, catchUp, manual }
 
 enum SyncPhase { ranking, metadata, comments, pages, done }
 

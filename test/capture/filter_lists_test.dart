@@ -9,6 +9,11 @@ import 'package:offline_hn/capture/filter_lists.dart';
 import 'package:offline_hn/data/db/database.dart';
 import 'package:offline_hn/data/model/settings.dart';
 import 'package:offline_hn/data/repository/settings_store.dart';
+import 'package:offline_hn/data/model/sync_enums.dart';
+import 'package:offline_hn/sync/filter_list_update.dart';
+
+import '../sync/fakes.dart';
+
 import 'package:page_capture/filters.dart';
 
 const _a = 'https://lists.example/a.txt';
@@ -250,6 +255,39 @@ void main() {
       expect(await l.ensureFresh(mayDownload: false), isNull);
       expect(requested, isEmpty);
       expect(l.directory.existsSync(), isFalse);
+    });
+  });
+
+  group('manual update', () {
+    test('fetches lists that are still fresh', () async {
+      await use([_a, _b]);
+      final l = lists();
+      await l.update();
+      requested.clear();
+      expect(await l.ensureFresh(mayDownload: true), isNull);
+      final result = await FilterListUpdate(lists: l, probe: FakeProbe()).run();
+      expect(result, ListUpdateResult.updated);
+      expect(requested, contains(_a));
+      expect(requested, contains(_b));
+    });
+
+    test('reports a failed list', () async {
+      await use([_a, _b]);
+      served.remove(_b);
+      final result = await FilterListUpdate(
+        lists: lists(),
+        probe: FakeProbe(),
+      ).run();
+      expect(result, ListUpdateResult.someFailed);
+    });
+
+    test('does nothing without a connection', () async {
+      final result = await FilterListUpdate(
+        lists: lists(),
+        probe: FakeProbe(ConnectionKind.none),
+      ).run();
+      expect(result, ListUpdateResult.noConnection);
+      expect(requested, isEmpty);
     });
   });
 

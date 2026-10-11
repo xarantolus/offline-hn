@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:offline_hn/capture/filter_lists.dart';
 import 'package:offline_hn/data/db/database.dart';
 import 'package:offline_hn/data/model/daily_time.dart';
 import 'package:offline_hn/data/repository/page_repository.dart';
@@ -10,6 +11,7 @@ import 'package:offline_hn/data/repository/sync_repository.dart';
 import 'package:offline_hn/data/repository/thread_state_repository.dart';
 import 'package:offline_hn/data/model/settings.dart';
 import 'package:offline_hn/sync/connection_probe.dart';
+import 'package:offline_hn/sync/filter_list_update.dart';
 import 'package:offline_hn/sync/foreground_marker.dart';
 import 'package:offline_hn/sync/page_files.dart';
 import 'package:offline_hn/sync/scheduler.dart';
@@ -37,6 +39,7 @@ class AppServices {
     required this.scheduler,
     required this.notifier,
     required this.pageFiles,
+    required this.filterListUpdate,
   });
 
   final AppDatabase db;
@@ -48,6 +51,7 @@ class AppServices {
   final Scheduler scheduler;
   final SyncNotifier notifier;
   final PageFiles pageFiles;
+  final FilterListUpdate filterListUpdate;
 
   static Future<AppServices> open() async {
     await Workmanager().initialize(syncCallbackDispatcher);
@@ -57,6 +61,7 @@ class AppServices {
     final notifier = SyncNotifier(FlutterLocalNotificationsPlugin(), marker);
     await notifier.initialize();
     const queue = WorkmanagerQueue();
+    final probe = PluginConnectionProbe();
     return AppServices._(
       db: db,
       settings: settings,
@@ -66,10 +71,17 @@ class AppServices {
       scheduler: Scheduler(queue),
       notifier: notifier,
       pageFiles: await PageFiles.locate(),
+      filterListUpdate: FilterListUpdate(
+        lists: FilterLists(
+          directory: await FilterLists.locate(),
+          settings: settings,
+        ),
+        probe: probe,
+      ),
       sync: SyncController(
         syncs: SyncRepository(db),
         settings: settings,
-        probe: PluginConnectionProbe(),
+        probe: probe,
         queue: queue,
         notifier: notifier,
         marker: marker,
