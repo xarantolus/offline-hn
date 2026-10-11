@@ -23,10 +23,16 @@ import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 const _baseTextSize = 15.0;
 
 class ThreadPage extends StatefulWidget {
-  const ThreadPage({super.key, required this.storyId, this.focusCommentId});
+  const ThreadPage({
+    super.key,
+    required this.storyId,
+    this.focusCommentId,
+    this.openArticle = false,
+  });
 
   final int storyId;
   final int? focusCommentId;
+  final bool openArticle;
 
   @override
   State<ThreadPage> createState() => _ThreadPageState();
@@ -105,6 +111,9 @@ class _ThreadPageState extends State<ThreadPage> {
         }),
       );
     await _markOpened();
+    if (widget.openArticle && mounted) {
+      await _opener.openArticle(context, story);
+    }
   }
 
   Future<void> _markOpened() async {

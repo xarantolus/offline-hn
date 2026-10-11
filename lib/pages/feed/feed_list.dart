@@ -109,8 +109,7 @@ class _FeedListState extends State<FeedList> {
           read: story.read,
           saved: story.saved,
           hasCopy: hasCopy,
-          onTap: () =>
-              hasCopy ? unawaited(_openCopy(story, page)) : _openThread(story),
+          onTap: () => _openThread(story, openArticle: true),
           onOpenComments: () => _openThread(story),
           onLongPress: () => unawaited(_menu(story)),
         );
@@ -118,16 +117,14 @@ class _FeedListState extends State<FeedList> {
     );
   }
 
-  Future<void> _openCopy(StoryRow story, PageCopyRow page) async {
-    unawaited(widget.services.stories.setRead(story.id, value: true));
-    await StoryOpener(widget.services).openSavedCopy(context, story, page);
-  }
-
-  void _openThread(StoryRow story) {
+  void _openThread(StoryRow story, {bool openArticle = false}) {
     unawaited(widget.services.stories.setRead(story.id, value: true));
     unawaited(
       Navigator.of(context).push(
-        MaterialPageRoute<void>(builder: (_) => ThreadPage(storyId: story.id)),
+        MaterialPageRoute<void>(
+          builder: (_) =>
+              ThreadPage(storyId: story.id, openArticle: openArticle),
+        ),
       ),
     );
   }

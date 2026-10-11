@@ -62,6 +62,24 @@ class StoryOpener {
     );
   }
 
+  /// The saved copy when there is one, else the live site while online, else
+  /// nothing.
+  Future<void> openArticle(BuildContext context, StoryRow story) async {
+    final page = await _services.pages.watch(story.id).first;
+    if (!context.mounted) return;
+    if (page != null &&
+        page.status == PageStatus.ok &&
+        page.relativePath != null) {
+      await openSavedCopy(context, story, page);
+      return;
+    }
+    final url = story.url == null ? null : Uri.tryParse(story.url!);
+    if (url == null) return;
+    final connection = await _services.sync.connection.first;
+    if (!context.mounted || connection == ConnectionKind.none) return;
+    await openWeb(context, url);
+  }
+
   /// In a custom tab. Says so instead of opening an error page when the phone
   /// is offline.
   Future<void> openWeb(BuildContext context, Uri uri) async {
