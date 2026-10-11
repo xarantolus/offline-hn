@@ -19,7 +19,6 @@ class CommentTile extends StatefulWidget {
     this.startsGroup = false,
     this.collapsed = false,
     this.hiddenCount = 0,
-    this.hasChildren = false,
     this.textSize = 15,
     this.onToggle,
     this.onLink,
@@ -35,7 +34,6 @@ class CommentTile extends StatefulWidget {
   final bool startsGroup;
   final bool collapsed;
   final int hiddenCount;
-  final bool hasChildren;
   final double textSize;
   final VoidCallback? onToggle;
   final LinkHandler? onLink;
@@ -75,7 +73,7 @@ class _CommentTileState extends State<CommentTile> {
         key: _area,
         onSelectionChanged: _selectionChanged,
         child: InkWell(
-          onTap: widget.hasChildren ? _tap : null,
+          onTap: _tap,
           child: Padding(
             padding: EdgeInsets.fromLTRB(
               widget.depth == 0 ? Spacing.gutter : Spacing.sm,
@@ -162,10 +160,14 @@ class _Byline extends StatelessWidget {
             ],
           ),
         ),
-        if (row.collapsed)
+        if (row.collapsed && row.hiddenCount > 0)
           _Pill(label: '+${row.hiddenCount}', size: 11.5, radius: 8)
-        else if (row.hasChildren)
-          Icon(Icons.expand_less, size: 16, color: t.muted),
+        else
+          Icon(
+            row.collapsed ? Icons.expand_more : Icons.expand_less,
+            size: 16,
+            color: t.muted,
+          ),
       ],
     );
   }

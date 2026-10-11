@@ -377,7 +377,6 @@ class _ThreadPageState extends State<ThreadPage> {
           isNew: seen != null && time != null && time.isAfter(seen),
           collapsed: _collapsed.contains(row.id),
           hiddenCount: entry.descendants,
-          hasChildren: entry.descendants > 0,
           textSize: textSize,
           selectionGuard: _selection,
           onToggle: () => _toggle(row.id),
