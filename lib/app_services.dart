@@ -11,6 +11,7 @@ import 'package:offline_hn/data/repository/thread_state_repository.dart';
 import 'package:offline_hn/data/model/settings.dart';
 import 'package:offline_hn/sync/connection_probe.dart';
 import 'package:offline_hn/sync/foreground_marker.dart';
+import 'package:offline_hn/sync/page_files.dart';
 import 'package:offline_hn/sync/scheduler.dart';
 import 'package:offline_hn/sync/sync_controller.dart';
 import 'package:offline_hn/sync/sync_notifier.dart';
@@ -35,6 +36,7 @@ class AppServices {
     required this.sync,
     required this.scheduler,
     required this.notifier,
+    required this.pageFiles,
   });
 
   final AppDatabase db;
@@ -45,6 +47,7 @@ class AppServices {
   final SyncController sync;
   final Scheduler scheduler;
   final SyncNotifier notifier;
+  final PageFiles pageFiles;
 
   static Future<AppServices> open() async {
     await Workmanager().initialize(syncCallbackDispatcher);
@@ -62,6 +65,7 @@ class AppServices {
       threadStates: ThreadStateRepository(db),
       scheduler: Scheduler(queue),
       notifier: notifier,
+      pageFiles: await PageFiles.locate(),
       sync: SyncController(
         syncs: SyncRepository(db),
         settings: settings,

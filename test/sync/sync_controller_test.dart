@@ -113,6 +113,29 @@ void main() {
     });
   });
 
+  group('whether the empty screen must offer the fetch', () {
+    test('Wi-Fi lets the catch-up run by itself', () async {
+      expect(await controller.canFetchAutomatically(), isTrue);
+    });
+
+    test('mobile data with Wi-Fi only does not', () async {
+      probe.kind = ConnectionKind.mobile;
+      expect(await controller.canFetchAutomatically(), isFalse);
+      await settings.set(Settings.wifiOnly, false);
+      expect(await controller.canFetchAutomatically(), isTrue);
+    });
+
+    test('being offline does not', () async {
+      probe.kind = ConnectionKind.none;
+      expect(await controller.canFetchAutomatically(), isFalse);
+    });
+
+    test('the connection stream starts with where things stand', () async {
+      probe.kind = ConnectionKind.mobile;
+      expect(await controller.connection.first, ConnectionKind.mobile);
+    });
+  });
+
   group('catching up on open', () {
     test('an empty store counts as stale', () async {
       await controller.catchUpIfStale();

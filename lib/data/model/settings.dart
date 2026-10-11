@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:offline_hn/data/model/comment_order.dart';
 import 'package:offline_hn/data/model/daily_time.dart';
 import 'package:offline_hn/data/model/feed_kind.dart';
 import 'package:offline_hn/data/model/filter_list_status.dart';
@@ -67,6 +68,13 @@ abstract final class Settings {
     1,
     double.parse,
     _encodeDouble,
+  );
+
+  static const commentOrder = Setting<CommentOrder>(
+    'commentOrder',
+    CommentOrder.hn,
+    _decodeCommentOrder,
+    _encodeCommentOrder,
   );
 
   static const enabledFeeds = Setting<Set<FeedKind>>(
@@ -162,6 +170,11 @@ abstract final class Settings {
   static String _encodeFeeds(Set<FeedKind> value) =>
       value.map((kind) => kind.name).join(',');
 
+  static CommentOrder _decodeCommentOrder(String raw) =>
+      CommentOrder.values.byName(raw);
+
+  static String _encodeCommentOrder(CommentOrder value) => value.name;
+
   static ViewerKind _decodeViewer(String raw) {
     for (final kind in ViewerKind.values) {
       if (kind.name == raw) return kind;
@@ -180,6 +193,7 @@ class AppSettings {
     required this.pagesOnMobile,
     required this.pageBudgetBytes,
     required this.commentTextScale,
+    required this.commentOrder,
     required this.enabledFeeds,
     required this.viewer,
     required this.adBlocking,
@@ -198,6 +212,7 @@ class AppSettings {
     pagesOnMobile: Settings.pagesOnMobile.read(raw),
     pageBudgetBytes: Settings.pageBudgetBytes.read(raw),
     commentTextScale: Settings.commentTextScale.read(raw),
+    commentOrder: Settings.commentOrder.read(raw),
     enabledFeeds: Settings.enabledFeeds.read(raw),
     viewer: Settings.viewer.read(raw),
     adBlocking: Settings.adBlocking.read(raw),
@@ -213,6 +228,7 @@ class AppSettings {
   final bool pagesOnMobile;
   final int pageBudgetBytes;
   final double commentTextScale;
+  final CommentOrder commentOrder;
   final Set<FeedKind> enabledFeeds;
   final ViewerKind viewer;
   final bool adBlocking;

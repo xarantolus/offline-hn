@@ -141,6 +141,17 @@ class StoryRepository {
     ];
   }
 
+  /// Where an HN item id lives in the store: a story, or a comment of one.
+  /// Null when the item is not stored.
+  Future<({int storyId, int? commentId})?> locateItem(int itemId) async {
+    if (await story(itemId) != null) return (storyId: itemId, commentId: null);
+    final comment = await (_db.select(
+      _db.comments,
+    )..where((c) => c.id.equals(itemId))).getSingleOrNull();
+    if (comment == null || await story(comment.storyId) == null) return null;
+    return (storyId: comment.storyId, commentId: itemId);
+  }
+
   Stream<StoryRow?> watchStory(int id) => (_db.select(
     _db.stories,
   )..where((s) => s.id.equals(id))).watchSingleOrNull();

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:offline_hn/comments/comment_parser.dart';
-import 'package:offline_hn/ui/comment_row.dart';
+import 'package:offline_hn/ui/comment_tile.dart';
 import 'package:offline_hn/data/model/feed_kind.dart';
 import 'package:offline_hn/ui/settings_section.dart';
 import 'package:offline_hn/ui/tokens.dart';
@@ -68,7 +68,7 @@ class _MockSettingsPageState extends State<MockSettingsPage> {
                 ),
                 Padding(
                   padding: const EdgeInsets.only(bottom: Spacing.md),
-                  child: CommentRow(
+                  child: CommentTile(
                     author: 'pgrunwald',
                     age: const Duration(minutes: 22),
                     depth: 0,

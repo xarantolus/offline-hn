@@ -46,6 +46,22 @@ class SyncController {
 
   Stream<DateTime?> get lastSync => _syncs.watchLastSuccessfulSync();
 
+  /// The connection now, then every change.
+  Stream<ConnectionKind> get connection async* {
+    yield await _probe.current();
+    yield* _probe.changes;
+  }
+
+  /// Whether the catch-up on open can run over the current connection. When it
+  /// cannot, the empty screen offers the fetch itself.
+  Future<bool> canFetchAutomatically() async =>
+      syncAllowance(
+        trigger: SyncTrigger.catchUp,
+        connection: await _probe.current(),
+        settings: await _settings.load(),
+      ) !=
+      SyncAllowance.nothing;
+
   Future<SyncRequest> requestSync(SyncTrigger trigger) async {
     final settings = await _settings.load();
     final allowance = syncAllowance(

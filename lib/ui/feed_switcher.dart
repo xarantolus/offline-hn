@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:offline_hn/data/model/feed_kind.dart';
-import 'package:offline_hn/ui/small_caps.dart';
 import 'package:offline_hn/ui/tokens.dart';
 
 extension FeedKindLabel on FeedKind {
@@ -12,12 +11,12 @@ class FeedSwitcher extends StatelessWidget {
     super.key,
     required this.selected,
     required this.onSelected,
-    required this.status,
+    this.status,
   });
 
   final FeedKind selected;
   final ValueChanged<FeedKind> onSelected;
-  final String status;
+  final Widget? status;
 
   @override
   Widget build(BuildContext context) {
@@ -54,8 +53,7 @@ class FeedSwitcher extends StatelessWidget {
             selected: {selected},
             onSelectionChanged: (s) => onSelected(s.first),
           ),
-          const SizedBox(height: Spacing.md),
-          SmallCaps(status),
+          if (status != null) ...[const SizedBox(height: Spacing.md), status!],
         ],
       ),
     );

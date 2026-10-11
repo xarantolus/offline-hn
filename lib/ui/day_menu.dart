@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:offline_hn/data/model/local_day.dart';
 
-String dayLabel(BuildContext context, DateTime day, DateTime today) {
-  final gap = DateUtils.dateOnly(today)
-      .difference(DateUtils.dateOnly(day))
-      .inDays;
+String dayLabel(BuildContext context, LocalDay day, LocalDay today) {
+  final gap = today.asUtcMidnight.difference(day.asUtcMidnight).inDays;
   return switch (gap) {
     0 => 'Today',
     1 => 'Yesterday',
-    _ => MaterialLocalizations.of(context).formatMediumDate(day),
+    _ => MaterialLocalizations.of(
+      context,
+    ).formatMediumDate(DateTime(day.year, day.month, day.day)),
   };
 }
 
@@ -20,26 +21,27 @@ class DayMenu extends StatelessWidget {
     required this.today,
   });
 
-  final List<DateTime> days;
-  final DateTime selected;
-  final DateTime today;
-  final ValueChanged<DateTime> onSelected;
+  final List<LocalDay> days;
+  final LocalDay selected;
+  final LocalDay today;
+  final ValueChanged<LocalDay> onSelected;
 
   @override
   Widget build(BuildContext context) {
-    return PopupMenuButton<DateTime>(
+    return PopupMenuButton<LocalDay>(
       tooltip: 'Choose day',
+      enabled: days.isNotEmpty,
       onSelected: onSelected,
       itemBuilder: (_) => [
         for (final day in days)
           CheckedPopupMenuItem(
             value: day,
-            checked: DateUtils.isSameDay(day, selected),
+            checked: day == selected,
             child: Text(dayLabel(context, day, today)),
           ),
       ],
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [

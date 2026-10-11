@@ -3,44 +3,73 @@ import 'package:offline_hn/ui/format.dart';
 import 'package:offline_hn/ui/small_caps.dart';
 import 'package:offline_hn/ui/tokens.dart';
 
-class SavedCopyInfo {
-  const SavedCopyInfo({required this.sizeMb, required this.fetchedAt});
+enum CopyState { saved, none, tooLarge, failed, noLink }
 
-  final double sizeMb;
-  final String fetchedAt;
+class SavedCopyInfo {
+  const SavedCopyInfo.saved({required String size, required String fetched})
+    : state = CopyState.saved,
+      detail = 'Saved copy · $size · fetched $fetched';
+
+  const SavedCopyInfo.none()
+    : state = CopyState.none,
+      detail = 'No saved copy · live site only';
+
+  const SavedCopyInfo.tooLarge()
+    : state = CopyState.tooLarge,
+      detail = 'Too large to save · live site only';
+
+  const SavedCopyInfo.failed()
+    : state = CopyState.failed,
+      detail = 'Could not be saved · live site only';
+
+  const SavedCopyInfo.noLink() : state = CopyState.noLink, detail = '';
+
+  final CopyState state;
+  final String detail;
 }
 
 class ThreadHeader extends StatelessWidget {
   const ThreadHeader({
     super.key,
     required this.title,
-    required this.domain,
+    required this.source,
     required this.author,
     required this.points,
     required this.comments,
     required this.newComments,
-    required this.savedCopy,
+    required this.copy,
+    required this.saved,
+    required this.offline,
+    this.body,
     this.onOpenSaved,
     this.onOpenLive,
-    this.onSave,
+    this.onToggleSaved,
     this.onShare,
   });
 
   final String title;
-  final String? domain;
-  final String author;
-  final int points;
+  final String source;
+  final String? author;
+  final int? points;
   final int comments;
   final int newComments;
-  final SavedCopyInfo? savedCopy;
+  final SavedCopyInfo copy;
+  final bool saved;
+  final bool offline;
+  final Widget? body;
   final VoidCallback? onOpenSaved;
   final VoidCallback? onOpenLive;
-  final VoidCallback? onSave;
+  final VoidCallback? onToggleSaved;
   final VoidCallback? onShare;
 
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
+    final facts = [
+      if (author != null) 'By $author',
+      if (points != null) pluralize(points!, 'point'),
+      pluralize(comments, 'comment'),
+    ].join(' · ');
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         Spacing.gutter,
@@ -51,7 +80,7 @@ class ThreadHeader extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SmallCaps(domain ?? 'Ask HN', color: t.accent),
+          SmallCaps(source, color: t.accent),
           const SizedBox(height: Spacing.sm),
           Text(title, style: t.threadTitle),
           const SizedBox(height: Spacing.md),
@@ -59,12 +88,7 @@ class ThreadHeader extends StatelessWidget {
             TextSpan(
               style: t.smallCaps,
               children: [
-                TextSpan(
-                  text:
-                      'By $author · ${formatCount(points)} points · '
-                              '${formatCount(comments)} comments'
-                          .toUpperCase(),
-                ),
+                TextSpan(text: facts.toUpperCase()),
                 if (newComments > 0)
                   TextSpan(
                     text: ' · $newComments NEW',
@@ -73,12 +97,15 @@ class ThreadHeader extends StatelessWidget {
               ],
             ),
           ),
+          if (body != null) ...[const SizedBox(height: Spacing.lg), body!],
           const SizedBox(height: Spacing.lg),
           _CopyPanel(
-            savedCopy: savedCopy,
+            copy: copy,
+            saved: saved,
+            offline: offline,
             onOpenSaved: onOpenSaved,
             onOpenLive: onOpenLive,
-            onSave: onSave,
+            onToggleSaved: onToggleSaved,
             onShare: onShare,
           ),
         ],
@@ -89,75 +116,85 @@ class ThreadHeader extends StatelessWidget {
 
 class _CopyPanel extends StatelessWidget {
   const _CopyPanel({
-    required this.savedCopy,
+    required this.copy,
+    required this.saved,
+    required this.offline,
     this.onOpenSaved,
     this.onOpenLive,
-    this.onSave,
+    this.onToggleSaved,
     this.onShare,
   });
 
-  final SavedCopyInfo? savedCopy;
+  final SavedCopyInfo copy;
+  final bool saved;
+  final bool offline;
   final VoidCallback? onOpenSaved;
   final VoidCallback? onOpenLive;
-  final VoidCallback? onSave;
+  final VoidCallback? onToggleSaved;
   final VoidCallback? onShare;
 
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
-    final copy = savedCopy;
-    final style = TextStyle(fontSize: 13, color: t.muted);
+    final hasCopy = copy.state == CopyState.saved;
+    final hasLink = copy.state != CopyState.noLink;
+    final detail = !hasCopy && offline
+        ? '${copy.detail} · offline'
+        : copy.detail;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Hairline(),
-        const SizedBox(height: Spacing.md),
-        Row(
-          children: [
-            Icon(
-              copy == null ? Icons.cloud_outlined : Icons.offline_pin_outlined,
-              size: 17,
-              color: copy == null ? t.muted : t.accent,
-            ),
-            const SizedBox(width: Spacing.sm),
-            Expanded(
-              child: Text(
-                copy == null
-                    ? 'No saved copy · live site only'
-                    : 'Saved copy · ${formatSize(copy.sizeMb)} · '
-                          'fetched ${copy.fetchedAt}',
-                style: style,
+        if (hasLink) ...[
+          const SizedBox(height: Spacing.md),
+          Row(
+            children: [
+              Icon(
+                hasCopy ? Icons.offline_pin_outlined : Icons.cloud_outlined,
+                size: 17,
+                color: hasCopy ? t.accent : t.muted,
               ),
-            ),
-          ],
-        ),
+              const SizedBox(width: Spacing.sm),
+              Expanded(
+                child: Text(
+                  detail,
+                  style: TextStyle(fontSize: 13, color: t.muted),
+                ),
+              ),
+            ],
+          ),
+        ],
         const SizedBox(height: Spacing.md),
         Row(
           children: [
-            Expanded(
-              child: copy == null
-                  ? FilledButton.tonalIcon(
-                      onPressed: onOpenLive,
-                      icon: const Icon(Icons.open_in_new, size: 18),
-                      label: const Text('Open live site'),
-                    )
-                  : FilledButton.icon(
-                      onPressed: onOpenSaved,
-                      icon: const Icon(Icons.offline_pin_outlined, size: 18),
-                      label: const Text('Open saved copy'),
-                    ),
-            ),
+            if (hasLink)
+              Expanded(
+                child: hasCopy
+                    ? FilledButton.icon(
+                        onPressed: onOpenSaved,
+                        icon: const Icon(Icons.offline_pin_outlined, size: 18),
+                        label: const Text('Open saved copy'),
+                      )
+                    : FilledButton.tonalIcon(
+                        onPressed: onOpenLive,
+                        icon: const Icon(Icons.open_in_new, size: 18),
+                        label: const Text('Open live site'),
+                      ),
+              )
+            else
+              const Spacer(),
             const SizedBox(width: Spacing.xs),
-            if (copy != null)
+            if (hasCopy)
               IconButton(
                 tooltip: 'Open live site',
                 onPressed: onOpenLive,
                 icon: const Icon(Icons.open_in_new),
               ),
             IconButton(
-              tooltip: 'Save',
-              onPressed: onSave,
-              icon: const Icon(Icons.bookmark_border),
+              tooltip: saved ? 'Remove bookmark' : 'Bookmark',
+              onPressed: onToggleSaved,
+              icon: Icon(saved ? Icons.bookmark : Icons.bookmark_border),
+              color: saved ? t.accent : null,
             ),
             IconButton(
               tooltip: 'Share',

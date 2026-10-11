@@ -96,6 +96,9 @@ class FakeProbe implements ConnectionProbe {
 
   @override
   Future<ConnectionKind> current() async => kind;
+
+  @override
+  Stream<ConnectionKind> get changes => const Stream.empty();
 }
 
 class FakeNotifier implements RunNotifier {

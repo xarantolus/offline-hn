@@ -3,6 +3,8 @@ import 'package:offline_hn/data/model/sync_enums.dart';
 
 abstract interface class ConnectionProbe {
   Future<ConnectionKind> current();
+
+  Stream<ConnectionKind> get changes;
 }
 
 /// Wi-Fi and ethernet are not metered; anything else that carries traffic is
@@ -29,4 +31,8 @@ class PluginConnectionProbe implements ConnectionProbe {
   @override
   Future<ConnectionKind> current() async =>
       connectionKindOf(await _connectivity.checkConnectivity());
+
+  @override
+  Stream<ConnectionKind> get changes =>
+      _connectivity.onConnectivityChanged.map(connectionKindOf);
 }

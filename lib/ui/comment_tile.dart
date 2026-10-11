@@ -4,8 +4,8 @@ import 'package:offline_hn/ui/comment_body.dart';
 import 'package:offline_hn/ui/format.dart';
 import 'package:offline_hn/ui/tokens.dart';
 
-class CommentRow extends StatelessWidget {
-  const CommentRow({
+class CommentTile extends StatelessWidget {
+  const CommentTile({
     super.key,
     required this.author,
     required this.age,
@@ -70,7 +70,7 @@ class CommentRow extends StatelessWidget {
 class _Byline extends StatelessWidget {
   const _Byline({required this.row});
 
-  final CommentRow row;
+  final CommentTile row;
 
   @override
   Widget build(BuildContext context) {

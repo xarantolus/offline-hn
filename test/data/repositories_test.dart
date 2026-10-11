@@ -192,6 +192,19 @@ void main() {
       expect(comments.map((c) => c.id), [11, 13]);
     });
 
+    test('an item id is found as a story or as a comment of one', () async {
+      await stories.replaceThread(
+        RemoteThread(
+          story: _story(1),
+          comments: [const RemoteComment(id: 10, text: 'x')],
+        ),
+        t0,
+      );
+      expect(await stories.locateItem(1), (storyId: 1, commentId: null));
+      expect(await stories.locateItem(10), (storyId: 1, commentId: 10));
+      expect(await stories.locateItem(77), isNull);
+    });
+
     test(
       'thread state: opening advances the marker, never backwards',
       () async {

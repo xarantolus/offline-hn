@@ -17,4 +17,8 @@ String formatCount(int n) {
 String pluralize(int n, String one, [String? many]) =>
     '${formatCount(n)} ${n == 1 ? one : (many ?? '${one}s')}';
 
-String formatSize(double mb) => '${mb.toStringAsFixed(1)} MB';
+String formatSize(int bytes) {
+  const kilo = 1024;
+  if (bytes < kilo * kilo) return '${(bytes / kilo).round()} KB';
+  return '${(bytes / (kilo * kilo)).toStringAsFixed(1)} MB';
+}
