@@ -7,6 +7,9 @@ import io.github.xarantolus.page_capture.AdblockNative
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.util.concurrent.locks.ReentrantReadWriteLock
+import kotlin.concurrent.read
+import kotlin.concurrent.write
 
 class CosmeticResources(
     val hide: List<String>,
@@ -21,11 +24,51 @@ sealed interface Verdict {
     class Redirect(val mimeType: String, val body: ByteArray) : Verdict
 }
 
+/**
+ * Owns a native handle. Whoever uses the engine holds a lease ([acquire]/[release]); [close] frees the
+ * handle once the last lease is gone. Stray calls after that find an empty engine instead of freed memory.
+ */
 class AdblockEngine private constructor(private val handle: Long) {
+    private val lock = ReentrantReadWriteLock()
+    private var leases = 0
+    private var closing = false
+    private var freed = false
+
+    @Synchronized
+    fun acquire(): AdblockEngine {
+        check(!closing) { "engine is closed" }
+        leases++
+        return this
+    }
+
+    fun release() {
+        synchronized(this) {
+            leases--
+            if (!closing || leases > 0) return
+        }
+        free()
+    }
+
+    fun close() {
+        synchronized(this) {
+            closing = true
+            if (leases > 0) return
+        }
+        free()
+    }
+
+    private fun free() = lock.write {
+        if (freed) return@write
+        freed = true
+        AdblockNative.free(handle)
+    }
+
+    private fun <T> live(whenClosed: T, block: () -> T): T = lock.read { if (freed) whenClosed else block() }
+
     /** What to do with a request of any of [kinds]; null lets it through. */
     fun verdict(url: String, pageUrl: String, kinds: List<String>): Verdict? {
         for (kind in kinds) {
-            val answer = AdblockNative.check(handle, url, pageUrl, kind) ?: continue
+            val answer = live(null) { AdblockNative.check(handle, url, pageUrl, kind) } ?: continue
             return redirectOf(answer) ?: Verdict.Block
         }
         return null
@@ -38,7 +81,7 @@ class AdblockEngine private constructor(private val handle: Long) {
     }
 
     fun cosmetic(pageUrl: String): CosmeticResources {
-        val json = JSONObject(AdblockNative.cosmetic(handle, pageUrl))
+        val json = JSONObject(live(EMPTY_COSMETIC) { AdblockNative.cosmetic(handle, pageUrl) })
         return CosmeticResources(
             hide = strings(json.getJSONArray("hide")),
             exceptions = strings(json.getJSONArray("exceptions")),
@@ -48,15 +91,13 @@ class AdblockEngine private constructor(private val handle: Long) {
     }
 
     fun genericSelectors(classes: List<String>, ids: List<String>, exceptions: List<String>): List<String> =
-        AdblockNative.genericSelectors(handle, classes.toTypedArray(), ids.toTypedArray(), exceptions.toTypedArray()).toList()
-
-    @Suppress("unused", "ProtectedInFinal")
-    protected fun finalize() {
-        AdblockNative.free(handle)
-    }
+        live(emptyList()) {
+            AdblockNative.genericSelectors(handle, classes.toTypedArray(), ids.toTypedArray(), exceptions.toTypedArray()).toList()
+        }
 
     companion object {
         private const val TAG = "PageCapture"
+        private const val EMPTY_COSMETIC = """{"hide":[],"exceptions":[],"script":"","generichide":false}"""
         private val DATA_URL = Regex("data:([^;,]+);base64,(.*)", RegexOption.DOT_MATCHES_ALL)
 
         private fun strings(array: JSONArray) = List(array.length()) { array.getString(it) }

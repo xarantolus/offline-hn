@@ -11,6 +11,7 @@ class CaptureQueue private constructor(
     private class Entry(val owner: Any, val request: CaptureRequest, val result: MethodChannel.Result) {
         var cancelled = false
         var session: CaptureSession? = null
+        var tools: CaptureTools? = null
     }
 
     private val entries = ArrayDeque<Entry>()
@@ -45,6 +46,7 @@ class CaptureQueue private constructor(
             val alone = active.isEmpty()
             active.add(entry)
             tooling.prepare(entry.request) { tools ->
+                entry.tools = tools
                 if (entry.cancelled) return@prepare done(entry, CaptureOutcome.Failure.cancelled().toMap(0))
                 val session = CaptureSession(context, entry.request, tools, clearsBrowserState = alone) { done(entry, it) }
                 entry.session = session
@@ -54,6 +56,8 @@ class CaptureQueue private constructor(
     }
 
     private fun done(entry: Entry, outcome: Map<String, Any?>) {
+        entry.tools?.release()
+        entry.tools = null
         entry.result.success(outcome)
         active.remove(entry)
         startNext()

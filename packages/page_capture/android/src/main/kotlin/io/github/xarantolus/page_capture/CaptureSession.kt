@@ -24,7 +24,11 @@ import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
 
 /** What one capture needs besides the request, loaded before the WebView exists. */
-class CaptureTools(val filters: AdblockEngine?, val consent: ConsentAssets?)
+class CaptureTools(val filters: AdblockEngine?, val consent: ConsentAssets?) {
+    fun release() {
+        filters?.release()
+    }
+}
 
 /** One page, start to finish, on the main thread. [onFinished] is called exactly once. */
 class CaptureSession(

@@ -14,10 +14,7 @@ class CaptureTooling(private val context: Context, private val assetPrefix: Stri
     private val main = Handler(Looper.getMainLooper())
     private var cachedFilters: Pair<String, AdblockEngine>? = null
     private var cachedConsent: ConsentAssets? = null
-    private val release = Runnable {
-        cachedFilters = null
-        cachedConsent = null
-    }
+    private val release = Runnable { dropCached() }
 
     /** Loads on a worker thread and hands the tools to [then] on the main thread. */
     fun prepare(request: CaptureRequest, then: (CaptureTools) -> Unit) {
@@ -31,6 +28,15 @@ class CaptureTooling(private val context: Context, private val assetPrefix: Stri
         }
     }
 
+    @Synchronized
+    private fun dropCached() {
+        cachedFilters?.second?.close()
+        cachedFilters = null
+        cachedConsent = null
+    }
+
+    /** The engine comes back leased; [CaptureTools.release] gives it back. */
+    @Synchronized
     private fun filters(request: CaptureRequest): AdblockEngine? {
         if (!request.blockRequests && !request.hideElements) return null
         val directory = request.filterListsDirectory?.let(::File) ?: return null
@@ -40,15 +46,20 @@ class CaptureTooling(private val context: Context, private val assetPrefix: Stri
             ?: return null
         val resources = File(directory, request.filterResourcesFile)
         val key = (files + resources).joinToString { "${it.name}:${it.length()}:${it.lastModified()}" }
-        cachedFilters?.takeIf { it.first == key }?.let { return it.second }
+        cachedFilters?.takeIf { it.first == key }?.let { return it.second.acquire() }
         return try {
             AdblockEngine.open(files, File(directory, STORED_ENGINE), File(directory, STORED_KEY), resources)
-                ?.also { cachedFilters = key to it }
+                ?.also {
+                    cachedFilters?.second?.close()
+                    cachedFilters = key to it
+                }
+                ?.acquire()
         } catch (e: IOException) {
             null
         }
     }
 
+    @Synchronized
     private fun consent(request: CaptureRequest): ConsentAssets? {
         if (!request.rejectConsent) return null
         cachedConsent?.let { return it }
