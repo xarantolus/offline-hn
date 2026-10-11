@@ -92,6 +92,74 @@ void main() {
     expect(lists.ensured, 1);
   });
 
+  group('concurrency', () {
+    setUp(() {
+      hn.rankings[FeedKind.top] = [for (var i = 1; i <= 40; i++) i];
+      hn.rankings[FeedKind.best] = [];
+      hn.rankings[FeedKind.ask] = [];
+    });
+
+    test('threads are fetched four at a time and all stored', () async {
+      hn.latency = const Duration(milliseconds: 5);
+      await runner.run(SyncTrigger.manual);
+
+      expect(hn.maxThreadsInFlight, 4);
+      expect(
+        await items(SyncItemKind.comments),
+        everyElement(
+          isA<SyncItemRow>().having(
+            (i) => i.status,
+            'status',
+            SyncItemStatus.done,
+          ),
+        ),
+      );
+      expect(hn.threadCalls.toSet(), hasLength(hn.threadCalls.length));
+    });
+
+    test('pages are captured two at a time, best-ranked first', () async {
+      saver.latency = const Duration(milliseconds: 5);
+      await runner.run(SyncTrigger.manual);
+
+      expect(saver.maxInFlight, 2);
+      final linked = [
+        for (var i = 1; i <= 40; i++)
+          if (i % 5 != 0) i,
+      ];
+      expect(saver.saved, linked.take(60).toList());
+    });
+
+    test('a stop in the middle leaves a clean cut and resumes', () async {
+      saver.latency = const Duration(milliseconds: 5);
+      saver.onSave = (id) {
+        if (id == 9) runner.requestStop();
+      };
+      expect(await runner.run(SyncTrigger.manual), SyncResult.stopped);
+
+      final done = {
+        for (final item in await items(SyncItemKind.page))
+          if (item.status == SyncItemStatus.done) item.storyId,
+      };
+      expect(done, isNotEmpty);
+      expect(done.length, lessThan(32));
+      expect(
+        done.every((id) => id <= 10),
+        isTrue,
+        reason: 'nothing past the cut was started',
+      );
+
+      saver.onSave = null;
+      saver.cancelled = false;
+      expect(await runner.run(SyncTrigger.manual), SyncResult.completed);
+      for (final id in done) {
+        expect(saver.saved.where((s) => s == id), hasLength(1));
+      }
+      expect((await items(SyncItemKind.page)).map((i) => i.status).toSet(), {
+        SyncItemStatus.done,
+      });
+    });
+  });
+
   test('top-level comments are stored in HN order', () async {
     hn.kids[1] = [102, 101];
     await runner.run(SyncTrigger.manual);
@@ -213,7 +281,7 @@ void main() {
     saver.onSave = (_) => runner.requestStop();
     expect(await runner.run(SyncTrigger.manual), SyncResult.stopped);
     expect((await runs()).single.finishedAt, isNull);
-    expect(saver.saved, hasLength(1));
+    expect(saver.saved.length, inInclusiveRange(1, 2));
     expect(saver.cancelled, isTrue);
 
     saver.onSave = null;
@@ -281,7 +349,7 @@ void main() {
   test('losing Wi-Fi in the middle of the pages ends them early', () async {
     saver.onSave = (_) => probe.kind = ConnectionKind.mobile;
     expect(await runner.run(SyncTrigger.manual), SyncResult.completed);
-    expect(saver.saved, hasLength(1));
+    expect(saver.saved.length, inInclusiveRange(1, 2));
     expect(
       (await items(SyncItemKind.page))
           .where((i) => i.status == SyncItemStatus.pending),

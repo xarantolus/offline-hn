@@ -63,10 +63,14 @@ class PageSaver implements StoryPageSaver {
   final Duration watchdog;
   final DateTime Function() _clock;
 
-  CaptureCancellation _cancellation = CaptureCancellation();
+  final _inFlight = <CaptureCancellation>{};
 
   @override
-  void cancel() => _cancellation.cancel();
+  void cancel() {
+    for (final cancellation in _inFlight.toList()) {
+      cancellation.cancel();
+    }
+  }
 
   @override
   Future<PageStatus?> save(StoryRow story, AppSettings settings) async {
@@ -86,13 +90,14 @@ class PageSaver implements StoryPageSaver {
     Uri url,
     AppSettings settings,
   ) async {
-    _cancellation = CaptureCancellation();
+    final cancellation = CaptureCancellation();
+    _inFlight.add(cancellation);
     final relative = files.relativePathFor(id, PageKind.mhtml);
     final file = files.fileFor(relative);
     var timedOut = false;
     final guard = Timer(watchdog, () {
       timedOut = true;
-      _cancellation.cancel();
+      cancellation.cancel();
     });
     final CaptureResult result;
     try {
@@ -100,10 +105,11 @@ class PageSaver implements StoryPageSaver {
         url,
         file.path,
         captureOptionsFor(settings, filterListsDirectory: filterListsDirectory),
-        _cancellation,
+        cancellation,
       );
     } finally {
       guard.cancel();
+      _inFlight.remove(cancellation);
     }
 
     switch (result) {

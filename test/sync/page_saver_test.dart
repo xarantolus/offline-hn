@@ -227,6 +227,25 @@ void main() {
     expect(await pages.forStories([1]), isEmpty);
   });
 
+  test('cancelling reaches every capture in flight', () async {
+    var started = 0;
+    final both = Completer<void>();
+    capture = (url, path, options, cancellation) async {
+      if (++started == 2) both.complete();
+      await cancellation.whenCancelled;
+      return const CaptureFailure(
+        duration: Duration.zero,
+        kind: CaptureFailureKind.cancelled,
+      );
+    };
+    final s = saver();
+    final first = s.save(story(1, 'https://example.com/a'), settings);
+    final second = s.save(story(2, 'https://example.com/b'), settings);
+    await both.future;
+    s.cancel();
+    expect(await Future.wait([first, second]), [isNull, isNull]);
+  });
+
   test(
     'a capture that never ends is cut off and recorded as a timeout',
     () async {

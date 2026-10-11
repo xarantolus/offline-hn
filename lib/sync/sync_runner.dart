@@ -23,6 +23,7 @@ import 'package:offline_hn/sync/page_files.dart';
 import 'package:offline_hn/sync/page_saver.dart';
 import 'package:offline_hn/sync/run_budget.dart';
 import 'package:offline_hn/sync/sync_notifier.dart';
+import 'package:pool/pool.dart';
 
 enum SyncResult {
   /// Every step ran.
@@ -97,6 +98,12 @@ class SyncRunner {
   static const _listsTimeout = Duration(minutes: 4);
   static const _pruneTimeout = Duration(minutes: 2);
   static const _searchBatch = 100;
+
+  /// Requests in flight while the text is fetched.
+  static const _textParallel = 4;
+
+  /// Pages being captured at once; the plugin allows the same number.
+  static const _captureParallel = 2;
 
   final SyncRepository _syncs;
   final StoryRepository _stories;
@@ -211,6 +218,37 @@ class SyncRunner {
     return null;
   }
 
+  /// Runs [work] for each of [items] in order with [parallel] at a time. After
+  /// the first non-null result, or a stop or a pause at a checkpoint, nothing
+  /// more starts; what is already running finishes. Returns that result.
+  Future<SyncResult?> _each<T>(
+    _Context context,
+    Iterable<T> items, {
+    required int parallel,
+    required Duration worstCase,
+    required Future<SyncResult?> Function(T item) work,
+  }) async {
+    final pool = Pool(parallel);
+    final running = <Future<void>>[];
+    SyncResult? result;
+    for (final item in items) {
+      final slot = await pool.request();
+      result ??= _checkpoint(context, worstCase);
+      if (result != null) {
+        slot.release();
+        break;
+      }
+      running.add(
+        work(item)
+            .then((outcome) => result ??= outcome)
+            .whenComplete(slot.release),
+      );
+    }
+    await Future.wait(running);
+    await pool.close();
+    return result;
+  }
+
   Future<void> _rank(_Context context) async {
     final feeds = context.settings.enabledFeeds.toList();
     final read = await Future.wait([
@@ -247,23 +285,32 @@ class SyncRunner {
 
   Future<SyncResult?> _metadata(_Context context) async {
     final ids = _idsByRank(await _rankings(context.settings));
-    var batches = 0;
+    final batches = [
+      for (var i = 0; i < ids.length; i += _searchBatch)
+        ids.sublist(i, (i + _searchBatch).clamp(0, ids.length)),
+    ];
     var failed = 0;
-    for (var i = 0; i < ids.length; i += _searchBatch) {
-      final stop = _checkpoint(context, _metadataWorstCase);
-      if (stop != null) return stop;
-      batches++;
-      final batch = ids.sublist(i, (i + _searchBatch).clamp(0, ids.length));
-      try {
-        final found = await _source.stories(batch).timeout(_metadataWorstCase);
-        await _stories.upsertStories(found, _clock());
-      } on Exception catch (e) {
-        failed++;
-        debugPrintSynchronously('story details failed: $e');
-      }
-      await _syncs.heartbeat(context.run.id, _clock());
-    }
-    if (batches > 0 && failed == batches) {
+    final stop = await _each(
+      context,
+      batches,
+      parallel: _textParallel,
+      worstCase: _metadataWorstCase,
+      work: (batch) async {
+        try {
+          final found = await _source
+              .stories(batch)
+              .timeout(_metadataWorstCase);
+          await _stories.upsertStories(found, _clock());
+        } on Exception catch (e) {
+          failed++;
+          debugPrintSynchronously('story details failed: $e');
+        }
+        await _syncs.heartbeat(context.run.id, _clock());
+        return null;
+      },
+    );
+    if (stop != null) return stop;
+    if (batches.isNotEmpty && failed == batches.length) {
       throw const SyncFailure('story details could not be fetched');
     }
     return null;
@@ -283,20 +330,24 @@ class SyncRunner {
       context.run.id,
       SyncItemKind.comments,
     );
-    for (final id in pending) {
-      final stop = _checkpoint(context, _commentWorstCase);
-      if (stop != null) return stop;
-      final error = await _refreshThread(id);
-      await _syncs.markItem(
-        context.run.id,
-        SyncItemKind.comments,
-        id,
-        error == null ? SyncItemStatus.done : SyncItemStatus.failed,
-        _clock(),
-        error: error,
-      );
-    }
-    return null;
+    return _each(
+      context,
+      pending,
+      parallel: _textParallel,
+      worstCase: _commentWorstCase,
+      work: (id) async {
+        final error = await _refreshThread(id);
+        await _syncs.markItem(
+          context.run.id,
+          SyncItemKind.comments,
+          id,
+          error == null ? SyncItemStatus.done : SyncItemStatus.failed,
+          _clock(),
+          error: error,
+        );
+        return null;
+      },
+    );
   }
 
   /// The error text, or null when the thread was stored.
@@ -372,28 +423,32 @@ class SyncRunner {
       context.run.id,
       SyncItemKind.page,
     );
-    for (final id in pending) {
-      final stop = _checkpoint(context, _pageWorstCase);
-      if (stop != null) return stop;
-      final open = await _pagesGate(context);
-      if (open == SyncResult.paused) return open;
-      if (open != null) return null;
-      final outcome = await _savePage(id, context.settings);
-      if (outcome.status == null) {
-        return _stopRequested ? SyncResult.stopped : SyncResult.paused;
-      }
-      await _syncs.markItem(
-        context.run.id,
-        SyncItemKind.page,
-        id,
-        outcome.status == PageStatus.failed
-            ? SyncItemStatus.failed
-            : SyncItemStatus.done,
-        _clock(),
-        error: outcome.error,
-      );
-    }
-    return null;
+    final result = await _each(
+      context,
+      pending,
+      parallel: _captureParallel,
+      worstCase: _pageWorstCase,
+      work: (id) async {
+        final open = await _pagesGate(context);
+        if (open != null) return open;
+        final outcome = await _savePage(id, context.settings);
+        if (outcome.status == null) {
+          return _stopRequested ? SyncResult.stopped : SyncResult.paused;
+        }
+        await _syncs.markItem(
+          context.run.id,
+          SyncItemKind.page,
+          id,
+          outcome.status == PageStatus.failed
+              ? SyncItemStatus.failed
+              : SyncItemStatus.done,
+          _clock(),
+          error: outcome.error,
+        );
+        return null;
+      },
+    );
+    return result == SyncResult.completed ? null : result;
   }
 
   Future<({PageStatus? status, String? error})> _savePage(

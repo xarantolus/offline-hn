@@ -25,6 +25,9 @@ class FakeHn implements HnReader {
   var failStories = false;
   var rankingCalls = 0;
   final threadCalls = <int>[];
+  var latency = Duration.zero;
+  var _threadsInFlight = 0;
+  var maxThreadsInFlight = 0;
 
   @override
   Future<List<int>> ranking(FeedKind kind) async {
@@ -50,6 +53,15 @@ class FakeHn implements HnReader {
   @override
   Future<RemoteThread?> thread(int id) async {
     threadCalls.add(id);
+    _threadsInFlight++;
+    if (_threadsInFlight > maxThreadsInFlight) {
+      maxThreadsInFlight = _threadsInFlight;
+    }
+    try {
+      await Future<void>.delayed(latency);
+    } finally {
+      _threadsInFlight--;
+    }
     if (failingThreads.contains(id)) throw Exception('thread down');
     final story = RemoteStory(
       id: id,
@@ -127,6 +139,9 @@ class FakeSaver implements StoryPageSaver {
   final unreachable = <int>{};
   void Function(int id)? onSave;
   var cancelled = false;
+  var latency = Duration.zero;
+  var _inFlight = 0;
+  var maxInFlight = 0;
 
   @override
   void cancel() => cancelled = true;
@@ -135,6 +150,14 @@ class FakeSaver implements StoryPageSaver {
   Future<PageStatus?> save(StoryRow story, AppSettings settings) async {
     saved.add(story.id);
     onSave?.call(story.id);
+    _inFlight++;
+    if (_inFlight > maxInFlight) maxInFlight = _inFlight;
+    try {
+      await Future<void>.delayed(latency);
+    } finally {
+      _inFlight--;
+    }
+    if (cancelled && latency > Duration.zero) return null;
     if (unreachable.contains(story.id)) return null;
     if (failing.contains(story.id)) {
       await pages.recordFailed(
