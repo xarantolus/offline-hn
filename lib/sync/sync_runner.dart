@@ -34,11 +34,20 @@ enum SyncResult {
   /// Told to stop; the run is open and the next one resumes it.
   stopped,
 
+  /// The process that was working on the run died, and this start came from
+  /// WorkManager's recovery, outside any job's protection. Nothing was done;
+  /// a job started the normal way continues the run.
+  interrupted,
+
   /// No usable connection for this trigger.
   skipped,
 
   /// Nothing could be fetched.
-  failed,
+  failed;
+
+  /// Whether WorkManager should run the job again to continue the run.
+  bool get wantsRetry =>
+      this == paused || this == stopped || this == interrupted;
 }
 
 class SyncFailure implements Exception {
@@ -103,11 +112,20 @@ class SyncRunner {
   final DateTime Function() _clock;
 
   var _stopRequested = false;
+  int? _activeRun;
 
   /// Ends the run at the next checkpoint and abandons a page being captured.
   void requestStop() {
     _stopRequested = true;
     _saver.cancel();
+  }
+
+  /// [requestStop], and hands the run back at once for when the process is
+  /// about to be torn down before the checkpoint is reached.
+  Future<void> stopNow() async {
+    requestStop();
+    final run = _activeRun;
+    if (run != null) await _syncs.setExecuting(run, value: false);
   }
 
   Future<SyncResult> run(SyncTrigger trigger) async {
@@ -120,6 +138,12 @@ class SyncRunner {
     if (trigger == SyncTrigger.filterLists) await _updateLists();
 
     final run = await _syncs.beginOrResume(trigger, started);
+    if (run.executing) {
+      await _syncs.setExecuting(run.id, value: false);
+      return SyncResult.interrupted;
+    }
+    await _syncs.setExecuting(run.id, value: true);
+    _activeRun = run.id;
     await _notifier.runStarted();
     try {
       final context = _Context(
@@ -133,6 +157,8 @@ class SyncRunner {
       await _syncs.finish(run.id, SyncOutcome.failed, _clock(), error: '$e');
       return SyncResult.failed;
     } finally {
+      _activeRun = null;
+      await _syncs.setExecuting(run.id, value: false);
       await _notifier.runEnded();
     }
   }

@@ -222,6 +222,62 @@ void main() {
     expect(saver.saved, hasLength(4));
   });
 
+  test(
+    'a start after the working process died does nothing but ask for a retry',
+    () async {
+      saver.onSave = (_) => runner.requestStop();
+      await runner.run(SyncTrigger.manual);
+      final run = (await runs()).single;
+      await syncs.setExecuting(run.id, value: true);
+      final fetched = saver.saved.length;
+      final rankings = hn.rankingCalls;
+      notifier.events.clear();
+
+      saver.onSave = null;
+      expect(await runner.run(SyncTrigger.manual), SyncResult.interrupted);
+      expect(SyncResult.interrupted.wantsRetry, isTrue);
+      expect(saver.saved, hasLength(fetched));
+      expect(hn.rankingCalls, rankings);
+      expect(
+        notifier.events,
+        isEmpty,
+        reason: 'no notification flashes for it',
+      );
+
+      expect(await runner.run(SyncTrigger.manual), SyncResult.completed);
+      expect(saver.saved.toSet(), {1, 2, 3, 4});
+      expect((await runs()).single.outcome, SyncOutcome.succeeded);
+    },
+  );
+
+  test('stopping now hands the run back before the checkpoint', () async {
+    late Future<void> stopped;
+    saver.onSave = (_) => stopped = runner.stopNow();
+    expect(await runner.run(SyncTrigger.manual), SyncResult.stopped);
+    await stopped;
+    final run = (await runs()).single;
+    expect(run.executing, isFalse);
+    expect(run.finishedAt, isNull);
+  });
+
+  test('only a finished run is not retried', () {
+    final retried = [
+      for (final result in SyncResult.values)
+        if (result.wantsRetry) result,
+    ];
+    expect(retried, [
+      SyncResult.paused,
+      SyncResult.stopped,
+      SyncResult.interrupted,
+    ]);
+  });
+
+  test('a run that pauses or stops is not left marked as running', () async {
+    saver.onSave = (_) => runner.requestStop();
+    await runner.run(SyncTrigger.manual);
+    expect((await runs()).single.executing, isFalse);
+  });
+
   test('losing Wi-Fi in the middle of the pages ends them early', () async {
     saver.onSave = (_) => probe.kind = ConnectionKind.mobile;
     expect(await runner.run(SyncTrigger.manual), SyncResult.completed);

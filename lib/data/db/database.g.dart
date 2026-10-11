@@ -2736,6 +2736,21 @@ class $SyncRunsTable extends SyncRuns
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _executingMeta = const VerificationMeta(
+    'executing',
+  );
+  @override
+  late final GeneratedColumn<bool> executing = GeneratedColumn<bool>(
+    'executing',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("executing" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _finishedAtMeta = const VerificationMeta(
     'finishedAt',
   );
@@ -2772,6 +2787,7 @@ class $SyncRunsTable extends SyncRuns
     phase,
     startedAt,
     heartbeatAt,
+    executing,
     finishedAt,
     outcome,
     error,
@@ -2806,6 +2822,12 @@ class $SyncRunsTable extends SyncRuns
           data['heartbeat_at']!,
           _heartbeatAtMeta,
         ),
+      );
+    }
+    if (data.containsKey('executing')) {
+      context.handle(
+        _executingMeta,
+        executing.isAcceptableOrUnknown(data['executing']!, _executingMeta),
       );
     }
     if (data.containsKey('finished_at')) {
@@ -2853,6 +2875,10 @@ class $SyncRunsTable extends SyncRuns
         DriftSqlType.dateTime,
         data['${effectivePrefix}heartbeat_at'],
       ),
+      executing: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}executing'],
+      )!,
       finishedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}finished_at'],
@@ -2891,6 +2917,10 @@ class SyncRunRow extends DataClass implements Insertable<SyncRunRow> {
   final SyncPhase phase;
   final DateTime startedAt;
   final DateTime? heartbeatAt;
+
+  /// Set while a process is working on the run; still set when a new process
+  /// finds the run, it means the previous one died.
+  final bool executing;
   final DateTime? finishedAt;
   final SyncOutcome? outcome;
   final String? error;
@@ -2900,6 +2930,7 @@ class SyncRunRow extends DataClass implements Insertable<SyncRunRow> {
     required this.phase,
     required this.startedAt,
     this.heartbeatAt,
+    required this.executing,
     this.finishedAt,
     this.outcome,
     this.error,
@@ -2922,6 +2953,7 @@ class SyncRunRow extends DataClass implements Insertable<SyncRunRow> {
     if (!nullToAbsent || heartbeatAt != null) {
       map['heartbeat_at'] = Variable<DateTime>(heartbeatAt);
     }
+    map['executing'] = Variable<bool>(executing);
     if (!nullToAbsent || finishedAt != null) {
       map['finished_at'] = Variable<DateTime>(finishedAt);
     }
@@ -2945,6 +2977,7 @@ class SyncRunRow extends DataClass implements Insertable<SyncRunRow> {
       heartbeatAt: heartbeatAt == null && nullToAbsent
           ? const Value.absent()
           : Value(heartbeatAt),
+      executing: Value(executing),
       finishedAt: finishedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(finishedAt),
@@ -2972,6 +3005,7 @@ class SyncRunRow extends DataClass implements Insertable<SyncRunRow> {
       ),
       startedAt: serializer.fromJson<DateTime>(json['startedAt']),
       heartbeatAt: serializer.fromJson<DateTime?>(json['heartbeatAt']),
+      executing: serializer.fromJson<bool>(json['executing']),
       finishedAt: serializer.fromJson<DateTime?>(json['finishedAt']),
       outcome: $SyncRunsTable.$converteroutcomen.fromJson(
         serializer.fromJson<String?>(json['outcome']),
@@ -2992,6 +3026,7 @@ class SyncRunRow extends DataClass implements Insertable<SyncRunRow> {
       ),
       'startedAt': serializer.toJson<DateTime>(startedAt),
       'heartbeatAt': serializer.toJson<DateTime?>(heartbeatAt),
+      'executing': serializer.toJson<bool>(executing),
       'finishedAt': serializer.toJson<DateTime?>(finishedAt),
       'outcome': serializer.toJson<String?>(
         $SyncRunsTable.$converteroutcomen.toJson(outcome),
@@ -3006,6 +3041,7 @@ class SyncRunRow extends DataClass implements Insertable<SyncRunRow> {
     SyncPhase? phase,
     DateTime? startedAt,
     Value<DateTime?> heartbeatAt = const Value.absent(),
+    bool? executing,
     Value<DateTime?> finishedAt = const Value.absent(),
     Value<SyncOutcome?> outcome = const Value.absent(),
     Value<String?> error = const Value.absent(),
@@ -3015,6 +3051,7 @@ class SyncRunRow extends DataClass implements Insertable<SyncRunRow> {
     phase: phase ?? this.phase,
     startedAt: startedAt ?? this.startedAt,
     heartbeatAt: heartbeatAt.present ? heartbeatAt.value : this.heartbeatAt,
+    executing: executing ?? this.executing,
     finishedAt: finishedAt.present ? finishedAt.value : this.finishedAt,
     outcome: outcome.present ? outcome.value : this.outcome,
     error: error.present ? error.value : this.error,
@@ -3028,6 +3065,7 @@ class SyncRunRow extends DataClass implements Insertable<SyncRunRow> {
       heartbeatAt: data.heartbeatAt.present
           ? data.heartbeatAt.value
           : this.heartbeatAt,
+      executing: data.executing.present ? data.executing.value : this.executing,
       finishedAt: data.finishedAt.present
           ? data.finishedAt.value
           : this.finishedAt,
@@ -3044,6 +3082,7 @@ class SyncRunRow extends DataClass implements Insertable<SyncRunRow> {
           ..write('phase: $phase, ')
           ..write('startedAt: $startedAt, ')
           ..write('heartbeatAt: $heartbeatAt, ')
+          ..write('executing: $executing, ')
           ..write('finishedAt: $finishedAt, ')
           ..write('outcome: $outcome, ')
           ..write('error: $error')
@@ -3058,6 +3097,7 @@ class SyncRunRow extends DataClass implements Insertable<SyncRunRow> {
     phase,
     startedAt,
     heartbeatAt,
+    executing,
     finishedAt,
     outcome,
     error,
@@ -3071,6 +3111,7 @@ class SyncRunRow extends DataClass implements Insertable<SyncRunRow> {
           other.phase == this.phase &&
           other.startedAt == this.startedAt &&
           other.heartbeatAt == this.heartbeatAt &&
+          other.executing == this.executing &&
           other.finishedAt == this.finishedAt &&
           other.outcome == this.outcome &&
           other.error == this.error);
@@ -3082,6 +3123,7 @@ class SyncRunsCompanion extends UpdateCompanion<SyncRunRow> {
   final Value<SyncPhase> phase;
   final Value<DateTime> startedAt;
   final Value<DateTime?> heartbeatAt;
+  final Value<bool> executing;
   final Value<DateTime?> finishedAt;
   final Value<SyncOutcome?> outcome;
   final Value<String?> error;
@@ -3091,6 +3133,7 @@ class SyncRunsCompanion extends UpdateCompanion<SyncRunRow> {
     this.phase = const Value.absent(),
     this.startedAt = const Value.absent(),
     this.heartbeatAt = const Value.absent(),
+    this.executing = const Value.absent(),
     this.finishedAt = const Value.absent(),
     this.outcome = const Value.absent(),
     this.error = const Value.absent(),
@@ -3101,6 +3144,7 @@ class SyncRunsCompanion extends UpdateCompanion<SyncRunRow> {
     required SyncPhase phase,
     required DateTime startedAt,
     this.heartbeatAt = const Value.absent(),
+    this.executing = const Value.absent(),
     this.finishedAt = const Value.absent(),
     this.outcome = const Value.absent(),
     this.error = const Value.absent(),
@@ -3113,6 +3157,7 @@ class SyncRunsCompanion extends UpdateCompanion<SyncRunRow> {
     Expression<String>? phase,
     Expression<DateTime>? startedAt,
     Expression<DateTime>? heartbeatAt,
+    Expression<bool>? executing,
     Expression<DateTime>? finishedAt,
     Expression<String>? outcome,
     Expression<String>? error,
@@ -3123,6 +3168,7 @@ class SyncRunsCompanion extends UpdateCompanion<SyncRunRow> {
       if (phase != null) 'phase': phase,
       if (startedAt != null) 'started_at': startedAt,
       if (heartbeatAt != null) 'heartbeat_at': heartbeatAt,
+      if (executing != null) 'executing': executing,
       if (finishedAt != null) 'finished_at': finishedAt,
       if (outcome != null) 'outcome': outcome,
       if (error != null) 'error': error,
@@ -3135,6 +3181,7 @@ class SyncRunsCompanion extends UpdateCompanion<SyncRunRow> {
     Value<SyncPhase>? phase,
     Value<DateTime>? startedAt,
     Value<DateTime?>? heartbeatAt,
+    Value<bool>? executing,
     Value<DateTime?>? finishedAt,
     Value<SyncOutcome?>? outcome,
     Value<String?>? error,
@@ -3145,6 +3192,7 @@ class SyncRunsCompanion extends UpdateCompanion<SyncRunRow> {
       phase: phase ?? this.phase,
       startedAt: startedAt ?? this.startedAt,
       heartbeatAt: heartbeatAt ?? this.heartbeatAt,
+      executing: executing ?? this.executing,
       finishedAt: finishedAt ?? this.finishedAt,
       outcome: outcome ?? this.outcome,
       error: error ?? this.error,
@@ -3173,6 +3221,9 @@ class SyncRunsCompanion extends UpdateCompanion<SyncRunRow> {
     if (heartbeatAt.present) {
       map['heartbeat_at'] = Variable<DateTime>(heartbeatAt.value);
     }
+    if (executing.present) {
+      map['executing'] = Variable<bool>(executing.value);
+    }
     if (finishedAt.present) {
       map['finished_at'] = Variable<DateTime>(finishedAt.value);
     }
@@ -3195,6 +3246,7 @@ class SyncRunsCompanion extends UpdateCompanion<SyncRunRow> {
           ..write('phase: $phase, ')
           ..write('startedAt: $startedAt, ')
           ..write('heartbeatAt: $heartbeatAt, ')
+          ..write('executing: $executing, ')
           ..write('finishedAt: $finishedAt, ')
           ..write('outcome: $outcome, ')
           ..write('error: $error')
@@ -5188,6 +5240,7 @@ typedef $$SyncRunsTableCreateCompanionBuilder = SyncRunsCompanion Function({
   required SyncPhase phase,
   required DateTime startedAt,
   Value<DateTime?> heartbeatAt,
+  Value<bool> executing,
   Value<DateTime?> finishedAt,
   Value<SyncOutcome?> outcome,
   Value<String?> error,
@@ -5198,6 +5251,7 @@ typedef $$SyncRunsTableUpdateCompanionBuilder = SyncRunsCompanion Function({
   Value<SyncPhase> phase,
   Value<DateTime> startedAt,
   Value<DateTime?> heartbeatAt,
+  Value<bool> executing,
   Value<DateTime?> finishedAt,
   Value<SyncOutcome?> outcome,
   Value<String?> error,
@@ -5236,6 +5290,11 @@ class $$SyncRunsTableFilterComposer
 
   ColumnFilters<DateTime> get heartbeatAt => $composableBuilder(
     column: $table.heartbeatAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get executing => $composableBuilder(
+    column: $table.executing,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5290,6 +5349,11 @@ class $$SyncRunsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get executing => $composableBuilder(
+    column: $table.executing,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get finishedAt => $composableBuilder(
     column: $table.finishedAt,
     builder: (column) => ColumnOrderings(column),
@@ -5331,6 +5395,9 @@ class $$SyncRunsTableAnnotationComposer
     column: $table.heartbeatAt,
     builder: (column) => column,
   );
+
+  GeneratedColumn<bool> get executing =>
+      $composableBuilder(column: $table.executing, builder: (column) => column);
 
   GeneratedColumn<DateTime> get finishedAt => $composableBuilder(
     column: $table.finishedAt,
@@ -5380,6 +5447,7 @@ class $$SyncRunsTableTableManager
                 Value<SyncPhase> phase = const Value.absent(),
                 Value<DateTime> startedAt = const Value.absent(),
                 Value<DateTime?> heartbeatAt = const Value.absent(),
+                Value<bool> executing = const Value.absent(),
                 Value<DateTime?> finishedAt = const Value.absent(),
                 Value<SyncOutcome?> outcome = const Value.absent(),
                 Value<String?> error = const Value.absent(),
@@ -5389,6 +5457,7 @@ class $$SyncRunsTableTableManager
                 phase: phase,
                 startedAt: startedAt,
                 heartbeatAt: heartbeatAt,
+                executing: executing,
                 finishedAt: finishedAt,
                 outcome: outcome,
                 error: error,
@@ -5400,6 +5469,7 @@ class $$SyncRunsTableTableManager
                 required SyncPhase phase,
                 required DateTime startedAt,
                 Value<DateTime?> heartbeatAt = const Value.absent(),
+                Value<bool> executing = const Value.absent(),
                 Value<DateTime?> finishedAt = const Value.absent(),
                 Value<SyncOutcome?> outcome = const Value.absent(),
                 Value<String?> error = const Value.absent(),
@@ -5409,6 +5479,7 @@ class $$SyncRunsTableTableManager
                 phase: phase,
                 startedAt: startedAt,
                 heartbeatAt: heartbeatAt,
+                executing: executing,
                 finishedAt: finishedAt,
                 outcome: outcome,
                 error: error,

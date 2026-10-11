@@ -14,18 +14,20 @@ void syncCallbackDispatcher() {
   DartPluginRegistrant.ensureInitialized();
   Workmanager().executeTask(
     SyncTaskHandler.handle,
-    onTaskStopped: (task, reason) async => SyncTaskHandler.stop(),
+    onTaskStopped: (task, reason) => SyncTaskHandler.stop(),
   );
 }
 
 abstract final class SyncTaskHandler {
   static SyncRunner? _running;
 
-  /// The platform is taking the job away: leave the run resumable.
-  static void stop() => _running?.requestStop();
+  /// The platform is taking the job away: leave the run resumable. The engine
+  /// is torn down as soon as this returns.
+  static Future<void> stop() async => _running?.stopNow();
 
   /// Whether the job succeeded; false asks WorkManager to run it again after a
-  /// backoff, which is how a run that ran out of time continues.
+  /// backoff, which is how a run that ran out of time, was told to stop, or
+  /// was restarted outside a job's protection continues.
   static Future<bool> handle(String task, Map<String, dynamic>? input) async {
     final environment = await BackgroundEnvironment.open();
     try {
@@ -58,7 +60,7 @@ abstract final class SyncTaskHandler {
     _running = environment.runner;
     final result = await environment.runner.run(trigger);
     debugPrintSynchronously('sync $trigger: ${result.name}');
-    return result != SyncResult.paused;
+    return !result.wantsRetry;
   }
 
   static Future<bool> _daily(BackgroundEnvironment environment) async {

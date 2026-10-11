@@ -90,6 +90,10 @@ class SyncRuns extends Table {
   TextColumn get phase => textEnum<SyncPhase>()();
   DateTimeColumn get startedAt => dateTime()();
   DateTimeColumn get heartbeatAt => dateTime().nullable()();
+
+  /// Set while a process is working on the run; still set when a new process
+  /// finds the run, it means the previous one died.
+  BoolColumn get executing => boolean().withDefault(const Constant(false))();
   DateTimeColumn get finishedAt => dateTime().nullable()();
   TextColumn get outcome => textEnum<SyncOutcome>().nullable()();
   TextColumn get error => text().nullable()();

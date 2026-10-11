@@ -78,6 +78,11 @@ class SyncRepository {
         SyncRunsCompanion(phase: Value(phase), heartbeatAt: Value(now)),
       );
 
+  Future<void> setExecuting(int runId, {required bool value}) =>
+      (_db.update(_db.syncRuns)..where((r) => r.id.equals(runId))).write(
+        SyncRunsCompanion(executing: Value(value)),
+      );
+
   Future<void> heartbeat(int runId, DateTime now) =>
       (_db.update(_db.syncRuns)..where((r) => r.id.equals(runId))).write(
         SyncRunsCompanion(heartbeatAt: Value(now)),
