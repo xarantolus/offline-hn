@@ -19,6 +19,7 @@ import 'package:offline_hn/data/repository/settings_store.dart';
 import 'package:offline_hn/data/repository/story_repository.dart';
 import 'package:offline_hn/data/repository/sync_repository.dart';
 import 'package:offline_hn/data/repository/thread_state_repository.dart';
+import 'package:page_capture/filters.dart';
 
 import 'fixtures.dart';
 
@@ -287,7 +288,7 @@ void main() {
       expect(settings.viewer, ViewerKind.customTab);
       expect(settings.adBlocking, isTrue);
       expect(settings.rejectCookiePopups, isTrue);
-      expect(settings.filterListUrls, hasLength(2));
+      expect(settings.filterListUrls, FilterSources.defaultLists);
       expect(settings.filterListStatus, isEmpty);
       expect(settings.textRetentionDays, 3);
     });

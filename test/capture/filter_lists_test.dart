@@ -66,11 +66,13 @@ void main() {
   Future<Map<String, Object?>> statuses() async =>
       (await settings.load()).filterListStatus;
 
-  test('the defaults are EasyList and EasyPrivacy first', () async {
-    expect((await settings.load()).filterListUrls.take(2), [
-      'https://easylist.to/easylist/easylist.txt',
-      'https://easylist.to/easylist/easyprivacy.txt',
-    ]);
+  test('the defaults cover ads, tracking and annoyances', () async {
+    final urls = (await settings.load()).filterListUrls;
+    expect(urls, FilterSources.defaultLists);
+    expect(urls, contains('https://easylist.to/easylist/easylist.txt'));
+    expect(urls, contains('https://easylist.to/easylist/easyprivacy.txt'));
+    expect(urls.length, 5);
+    expect(urls.toSet().length, urls.length);
   });
 
   test('every configured list gets its own file and status', () async {

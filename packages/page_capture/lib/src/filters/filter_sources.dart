@@ -7,6 +7,10 @@ abstract final class FilterSources {
   static const defaultLists = [
     'https://easylist.to/easylist/easylist.txt',
     'https://easylist.to/easylist/easyprivacy.txt',
+    // Fanboy's Annoyance already contains the EasyList Cookie List.
+    'https://easylist.to/easylist/fanboy-annoyance.txt',
+    'https://ublockorigin.github.io/uAssets/filters/annoyances-cookies.txt',
+    'https://ublockorigin.github.io/uAssets/filters/annoyances-others.txt',
   ];
 
   /// Where in the filter lists directory the resources are kept.

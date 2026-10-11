@@ -201,13 +201,10 @@ class CaptureSession(
             return later(CONSENT_SETTLE_MILLIS) { waitForQuiet(QUIET_AFTER_SCROLL_MILLIS, ::cleanUp) }
         }
         if (!request.hideElements) return settle()
-        evaluate(PageScripts.REMOVE_OVERLAYS) { overlays ->
-            removed += overlays.toIntOrNull() ?: 0
-            hiddenSelectors { selectors ->
-                evaluate(PageScripts.removeElements(selectors)) { count ->
-                    removed += count.toIntOrNull() ?: 0
-                    settle()
-                }
+        hiddenSelectors { selectors ->
+            evaluate(PageScripts.removeElements(selectors)) { count ->
+                removed += count.toIntOrNull() ?: 0
+                settle()
             }
         }
     }
