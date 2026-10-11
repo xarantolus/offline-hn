@@ -17,12 +17,14 @@ import android.webkit.WebStorage
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.webkit.RenderProcessGoneDetail
-import io.github.xarantolus.page_capture.filter.FilterSet
+import io.github.xarantolus.page_capture.filter.AdblockEngine
+import org.json.JSONObject
+import org.json.JSONTokener
 import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
 
 /** What one capture needs besides the request, loaded before the WebView exists. */
-class CaptureTools(val filters: FilterSet?, val consent: ConsentAssets?)
+class CaptureTools(val filters: AdblockEngine?, val consent: ConsentAssets?)
 
 /** One page, start to finish, on the main thread. [onFinished] is called exactly once. */
 class CaptureSession(
@@ -38,8 +40,7 @@ class CaptureSession(
     private val consent = tools.consent?.takeIf { request.rejectConsent }?.let(::ConsentBridge)
 
     @Volatile private var lastResource = startedAt
-    @Volatile private var pageHost = hostOf(request.url)
-    private var mainUrl = request.url
+    @Volatile private var mainUrl = request.url
     @Volatile private var failure: CaptureOutcome.Failure? = null
     private var web: WebView? = null
     private var loaded = false
@@ -105,7 +106,7 @@ class CaptureSession(
 
     private fun client() = object : WebViewClient() {
         override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
-            val refusal = blocker?.intercept(request, pageHost)
+            val refusal = blocker?.intercept(request, mainUrl)
             if (refusal == null) {
                 resources.incrementAndGet()
                 lastResource = now
@@ -115,7 +116,6 @@ class CaptureSession(
 
         override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
             mainUrl = url
-            pageHost = hostOf(url)
             loaded = false
         }
 
@@ -202,12 +202,31 @@ class CaptureSession(
         if (!request.hideElements) return settle()
         evaluate(PageScripts.REMOVE_OVERLAYS) { overlays ->
             removed += overlays.toIntOrNull() ?: 0
-            val selectors = tools.filters?.cosmetic?.selectorsFor(pageHost).orEmpty()
-            evaluate(PageScripts.removeElements(selectors)) { count ->
-                removed += count.toIntOrNull() ?: 0
-                settle()
+            hiddenSelectors { selectors ->
+                evaluate(PageScripts.removeElements(selectors)) { count ->
+                    removed += count.toIntOrNull() ?: 0
+                    settle()
+                }
             }
         }
+    }
+
+    private fun hiddenSelectors(then: (List<String>) -> Unit) {
+        val engine = tools.filters ?: return then(emptyList())
+        val cosmetic = engine.cosmetic(mainUrl)
+        if (cosmetic.genericHidden) return then(cosmetic.hide)
+        evaluate(PageScripts.PAGE_NAMES) { raw ->
+            val names = parseNames(raw)
+            then(cosmetic.hide + engine.genericSelectors(names.first, names.second, cosmetic.exceptions))
+        }
+    }
+
+    private fun parseNames(raw: String): Pair<List<String>, List<String>> = try {
+        val json = JSONObject(JSONTokener(raw).nextValue() as String)
+        fun list(key: String) = json.getJSONArray(key).let { array -> List(array.length()) { array.getString(it) } }
+        list("c") to list("i")
+    } catch (e: Exception) {
+        emptyList<String>() to emptyList()
     }
 
     private fun settle() {
@@ -287,9 +306,6 @@ class CaptureSession(
         if (outcome is CaptureOutcome.Failure) File(request.outputPath).delete()
         onFinished(outcome.toMap(now - startedAt))
     }
-
-    private fun hostOf(url: String): String =
-        android.net.Uri.parse(url).host?.lowercase().orEmpty()
 
     private companion object {
         const val POLL_MILLIS = 250L

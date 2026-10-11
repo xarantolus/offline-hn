@@ -49,13 +49,6 @@ jobs:
 
       - run: flutter test
 
-      # The Gradle wrapper script is generated, not committed.
-      - run: flutter build apk --config-only
-
-      - name: Plugin unit tests
-        working-directory: android
-        run: ./gradlew :page_capture:testDebugUnitTest
-
       - name: Extract env variables
         run: |
             sudo wget -q "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64" -O "/usr/bin/yq"

@@ -1,6 +1,5 @@
 import 'package:http/http.dart' as http;
-import 'package:page_capture/src/filters/compiled_filters.dart';
-import 'package:page_capture/src/filters/filter_compiler.dart';
+import 'package:page_capture/src/filters/filter_list_text.dart';
 
 abstract final class FilterSources {
   static const defaultLists = [
@@ -10,13 +9,12 @@ abstract final class FilterSources {
 
   static const requestTimeout = Duration(seconds: 60);
 
-  /// Downloads and compiles one list. Throws [FilterListException] for an
+  /// Downloads one list as served. Throws [FilterListException] for an
   /// unusable URL, a failed request or text that is not a filter list.
-  static Future<CompiledFilters> download(
+  static Future<({String text, FilterListCounts counts})> download(
     http.Client client,
-    String url, {
-    required DateTime now,
-  }) async {
+    String url,
+  ) async {
     final uri = Uri.tryParse(url);
     if (uri == null ||
         !uri.hasAuthority ||
@@ -32,6 +30,6 @@ abstract final class FilterSources {
     if (response.statusCode != 200) {
       throw FilterListException('answered ${response.statusCode}');
     }
-    return FilterCompiler.compile([response.body], generated: now);
+    return (text: response.body, counts: FilterListText.inspect(response.body));
   }
 }

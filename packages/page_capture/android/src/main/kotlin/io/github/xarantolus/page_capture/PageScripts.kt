@@ -9,6 +9,21 @@ object PageScripts {
 
     const val SCROLL_TOP = "window.scrollTo(0, 0)"
 
+    /** The class and id names in the document, as a JSON string. */
+    const val PAGE_NAMES = """
+        (function () {
+          var classes = {}, ids = {};
+          var all = document.querySelectorAll('[class], [id]');
+          for (var i = 0; i < all.length; i++) {
+            var el = all[i];
+            if (el.id) ids[el.id] = 1;
+            var list = el.classList;
+            if (list) for (var k = 0; k < list.length; k++) classes[list[k]] = 1;
+          }
+          return JSON.stringify({ c: Object.keys(classes), i: Object.keys(ids) });
+        })()
+    """
+
     /** Removes the elements the selectors match and returns how many went. */
     fun removeElements(selectors: List<String>): String = """
         (function (selectors) {

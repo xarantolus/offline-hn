@@ -28,7 +28,7 @@ class FilterLists {
   /// A list that failed, or has gone stale, is not asked for again sooner.
   static const retryAfter = Duration(hours: 1);
 
-  static const _extension = '.tsv';
+  static const _extension = '.txt';
 
   final Directory directory;
   final SettingsStore settings;
@@ -97,17 +97,17 @@ class FilterLists {
   Future<FilterListStatus> _fetch(String url, FilterListStatus? before) async {
     final now = _clock();
     try {
-      final compiled = await FilterSources.download(_client, url, now: now);
+      final downloaded = await FilterSources.download(_client, url);
       await directory.create(recursive: true);
       final file = fileFor(url);
       final staging = File('${file.path}.tmp');
-      await staging.writeAsString(compiled.text, flush: true);
+      await staging.writeAsString(downloaded.text, flush: true);
       await staging.rename(file.path);
       return FilterListStatus(
         updatedAt: now,
         checkedAt: now,
-        networkRules: compiled.stats.networkRules,
-        cosmeticRules: compiled.stats.cosmeticRules,
+        networkRules: downloaded.counts.networkRules,
+        cosmeticRules: downloaded.counts.cosmeticRules,
       );
     } on FilterListException catch (e) {
       return (before ?? const FilterListStatus()).failed(e.message, now);
