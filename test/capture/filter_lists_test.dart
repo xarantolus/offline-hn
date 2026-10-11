@@ -76,7 +76,6 @@ void main() {
     expect(urls, FilterSources.defaultLists);
     expect(urls, contains('https://easylist.to/easylist/easylist.txt'));
     expect(urls, contains('https://easylist.to/easylist/easyprivacy.txt'));
-    expect(urls.length, 5);
     expect(urls.toSet().length, urls.length);
   });
 

@@ -93,7 +93,7 @@ class FilterLists {
       statuses[url] = await _refresh(
         current.filterListStatus[url],
         fileFor(url),
-        () => FilterSources.download(_client, url),
+        () => FilterSources.downloadList(_client, url),
         (text, now) {
           final counts = FilterListText.inspect(text);
           return FilterListStatus(

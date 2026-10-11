@@ -127,7 +127,11 @@ class _ListTile extends StatelessWidget {
     final t = context.tokens;
     final error = status?.error;
     return ListTile(
-      title: Text(url, style: t.label.copyWith(fontSize: 14), maxLines: 2),
+      title: Text(
+        FilterSources.defaultNames[url] ?? url,
+        style: t.label.copyWith(fontSize: 14),
+        maxLines: 2,
+      ),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
