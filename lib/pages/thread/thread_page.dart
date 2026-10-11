@@ -199,12 +199,24 @@ class _ThreadPageState extends State<ThreadPage> {
     _rearrange();
     final ids = {for (final c in _visible) c.row.id};
     final beforeIds = {for (final c in before) c.row.id};
+    final rows = _rowsOnScreen;
     if (collapsing) {
-      _closing = beforeIds.difference(ids);
-      _show(before);
+      final leaving = [
+        for (final c in before)
+          if (!ids.contains(c.row.id)) c.row.id,
+      ];
+      _closing = leaving.take(rows).toSet();
+      final dropped = leaving.skip(rows).toSet();
+      _show([
+        for (final c in before)
+          if (!dropped.contains(c.row.id)) c,
+      ]);
       _keepBylineInView(id);
     } else {
-      _entering = ids.difference(beforeIds);
+      _entering = [
+        for (final c in _visible)
+          if (!beforeIds.contains(c.row.id)) c.row.id,
+      ].take(rows).toSet();
     }
     _settle = Timer(revealDuration, _finishSettling);
     setState(() {});
@@ -214,6 +226,8 @@ class _ThreadPageState extends State<ThreadPage> {
       }, DateTime.now()),
     );
   }
+
+  int get _rowsOnScreen => _positions.itemPositions.value.length + 1;
 
   void _finishSettling() {
     final pending = _settle;
