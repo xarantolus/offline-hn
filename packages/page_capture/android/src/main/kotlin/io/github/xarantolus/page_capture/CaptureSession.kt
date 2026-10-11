@@ -31,6 +31,7 @@ class CaptureSession(
     private val context: Context,
     private val request: CaptureRequest,
     private val tools: CaptureTools,
+    private val clearsBrowserState: Boolean,
     private val onFinished: (Map<String, Any?>) -> Unit,
 ) {
     private val main = Handler(Looper.getMainLooper())
@@ -60,7 +61,7 @@ class CaptureSession(
         if (request.url.substringBefore('?').substringBefore('#').lowercase().endsWith(".pdf")) {
             return finish(CaptureOutcome.Failure.unsupported("application/pdf"))
         }
-        resetBrowserState()
+        if (clearsBrowserState) resetBrowserState()
         val view = createWebView()
         web = view
         view.loadUrl(request.url)

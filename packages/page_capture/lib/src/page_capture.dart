@@ -10,8 +10,8 @@ abstract final class PageCapture {
 
   static var _nextId = 0;
 
-  /// Saves [url] as a web archive at [outputPath]. Captures run one at a time;
-  /// further calls wait their turn. Never throws for a failed page: that is a
+  /// Saves [url] as a web archive at [outputPath]. Two captures run at a
+  /// time; further calls wait their turn. Never throws for a failed page: that is a
   /// [CaptureFailure].
   static Future<CaptureResult> capture(
     Uri url,
