@@ -3,8 +3,8 @@ import 'package:offline_hn/ui/format.dart';
 import 'package:offline_hn/ui/small_caps.dart';
 import 'package:offline_hn/ui/tokens.dart';
 
-class StoryRow extends StatelessWidget {
-  const StoryRow({
+class StoryTile extends StatelessWidget {
+  const StoryTile({
     super.key,
     required this.title,
     required this.source,

@@ -11,11 +11,13 @@ class FeedSwitcher extends StatelessWidget {
     super.key,
     required this.selected,
     required this.onSelected,
+    this.kinds = FeedKind.values,
     this.status,
   });
 
   final FeedKind selected;
   final ValueChanged<FeedKind> onSelected;
+  final List<FeedKind> kinds;
   final Widget? status;
 
   @override
@@ -47,7 +49,7 @@ class FeedSwitcher extends StatelessWidget {
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
             segments: [
-              for (final kind in FeedKind.values)
+              for (final kind in kinds)
                 ButtonSegment(value: kind, label: Text(kind.label)),
             ],
             selected: {selected},

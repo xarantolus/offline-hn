@@ -5,7 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:offline_hn/app_name.dart';
 import 'package:offline_hn/app_services.dart';
 import 'package:offline_hn/capture/capture_licenses.dart';
-import 'package:offline_hn/pages/home_page.dart';
+import 'package:offline_hn/app_services_scope.dart';
+import 'package:offline_hn/pages/feed/feed_page.dart';
 import 'package:offline_hn/theme.dart';
 
 Future<void> main() async {
@@ -50,11 +51,14 @@ class _OfflineHnAppState extends State<OfflineHnApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: appName,
-      theme: lightTheme,
-      darkTheme: darkTheme,
-      home: const HomePage(),
+    return AppServicesScope(
+      services: widget.services,
+      child: MaterialApp(
+        title: appName,
+        theme: lightTheme,
+        darkTheme: darkTheme,
+        home: const FeedPage(),
+      ),
     );
   }
 }
