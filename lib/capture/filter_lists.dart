@@ -10,10 +10,12 @@ import 'package:page_capture/filters.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-/// The downloaded ad-block lists, one file per configured URL. Nothing is
-/// bundled: a capture reads every list in [directory] and runs without
-/// network or cosmetic blocking when there is none. A failed download changes
-/// nothing, so a list's last good copy stays.
+/// The downloaded ad-block lists, one file per configured URL, and the
+/// resources file that scriptlets and redirects need, with a status entry of
+/// its own. Nothing is bundled: a capture reads every list in [directory] and
+/// runs without network or cosmetic blocking when there is none, and without
+/// scriptlets when there are no resources. A failed download changes nothing,
+/// so the last good copy stays.
 class FilterLists {
   FilterLists({
     required this.directory,
@@ -29,6 +31,7 @@ class FilterLists {
   static const retryAfter = Duration(hours: 1);
 
   static const _extension = '.txt';
+  static const _resourcesName = 'resources.json';
 
   final Directory directory;
   final SettingsStore settings;
@@ -43,6 +46,8 @@ class FilterLists {
     p.join(directory.path, '${sha1.convert(utf8.encode(url))}$_extension'),
   );
 
+  File get resourcesFile => File(p.join(directory.path, _resourcesName));
+
   /// Downloads what is missing or stale when [mayDownload] allows the network;
   /// null when nothing was needed or allowed.
   Future<Map<String, FilterListStatus>?> ensureFresh({
@@ -50,9 +55,15 @@ class FilterLists {
   }) async {
     if (!mayDownload) return null;
     final current = await settings.load();
-    final due = current.filterListUrls.any(
-      (url) => _due(url, current.filterListStatus[url]),
-    );
+    final due =
+        current.filterListUrls.any(
+          (url) => _due(url, fileFor(url), current.filterListStatus[url]),
+        ) ||
+        _due(
+          FilterSources.resourcesUrl,
+          resourcesFile,
+          current.filterListStatus[FilterSources.resourcesUrl],
+        );
     return due ? update() : null;
   }
 
@@ -62,7 +73,9 @@ class FilterLists {
     await _removeUnlisted(current.filterListUrls);
     final kept = {
       for (final entry in current.filterListStatus.entries)
-        if (current.filterListUrls.contains(entry.key)) entry.key: entry.value,
+        if (current.filterListUrls.contains(entry.key) ||
+            entry.key == FilterSources.resourcesUrl)
+          entry.key: entry.value,
     };
     if (kept.length != current.filterListStatus.length) {
       await settings.set(Settings.filterListStatus, kept);
@@ -77,38 +90,60 @@ class FilterLists {
     await _removeUnlisted(urls);
     final statuses = <String, FilterListStatus>{};
     for (final url in urls) {
-      statuses[url] = await _fetch(url, current.filterListStatus[url]);
+      statuses[url] = await _refresh(
+        url,
+        current.filterListStatus[url],
+        fileFor(url),
+        (text, now) {
+          final counts = FilterListText.inspect(text);
+          return FilterListStatus(
+            updatedAt: now,
+            checkedAt: now,
+            networkRules: counts.networkRules,
+            cosmeticRules: counts.cosmeticRules,
+          );
+        },
+      );
     }
+    statuses[FilterSources.resourcesUrl] = await _refresh(
+      FilterSources.resourcesUrl,
+      current.filterListStatus[FilterSources.resourcesUrl],
+      resourcesFile,
+      (text, now) {
+        FilterSources.checkResources(text);
+        return FilterListStatus(updatedAt: now, checkedAt: now);
+      },
+    );
     await settings.set(Settings.filterListStatus, statuses);
     return statuses;
   }
 
-  bool _due(String url, FilterListStatus? status) {
+  bool _due(String url, File file, FilterListStatus? status) {
     if (status == null) return true;
     final now = _clock();
     final checked = status.checkedAt;
     if (checked != null && now.difference(checked) < retryAfter) return false;
     final updated = status.updatedAt;
     return updated == null ||
-        !fileFor(url).existsSync() ||
+        !file.existsSync() ||
         now.difference(updated) >= maxAge;
   }
 
-  Future<FilterListStatus> _fetch(String url, FilterListStatus? before) async {
+  Future<FilterListStatus> _refresh(
+    String url,
+    FilterListStatus? before,
+    File file,
+    FilterListStatus Function(String text, DateTime now) accept,
+  ) async {
     final now = _clock();
     try {
-      final downloaded = await FilterSources.download(_client, url);
+      final text = await FilterSources.download(_client, url);
+      final status = accept(text, now);
       await directory.create(recursive: true);
-      final file = fileFor(url);
       final staging = File('${file.path}.tmp');
-      await staging.writeAsString(downloaded.text, flush: true);
+      await staging.writeAsString(text, flush: true);
       await staging.rename(file.path);
-      return FilterListStatus(
-        updatedAt: now,
-        checkedAt: now,
-        networkRules: downloaded.counts.networkRules,
-        cosmeticRules: downloaded.counts.cosmeticRules,
-      );
+      return status;
     } on FilterListException catch (e) {
       return (before ?? const FilterListStatus()).failed(e.message, now);
     } on Exception catch (e) {

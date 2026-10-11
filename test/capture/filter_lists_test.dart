@@ -9,9 +9,11 @@ import 'package:offline_hn/capture/filter_lists.dart';
 import 'package:offline_hn/data/db/database.dart';
 import 'package:offline_hn/data/model/settings.dart';
 import 'package:offline_hn/data/repository/settings_store.dart';
+import 'package:page_capture/filters.dart';
 
 const _a = 'https://lists.example/a.txt';
 const _b = 'https://lists.example/b.txt';
+const _resources = FilterSources.resourcesUrl;
 
 String _list(int rules) =>
     '[Adblock Plus 2.0]\n${[for (var i = 0; i < rules; i++) '||ads$i.example.com^'].join('\n')}\n##.banner\n';
@@ -29,7 +31,11 @@ void main() {
     settings = SettingsStore(db);
     directory = Directory.systemTemp.createTempSync('filter_lists_test');
     now = DateTime.utc(2026, 10, 10, 6);
-    served = {_a: _list(3), _b: _list(5)};
+    served = {
+      _a: _list(3),
+      _b: _list(5),
+      _resources: '[{"name":"noop.js","aliases":[],"content":"eA=="}]',
+    };
     requested = [];
   });
 
@@ -80,6 +86,33 @@ void main() {
     expect((await settings.load()).filterListStatus[_b]!.networkRules, 5);
   });
 
+  test('the resources file has a status of its own', () async {
+    await use([_a]);
+    final l = lists();
+    final result = await l.update();
+
+    expect(l.resourcesFile.readAsStringSync(), served[_resources]);
+    expect(result[_resources]!.updatedAt, now);
+    expect(result[_resources]!.error, isNull);
+  });
+
+  test('bad resources are reported and the lists still update', () async {
+    await use([_a]);
+    final l = lists();
+    await l.update();
+    final before = l.resourcesFile.readAsStringSync();
+
+    now = now.add(const Duration(days: 8));
+    served[_resources] = '<html>rate limited</html>';
+    final result = await l.update();
+
+    expect(result[_resources]!.error, isNotNull);
+    expect(result[_resources]!.updatedAt, DateTime.utc(2026, 10, 10, 6));
+    expect(l.resourcesFile.readAsStringSync(), before);
+    expect(result[_a]!.error, isNull);
+    expect(result[_a]!.updatedAt, now);
+  });
+
   test('a list that fails is reported without stopping the others', () async {
     await use([_a, _b]);
     served[_a] = '<html>blocked</html>';
@@ -115,7 +148,7 @@ void main() {
     expect(result['not a url']!.error, isNotNull);
     expect(result['ftp://lists.example/a.txt']!.error, isNotNull);
     expect(result[_a]!.error, isNull);
-    expect(requested, [_a]);
+    expect(requested, [_a, _resources]);
   });
 
   test('removing a URL deletes its copy and bookkeeping', () async {
@@ -128,7 +161,7 @@ void main() {
 
     expect(l.fileFor(_a).existsSync(), isFalse);
     expect(l.fileFor(_b).existsSync(), isTrue);
-    expect((await statuses()).keys, [_b]);
+    expect((await statuses()).keys, [_b, _resources]);
   });
 
   test('an update also drops lists that were removed', () async {
@@ -138,7 +171,7 @@ void main() {
     await use([_a]);
     await l.update();
     expect(l.fileFor(_b).existsSync(), isFalse);
-    expect((await statuses()).keys, [_a]);
+    expect((await statuses()).keys, [_a, _resources]);
   });
 
   group('ensureFresh', () {
@@ -150,7 +183,7 @@ void main() {
 
       await use([_a, _b]);
       expect(await l.ensureFresh(mayDownload: true), isNotNull);
-      expect(requested, [_a, _b]);
+      expect(requested, [_a, _b, _resources]);
       expect(l.fileFor(_b).existsSync(), isTrue);
     });
 
@@ -184,7 +217,7 @@ void main() {
       expect(await l.ensureFresh(mayDownload: true), isNull);
       now = now.add(const Duration(minutes: 31));
       expect(await l.ensureFresh(mayDownload: true), isNotNull);
-      expect(requested, [_a]);
+      expect(requested, [_a, _resources]);
     });
 
     test('a deleted file counts as no copy', () async {
@@ -195,6 +228,16 @@ void main() {
       now = now.add(const Duration(hours: 2));
       expect(await l.ensureFresh(mayDownload: true), isNotNull);
       expect(l.fileFor(_a).existsSync(), isTrue);
+    });
+
+    test('a missing resources file is fetched on its own', () async {
+      await use([_a]);
+      final l = lists();
+      await l.update();
+      l.resourcesFile.deleteSync();
+      now = now.add(const Duration(hours: 2));
+      expect(await l.ensureFresh(mayDownload: true), isNotNull);
+      expect(l.resourcesFile.existsSync(), isTrue);
     });
 
     test('never touches the network when the caller says it may not', () async {

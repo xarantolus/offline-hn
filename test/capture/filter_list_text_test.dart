@@ -31,4 +31,20 @@ void main() {
       throwsA(isA<FilterListException>()),
     );
   });
+
+  group('resources', () {
+    test('accepts a list of named resources', () {
+      FilterSources.checkResources('[{"name":"a.js","content":"eA=="}]');
+    });
+
+    test('rejects anything else', () {
+      for (final bad in ['[]', '{}', '[{"content":"x"}]', 'oops', '<html>']) {
+        expect(
+          () => FilterSources.checkResources(bad),
+          throwsA(isA<FilterListException>()),
+          reason: bad,
+        );
+      }
+    });
+  });
 }

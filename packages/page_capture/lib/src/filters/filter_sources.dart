@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:http/http.dart' as http;
 import 'package:page_capture/src/filters/filter_list_text.dart';
 
@@ -9,12 +11,14 @@ abstract final class FilterSources {
 
   static const requestTimeout = Duration(seconds: 60);
 
-  /// Downloads one list as served. Throws [FilterListException] for an
-  /// unusable URL, a failed request or text that is not a filter list.
-  static Future<({String text, FilterListCounts counts})> download(
-    http.Client client,
-    String url,
-  ) async {
+  /// Where the scriptlets and redirect resources come from: uBlock Origin's,
+  /// as compiled for adblock-rust. Downloaded like a list, never bundled.
+  static const resourcesUrl =
+      'https://raw.githubusercontent.com/brave/adblock-resources/master/dist/resources.json';
+
+  /// The body served at [url]. Throws [FilterListException] for an unusable
+  /// URL or a failed request.
+  static Future<String> download(http.Client client, String url) async {
     final uri = Uri.tryParse(url);
     if (uri == null ||
         !uri.hasAuthority ||
@@ -30,6 +34,22 @@ abstract final class FilterSources {
     if (response.statusCode != 200) {
       throw FilterListException('answered ${response.statusCode}');
     }
-    return (text: response.body, counts: FilterListText.inspect(response.body));
+    return response.body;
+  }
+
+  /// Throws [FilterListException] unless [text] is a non-empty JSON list of
+  /// named resources.
+  static void checkResources(String text) {
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(text);
+    } on FormatException {
+      throw const FilterListException('not JSON');
+    }
+    final valid =
+        decoded is List<Object?> &&
+        decoded.isNotEmpty &&
+        decoded.every((e) => e is Map<String, Object?> && e['name'] is String);
+    if (!valid) throw const FilterListException('not a list of resources');
   }
 }
