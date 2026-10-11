@@ -114,30 +114,24 @@ void main() {
 
   group('a thread that is open', () {
     test('the first comments to arrive are shown at once', () {
-      final open = OpenThread()..receive(_thread());
+      final open = OpenThread();
+      expect(open.receive(_thread()), isTrue);
       expect(open.shown, hasLength(7));
-      expect(open.pendingCount, 0);
     });
 
-    test('later ones wait until asked for', () {
+    test('later ones never replace what is shown', () {
       final open = OpenThread()..receive(_thread());
-      open.receive([..._thread(), _comment(40, position: 7, minute: 20)]);
+      expect(
+        open.receive([..._thread(), _comment(40, position: 7, minute: 20)]),
+        isFalse,
+      );
       expect(open.shown, hasLength(7));
-      expect(open.pendingCount, 1);
-      open.show();
-      expect(open.shown, hasLength(8));
-      expect(open.pendingCount, 0);
-    });
-
-    test('a refresh that adds nothing is not announced', () {
-      final open = OpenThread()..receive(_thread());
-      open.receive(_thread().reversed.toList());
-      expect(open.pendingCount, 0);
     });
 
     test('an empty thread takes the comments that arrive later', () {
-      final open = OpenThread()..receive(const []);
-      open.receive(_thread());
+      final open = OpenThread();
+      expect(open.receive(const []), isFalse);
+      expect(open.receive(_thread()), isTrue);
       expect(open.shown, hasLength(7));
     });
   });

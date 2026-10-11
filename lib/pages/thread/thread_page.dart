@@ -13,7 +13,6 @@ import 'package:offline_hn/data/policy/comment_arrangement.dart';
 import 'package:offline_hn/data/repository/thread_state_repository.dart';
 import 'package:offline_hn/pages/story_opener.dart';
 import 'package:offline_hn/pages/thread/copy_info.dart';
-import 'package:offline_hn/pages/thread/new_comments_chip.dart';
 import 'package:offline_hn/pages/thread/thread_header_view.dart';
 import 'package:offline_hn/ui/comment_tile.dart';
 import 'package:offline_hn/ui/tokens.dart';
@@ -48,7 +47,6 @@ class _ThreadPageState extends State<ThreadPage> {
   bool _ready = false;
   bool _missing = false;
   bool _fetched = false;
-  int _pending = 0;
   List<ArrangedComment> _visible = const [];
   List<int> _topLevel = const [];
   int? _focusIndex;
@@ -114,15 +112,10 @@ class _ThreadPageState extends State<ThreadPage> {
   }
 
   void _onComments(List<CommentRow> rows) {
-    _open.receive(rows);
-    if (_open.shown == rows) {
-      _rearrange();
-      setState(() {});
-      return;
-    }
-    if (_open.pendingCount != _pending) {
-      setState(() => _pending = _open.pendingCount);
-    }
+    if (!_open.receive(rows)) return;
+    _rearrange();
+    setState(() {});
+    unawaited(_markOpened());
   }
 
   void _onSettings(AppSettings settings) {
@@ -130,14 +123,6 @@ class _ThreadPageState extends State<ThreadPage> {
     _settings = settings;
     if (reorder) _rearrange();
     setState(() {});
-  }
-
-  void _showNew() {
-    _open.show();
-    _blocks.clear();
-    _rearrange();
-    setState(() => _pending = 0);
-    unawaited(_markOpened());
   }
 
   void _rearrange() {
@@ -274,54 +259,43 @@ class _ThreadPageState extends State<ThreadPage> {
     final newCount = countNewComments(_open.shown.map((c) => c.time), seen);
     final now = DateTime.now();
     final bottom = MediaQuery.viewPaddingOf(context).bottom + 88;
-    return Column(
-      children: [
-        if (_pending > 0)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
-            child: NewCommentsChip(count: _pending, onPressed: _showNew),
-          ),
-        Expanded(
-          child: SelectionArea(
-            child: ScrollablePositionedList.builder(
-              itemScrollController: _scroll,
-              itemPositionsListener: _positions,
-              initialScrollIndex: _focusIndex ?? 0,
-              padding: EdgeInsets.only(bottom: bottom),
-              itemCount: _visible.isEmpty ? 2 : _visible.length + 1,
-              itemBuilder: (context, index) {
-                if (index == 0) {
-                  return ThreadHeaderView(
-                    storyId: widget.storyId,
-                    newComments: newCount,
-                    textSize: textSize,
-                    onLink: (link) => unawaited(_openLink(link)),
-                  );
-                }
-                if (_visible.isEmpty) return _EmptyThread(fetched: _fetched);
-                final entry = _visible[index - 1];
-                final row = entry.row;
-                final time = row.time;
-                return CommentTile(
-                  key: ValueKey(row.id),
-                  author: row.author ?? '[removed]',
-                  age: time == null ? Duration.zero : now.difference(time),
-                  depth: entry.depth,
-                  blocks: _blocksOf(row),
-                  isOp: _storyAuthor != null && row.author == _storyAuthor,
-                  isNew: seen != null && time != null && time.isAfter(seen),
-                  collapsed: _collapsed.contains(row.id),
-                  hiddenCount: entry.descendants,
-                  hasChildren: entry.descendants > 0,
-                  textSize: textSize,
-                  onToggle: () => _toggle(row.id),
-                  onLink: (link) => unawaited(_openLink(link)),
-                );
-              },
-            ),
-          ),
-        ),
-      ],
+    return SelectionArea(
+      child: ScrollablePositionedList.builder(
+        itemScrollController: _scroll,
+        itemPositionsListener: _positions,
+        initialScrollIndex: _focusIndex ?? 0,
+        padding: EdgeInsets.only(bottom: bottom),
+        itemCount: _visible.isEmpty ? 2 : _visible.length + 1,
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return ThreadHeaderView(
+              storyId: widget.storyId,
+              newComments: newCount,
+              textSize: textSize,
+              onLink: (link) => unawaited(_openLink(link)),
+            );
+          }
+          if (_visible.isEmpty) return _EmptyThread(fetched: _fetched);
+          final entry = _visible[index - 1];
+          final row = entry.row;
+          final time = row.time;
+          return CommentTile(
+            key: ValueKey(row.id),
+            author: row.author ?? '[removed]',
+            age: time == null ? Duration.zero : now.difference(time),
+            depth: entry.depth,
+            blocks: _blocksOf(row),
+            isOp: _storyAuthor != null && row.author == _storyAuthor,
+            isNew: seen != null && time != null && time.isAfter(seen),
+            collapsed: _collapsed.contains(row.id),
+            hiddenCount: entry.descendants,
+            hasChildren: entry.descendants > 0,
+            textSize: textSize,
+            onToggle: () => _toggle(row.id),
+            onLink: (link) => unawaited(_openLink(link)),
+          );
+        },
+      ),
     );
   }
 }
