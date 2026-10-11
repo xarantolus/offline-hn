@@ -25,6 +25,20 @@ plugins {
     id("com.android.library")
 }
 
+val rustDir = layout.projectDirectory.dir("../rust")
+
+val rustAbis = when (val platforms = findProperty("target-platform") as String?) {
+    null -> listOf("arm64-v8a", "armeabi-v7a", "x86_64")
+    else -> platforms.split(',').mapNotNull {
+        when (it.trim()) {
+            "android-arm64" -> "arm64-v8a"
+            "android-arm" -> "armeabi-v7a"
+            "android-x64" -> "x86_64"
+            else -> null
+        }
+    }
+}
+
 android {
     namespace = "io.github.xarantolus.page_capture"
 
@@ -69,4 +83,31 @@ dependencies {
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation("org.junit.jupiter:junit-jupiter:5.13.4")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.13.4")
+}
+
+androidComponents {
+    onVariants { variant ->
+        val name = variant.name.replaceFirstChar { it.uppercase() }
+        val release = variant.buildType != "debug"
+        val output = layout.buildDirectory.dir("rustJniLibs/${variant.name}")
+        val cargoBin = File(System.getenv("CARGO_HOME") ?: "${System.getProperty("user.home")}/.cargo", "bin")
+        val build = tasks.register<Exec>("buildRust$name") {
+            inputs.files(fileTree(rustDir) { include("Cargo.toml", "Cargo.lock", "src/**") })
+            inputs.property("abis", rustAbis)
+            inputs.property("release", release)
+            outputs.dir(output)
+            workingDir = rustDir.asFile
+            environment("PATH", "${cargoBin}${File.pathSeparator}${System.getenv("PATH")}")
+            doFirst {
+                environment("ANDROID_NDK_HOME", android.ndkDirectory.absolutePath)
+            }
+            commandLine(
+                listOf("cargo", "ndk") + rustAbis.flatMap { listOf("-t", it) } +
+                    listOf("-o", output.get().asFile.absolutePath, "build", "--locked") +
+                    if (release) listOf("--release") else emptyList(),
+            )
+        }
+        variant.sources.jniLibs?.addStaticSourceDirectory(output.get().asFile.absolutePath)
+        tasks.matching { it.name == "pre${name}Build" }.configureEach { dependsOn(build) }
+    }
 }

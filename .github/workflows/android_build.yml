@@ -29,6 +29,22 @@ jobs:
           flutter-version: 3.47.1
           cache: true
 
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: packages/page_capture/rust
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-ndk
+
+      - name: Rust tests
+        working-directory: packages/page_capture/rust
+        run: cargo test --locked
+
       - run: flutter pub get
 
       - run: flutter test
