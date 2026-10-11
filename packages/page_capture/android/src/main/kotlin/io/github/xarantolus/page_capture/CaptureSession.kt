@@ -233,7 +233,19 @@ class CaptureSession(
     }
 
     private fun settle() {
-        evaluate(PageScripts.SCROLL_TOP) { later(request.settleMillis, ::save) }
+        evaluate(PageScripts.SCROLL_TOP) {
+            evaluate(PageScripts.EMBED_FONTS) { waitForFonts { later(request.settleMillis, ::save) } }
+        }
+    }
+
+    private fun waitForFonts(next: () -> Unit) {
+        val begin = now
+        fun check() {
+            evaluate(PageScripts.FONTS_DONE) { done ->
+                if (done == "true" || now > deadline || now - begin > FONTS_MILLIS) next() else later(POLL_MILLIS, ::check)
+            }
+        }
+        check()
     }
 
     private fun save() {
@@ -315,6 +327,7 @@ class CaptureSession(
         const val SCROLL_PAUSE_MILLIS = 350L
         const val QUIET_AFTER_LOAD_MILLIS = 25_000L
         const val QUIET_AFTER_SCROLL_MILLIS = 10_000L
+        const val FONTS_MILLIS = 8_000L
         const val CONSENT_GRACE_MILLIS = 8_000L
         const val CONSENT_SETTLE_MILLIS = 2_500L
         const val MAX_SCROLL_STEPS = 50
