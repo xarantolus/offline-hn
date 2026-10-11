@@ -107,6 +107,7 @@ class _CommentTileState extends State<CommentTile> {
     if (!widget.startsGroup) return tile;
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SizedBox(height: Spacing.sm),
         Divider(height: 1, thickness: 1, color: context.tokens.divider),

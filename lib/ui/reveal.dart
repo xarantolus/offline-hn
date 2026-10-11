@@ -60,7 +60,7 @@ class _RevealState extends State<Reveal> with SingleTickerProviderStateMixin {
       opacity: _curve,
       child: SizeTransition(
         sizeFactor: _curve,
-        alignment: Alignment.topCenter,
+        alignment: AlignmentDirectional.topStart,
         child: widget.child,
       ),
     );
