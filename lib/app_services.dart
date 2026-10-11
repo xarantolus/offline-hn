@@ -13,6 +13,7 @@ import 'package:offline_hn/data/model/settings.dart';
 import 'package:offline_hn/sync/connection_probe.dart';
 import 'package:offline_hn/sync/filter_list_update.dart';
 import 'package:offline_hn/sync/foreground_marker.dart';
+import 'package:offline_hn/sync/live_progress.dart';
 import 'package:offline_hn/sync/page_files.dart';
 import 'package:offline_hn/sync/scheduler.dart';
 import 'package:offline_hn/sync/sync_controller.dart';
@@ -58,7 +59,12 @@ class AppServices {
     final db = AppDatabase.open();
     final settings = SettingsStore(db);
     final marker = await ForegroundMarker.locate();
-    final notifier = SyncNotifier(FlutterLocalNotificationsPlugin(), marker);
+    final syncs = SyncRepository(db);
+    final notifier = SyncNotifier(
+      FlutterLocalNotificationsPlugin(),
+      marker,
+      () => withoutDeadRuns(syncs.watchProgress(), DateTime.now),
+    );
     await notifier.initialize();
     const queue = WorkmanagerQueue();
     final probe = PluginConnectionProbe();
@@ -79,7 +85,7 @@ class AppServices {
         probe: probe,
       ),
       sync: SyncController(
-        syncs: SyncRepository(db),
+        syncs: syncs,
         settings: settings,
         probe: probe,
         queue: queue,

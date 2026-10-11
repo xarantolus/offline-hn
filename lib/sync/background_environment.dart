@@ -11,6 +11,7 @@ import 'package:offline_hn/data/repository/sync_repository.dart';
 import 'package:offline_hn/sync/connection_probe.dart';
 import 'package:offline_hn/sync/filter_list_sync.dart';
 import 'package:offline_hn/sync/foreground_marker.dart';
+import 'package:offline_hn/sync/live_progress.dart';
 import 'package:offline_hn/sync/page_files.dart';
 import 'package:offline_hn/sync/page_saver.dart';
 import 'package:offline_hn/sync/pdf_downloader.dart';
@@ -42,9 +43,11 @@ class BackgroundEnvironment {
     final lists = FilterListsSync(
       FilterLists(directory: await FilterLists.locate(), settings: settings),
     );
+    final syncs = SyncRepository(db);
     final notifier = SyncNotifier(
       FlutterLocalNotificationsPlugin(),
       await ForegroundMarker.locate(),
+      () => withoutDeadRuns(syncs.watchProgress(), DateTime.now),
     );
     await notifier.initialize();
     final pages = PageRepository(db);
@@ -57,7 +60,7 @@ class BackgroundEnvironment {
       queue: queue,
       scheduler: Scheduler(queue),
       runner: SyncRunner(
-        syncs: SyncRepository(db),
+        syncs: syncs,
         stories: StoryRepository(db),
         pages: pages,
         settings: settings,

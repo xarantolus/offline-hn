@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:offline_hn/app_name.dart';
+import 'package:offline_hn/data/policy/run_progress.dart';
+import 'package:offline_hn/data/repository/sync_repository.dart';
 import 'package:offline_hn/sync/foreground_marker.dart';
 
 abstract interface class RunNotifier {
@@ -16,13 +20,16 @@ abstract interface class RunNotifier {
 }
 
 class SyncNotifier implements RunNotifier {
-  SyncNotifier(this._plugin, this._marker);
+  SyncNotifier(this._plugin, this._marker, this._progress);
 
   static const _id = 1;
   static const _channelId = 'sync';
 
   final FlutterLocalNotificationsPlugin _plugin;
   final ForegroundMarker _marker;
+  final Stream<SyncProgress?> Function() _progress;
+  final _pace = NotifyPace();
+  StreamSubscription<SyncProgress?>? _following;
 
   Future<void> initialize() => _plugin.initialize(
     settings: const InitializationSettings(
@@ -43,23 +50,55 @@ class SyncNotifier implements RunNotifier {
   @override
   Future<void> runStarted() async {
     await _plugin.cancel(id: _id);
-    if (!_marker.isForeground) await _show();
+    _pace.reset();
+    _follow();
   }
 
   @override
-  Future<void> runEnded() => _plugin.cancel(id: _id);
+  Future<void> runEnded() async {
+    await _unfollow();
+    await _plugin.cancel(id: _id);
+  }
 
   @override
-  Future<void> appLeft() => _show();
+  Future<void> appLeft() async {
+    _pace.reset();
+    _follow();
+  }
 
   @override
-  Future<void> appOpened() => _plugin.cancel(id: _id);
+  Future<void> appOpened() async {
+    await _unfollow();
+    await _plugin.cancel(id: _id);
+  }
 
-  Future<void> _show() => _plugin.show(
+  void _follow() {
+    _following ??= _progress().listen(_onProgress);
+  }
+
+  Future<void> _unfollow() async {
+    final following = _following;
+    _following = null;
+    await following?.cancel();
+  }
+
+  void _onProgress(SyncProgress? progress) {
+    if (progress == null) {
+      _pace.reset();
+      unawaited(_plugin.cancel(id: _id));
+      return;
+    }
+    if (_marker.isForeground) return;
+    final percent = runPercent(progress);
+    if (!_pace.allow(progress.runId, percent, DateTime.now())) return;
+    unawaited(_show(percent, runStageText(progress.phase)));
+  }
+
+  Future<void> _show(int percent, String text) => _plugin.show(
     id: _id,
     title: appName,
-    body: 'Updating stories',
-    notificationDetails: const NotificationDetails(
+    body: text,
+    notificationDetails: NotificationDetails(
       android: AndroidNotificationDetails(
         _channelId,
         'Updating stories',
@@ -68,7 +107,8 @@ class SyncNotifier implements RunNotifier {
         ongoing: true,
         onlyAlertOnce: true,
         showProgress: true,
-        indeterminate: true,
+        maxProgress: 100,
+        progress: percent,
         playSound: false,
         enableVibration: false,
         channelShowBadge: false,
