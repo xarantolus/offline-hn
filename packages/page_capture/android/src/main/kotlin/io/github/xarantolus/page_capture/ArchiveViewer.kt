@@ -15,28 +15,28 @@ import java.io.File
 class ArchiveViewer(private val context: Context) {
     var activity: Activity? = null
 
-    /// The archive goes to a browser only when the system itself would hand a
-    /// type-less content:// link to one: another app that claims such links
-    /// (a wallet's pass handler does) must not get it, and a browser given a
-    /// MIME type for it offers a download instead of a page.
+    /// The intent is aimed at one Custom Tabs provider. Left to the system, a
+    /// type-less content:// link goes to whichever app claims such links (a
+    /// wallet's pass handler does), and a browser given a MIME type offers a
+    /// download instead of a page.
     fun openInCustomTab(path: String): Boolean {
+        val provider = CustomTabsClient.getPackageName(context, null) ?: return false
         val uri = uriFor(path)
         val intent = CustomTabsIntent.Builder().build().intent
         intent.data = uri
-        val target = context.packageManager
-            .resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
-            ?.activityInfo
-            ?.packageName
-        if (target == null || target != defaultBrowser()) return false
+        intent.setClassName(provider, entryPoint(provider) ?: return false)
+        context.grantUriPermission(provider, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
         return launch(grant(intent, uri))
     }
 
-    private fun defaultBrowser(): String? {
-        val probe = Intent(Intent.ACTION_VIEW, Uri.parse("https://example.com"))
+    private fun entryPoint(provider: String): String? {
+        val web = Intent(Intent.ACTION_VIEW, Uri.parse("https://example.com"))
             .addCategory(Intent.CATEGORY_BROWSABLE)
-        val match = context.packageManager.resolveActivity(probe, PackageManager.MATCH_DEFAULT_ONLY)
-        val name = match?.activityInfo?.packageName
-        return if (name == null || name == "android") null else name
+            .setPackage(provider)
+        return context.packageManager
+            .resolveActivity(web, PackageManager.MATCH_DEFAULT_ONLY)
+            ?.activityInfo
+            ?.name
     }
 
     fun openPdf(path: String): Boolean {
@@ -62,6 +62,8 @@ class ArchiveViewer(private val context: Context) {
         }
         true
     } catch (e: ActivityNotFoundException) {
+        false
+    } catch (e: SecurityException) {
         false
     }
 

@@ -92,6 +92,11 @@ class AppTokens extends ThemeExtension<AppTokens> {
     color: muted,
   );
 
+  /// Alternating neutral and accent, both visible against [page].
+  Color railColor(int level) => level.isEven
+      ? muted.withValues(alpha: 0.5)
+      : accent.withValues(alpha: 0.6);
+
   TextStyle get label => TextStyle(fontSize: 16, color: text);
 
   TextStyle get hint => TextStyle(fontSize: 12.5, color: muted);

@@ -136,6 +136,21 @@ void main() {
       await expectation;
     });
 
+    test('the newest fetch is the latest snapshot, null for none', () async {
+      expect(await stories.watchNewestFetch().first, isNull);
+      await stories.upsertStories([_story(1)], t0);
+      await stories.recordSnapshot(FeedKind.top, [
+        1,
+      ], DateTime.utc(2026, 10, 8));
+      await stories.recordSnapshot(FeedKind.ask, [
+        1,
+      ], DateTime.utc(2026, 10, 9));
+      expect(
+        (await stories.watchNewestFetch().first)!.toUtc(),
+        DateTime.utc(2026, 10, 9),
+      );
+    });
+
     test('stored days come from snapshots in the given offset', () async {
       await stories.upsertStories([_story(1)], t0);
       await stories.recordSnapshot(FeedKind.top, [

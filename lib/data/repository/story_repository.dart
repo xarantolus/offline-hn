@@ -79,6 +79,13 @@ class StoryRepository {
     );
   }
 
+  /// When the newest rankings were fetched, finished run or not.
+  Stream<DateTime?> watchNewestFetch() {
+    final newest = _db.feedSnapshots.fetchedAt.max();
+    final query = _db.selectOnly(_db.feedSnapshots)..addColumns([newest]);
+    return query.watchSingle().map((row) => row.read(newest));
+  }
+
   Future<StoryRow?> story(int id) => (_db.select(
     _db.stories,
   )..where((s) => s.id.equals(id))).getSingleOrNull();

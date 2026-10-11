@@ -186,12 +186,7 @@ class DepthRails extends StatelessWidget {
       result = DecoratedBox(
         decoration: BoxDecoration(
           border: Border(
-            left: BorderSide(
-              color: level.isEven
-                  ? t.hairline
-                  : t.accent.withValues(alpha: 0.35),
-              width: width,
-            ),
+            left: BorderSide(color: t.railColor(level), width: width),
           ),
         ),
         child: Padding(

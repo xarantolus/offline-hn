@@ -20,6 +20,8 @@ class _SyncStatusLineState extends State<SyncStatusLine> {
   late final Stream<DateTime?> _lastSync = widget.services.sync.lastSync;
   late final Stream<ConnectionKind> _connection =
       widget.services.sync.connection;
+  late final Stream<DateTime?> _stored = widget.services.stories
+      .watchNewestFetch();
 
   String? _clock(DateTime? at) {
     if (at == null) return null;
@@ -36,13 +38,17 @@ class _SyncStatusLineState extends State<SyncStatusLine> {
       stream: _progress,
       builder: (context, progress) => StreamBuilder<DateTime?>(
         stream: _lastSync,
-        builder: (context, last) => StreamBuilder<ConnectionKind>(
-          stream: _connection,
-          builder: (context, connection) => SmallCaps(
-            syncStatusText(
-              progress: progress.data,
-              updatedAt: _clock(last.data),
-              connection: connection.data,
+        builder: (context, last) => StreamBuilder<DateTime?>(
+          stream: _stored,
+          builder: (context, stored) => StreamBuilder<ConnectionKind>(
+            stream: _connection,
+            builder: (context, connection) => SmallCaps(
+              syncStatusText(
+                progress: progress.data,
+                updatedAt: _clock(last.data),
+                storedAt: _clock(stored.data),
+                connection: connection.data,
+              ),
             ),
           ),
         ),

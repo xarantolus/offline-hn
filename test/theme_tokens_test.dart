@@ -24,6 +24,26 @@ void main() {
       }
     });
 
+    test('${entry.key}: depth rails are visible on the page', () {
+      for (final level in [0, 1]) {
+        final rail = Color.alphaBlend(tokens.railColor(level), tokens.page);
+        expect(
+          _contrast(rail, tokens.page),
+          greaterThanOrEqualTo(2),
+          reason: 'level $level',
+        );
+      }
+    });
+
+    test('${entry.key}: the floating button carries white on its fill', () {
+      final fab = theme.floatingActionButtonTheme;
+      expect(fab.backgroundColor, theme.colorScheme.primary);
+      expect(
+        _contrast(fab.foregroundColor!, fab.backgroundColor!),
+        greaterThanOrEqualTo(4.5),
+      );
+    });
+
     test('${entry.key}: filled button label is legible', () {
       final scheme = theme.colorScheme;
       expect(

@@ -33,6 +33,10 @@ ThemeData _withComponents(ThemeData base, AppTokens tokens) {
     listTileTheme: const ListTileThemeData(
       contentPadding: EdgeInsets.symmetric(horizontal: Spacing.gutter),
     ),
+    floatingActionButtonTheme: FloatingActionButtonThemeData(
+      backgroundColor: scheme.primary,
+      foregroundColor: scheme.onPrimary,
+    ),
     popupMenuTheme: PopupMenuThemeData(color: scheme.surface),
     switchTheme: SwitchThemeData(
       thumbColor: WidgetStateProperty.resolveWith(

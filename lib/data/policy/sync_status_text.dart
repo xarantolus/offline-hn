@@ -22,14 +22,20 @@ String progressLabel(SyncProgress progress) {
 }
 
 /// The quiet line under the feed switcher. [updatedAt] is the clock time of
-/// the last successful sync, already formatted for the reader.
+/// the last successful sync and [storedAt] that of the newest stored rankings,
+/// both already formatted for the reader.
 String syncStatusText({
   required SyncProgress? progress,
   required String? updatedAt,
+  String? storedAt,
   required ConnectionKind? connection,
 }) {
   if (progress != null) return progressLabel(progress);
   final link = connection == null ? null : connectionLabel(connection);
-  final updated = updatedAt == null ? 'Not updated yet' : 'Updated $updatedAt';
+  final updated = switch ((updatedAt, storedAt)) {
+    (final done?, _) => 'Updated $done',
+    (null, final partial?) => 'Update unfinished · stories from $partial',
+    (null, null) => 'Not updated yet',
+  };
   return link == null ? updated : '$updated · $link';
 }

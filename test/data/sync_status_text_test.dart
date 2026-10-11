@@ -62,4 +62,31 @@ void main() {
       'Not updated yet · wifi',
     );
   });
+
+  test(
+    'stored rankings without a finished sync say the update is unfinished',
+    () {
+      expect(
+        syncStatusText(
+          progress: null,
+          updatedAt: null,
+          storedAt: '06:12',
+          connection: ConnectionKind.wifi,
+        ),
+        'Update unfinished · stories from 06:12 · wifi',
+      );
+    },
+  );
+
+  test('a finished sync wins over stored rankings', () {
+    expect(
+      syncStatusText(
+        progress: null,
+        updatedAt: '07:00',
+        storedAt: '06:12',
+        connection: null,
+      ),
+      'Updated 07:00',
+    );
+  });
 }

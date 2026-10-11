@@ -257,8 +257,6 @@ class _ThreadPageState extends State<ThreadPage> {
       builder: (context, _, _) => _nextTopLevel == null
           ? const SizedBox.shrink()
           : FloatingActionButton.small(
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              foregroundColor: Colors.white,
               tooltip: 'Next top-level comment',
               onPressed: _jumpToNextTopLevel,
               child: const Icon(Icons.keyboard_double_arrow_down),
