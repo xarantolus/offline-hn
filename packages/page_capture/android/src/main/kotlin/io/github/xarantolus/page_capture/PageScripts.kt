@@ -1,6 +1,7 @@
 package io.github.xarantolus.page_capture
 
 import org.json.JSONArray
+import org.json.JSONObject
 
 object PageScripts {
     const val METRICS = "[window.innerHeight, document.documentElement.scrollHeight, window.scrollY].join(' ')"
@@ -9,70 +10,98 @@ object PageScripts {
 
     const val SCROLL_TOP = "window.scrollTo(0, 0)"
 
-    /**
-     * The archive writer leaves font files out, so a copy would fall back to
-     * whatever the phone has. This puts the font faces the page actually used
-     * into their rules as data URIs, which the writer does keep. Runs on its
-     * own: [FONTS_DONE] turns true when it is finished.
-     */
-    const val EMBED_FONTS = """
+    /** The style sheets the page may not read, as a JSON array of URLs. */
+    const val UNREADABLE_SHEETS = """
         (function () {
-          window.__fontsDone = false;
-          var finish = function () { window.__fontsDone = true; };
-          try {
-            var weights = { normal: '400', bold: '700' };
-            var weightOf = function (w) { w = String(w || 'normal'); return weights[w] || w; };
-            var plain = function (s) { return String(s).replace(/^["']|["']${'$'}/g, ''); };
-            var used = {};
-            document.fonts.forEach(function (f) {
-              if (f.status === 'loaded') used[plain(f.family) + '|' + weightOf(f.weight) + '|' + (f.style || 'normal')] = 1;
-            });
-            var rules = [];
-            var walk = function (list) {
-              for (var i = 0; i < list.length; i++) {
-                var rule = list[i];
-                if (rule.cssRules && !rule.style) { try { walk(rule.cssRules); } catch (e) {} }
-                else if (rule.styleSheet) { try { walk(rule.styleSheet.cssRules); } catch (e) {} }
-                else if (rule.type === 5) {
-                  var st = rule.style;
-                  var key = plain(st.getPropertyValue('font-family')) + '|' + weightOf(st.getPropertyValue('font-weight')) + '|' + (st.getPropertyValue('font-style') || 'normal');
-                  if (used[key]) rules.push(rule);
-                }
-              }
-            };
-            for (var s = 0; s < document.styleSheets.length; s++) {
-              try { walk(document.styleSheets[s].cssRules); } catch (e) {}
+          var hrefs = [];
+          var walk = function (sheet) {
+            var rules;
+            try { rules = sheet.cssRules; } catch (e) { if (sheet.href) hrefs.push(sheet.href); return; }
+            for (var i = 0; i < rules.length; i++) {
+              if (rules[i].styleSheet) walk(rules[i].styleSheet);
             }
-            var budget = 4000000;
-            var one = function (rule) {
-              var src = rule.style.getPropertyValue('src');
-              var found = /url\(\s*["']?([^"')]+)["']?\s*\)/.exec(src);
-              if (!found || found[1].indexOf('data:') === 0) return Promise.resolve();
-              var base = rule.parentStyleSheet && rule.parentStyleSheet.href || document.baseURI;
-              return fetch(new URL(found[1], base).href, { credentials: 'omit' })
-                .then(function (r) { return r.ok ? r.blob() : null; })
-                .then(function (blob) {
-                  if (!blob || blob.size > 1500000 || blob.size > budget) return;
-                  budget -= blob.size;
-                  return new Promise(function (resolve) {
-                    var reader = new FileReader();
-                    reader.onload = function () {
-                      rule.style.setProperty('src', 'url(' + reader.result + ')');
-                      resolve();
-                    };
-                    reader.onerror = resolve;
-                    reader.readAsDataURL(blob);
-                  });
-                })
-                .catch(function () {});
-            };
-            Promise.all(rules.map(one)).then(finish, finish);
-          } catch (e) { finish(); }
-          return rules ? 'started' : 'none';
+          };
+          var all = Array.prototype.slice.call(document.styleSheets).concat(document.adoptedStyleSheets || []);
+          all.forEach(walk);
+          return JSON.stringify(hrefs);
         })()
     """
 
-    const val FONTS_DONE = "window.__fontsDone === true"
+    /**
+     * The font faces the page loaded, as a JSON array of `{url, descriptors}`:
+     * one source to download and the rule's other descriptors. [sheets] maps
+     * each unreadable sheet's URL to its text, fetched outside the page. A face
+     * whose source is already a data URI is left out, the archive keeps it.
+     */
+    fun usedFontFaces(sheets: Map<String, String>): String = """
+        (function (fetched) {
+          var plain = function (s) { return String(s).trim().replace(/^["']|["']${'$'}/g, ''); };
+          var keyOf = function (f) { return [plain(f.family), f.style, f.weight, f.stretch, f.unicodeRange].join('|'); };
+          var used = {};
+          document.fonts.forEach(function (f) { if (f.status === 'loaded') used[keyOf(f)] = 1; });
+          var faces = [];
+          var walk = function (rules, base) {
+            for (var i = 0; i < rules.length; i++) {
+              var rule = rules[i];
+              if (rule.type === 5) faces.push({ rule: rule, base: base });
+              else if (rule.styleSheet) visit(rule.styleSheet, base);
+              else if (rule.cssRules) walk(rule.cssRules, base);
+            }
+          };
+          var visit = function (sheet, base) {
+            var href = sheet.href || base;
+            var rules;
+            try { rules = sheet.cssRules; } catch (e) {
+              var text = fetched[sheet.href];
+              if (text === undefined) return;
+              var copy = new CSSStyleSheet();
+              try { copy.replaceSync(text); } catch (e2) { return; }
+              rules = copy.cssRules;
+            }
+            walk(rules, href);
+          };
+          var all = Array.prototype.slice.call(document.styleSheets).concat(document.adoptedStyleSheets || []);
+          all.forEach(function (sheet) { visit(sheet, document.baseURI); });
+          var source = function (src, base) {
+            var pattern = /url\(\s*(["']?)(.*?)\1\s*\)\s*(?:format\(\s*["']?([\w-]+)["']?\s*\))?/g;
+            var found, first = null;
+            while ((found = pattern.exec(src))) {
+              var url = found[2], format = (found[3] || '').toLowerCase();
+              if (url.indexOf('data:') === 0) return null;
+              if (format === 'embedded-opentype' || format === 'svg') continue;
+              var resolved;
+              try { resolved = new URL(url, base).href; } catch (e) { continue; }
+              if (format === 'woff2' || /\.woff2(${'$'}|[?#])/i.test(url)) return resolved;
+              if (first === null) first = resolved;
+            }
+            return first;
+          };
+          var taken = {}, out = [];
+          for (var i = faces.length - 1; i >= 0; i--) {
+            var style = faces[i].rule.style;
+            var descriptors = {};
+            [['font-style', 'style'], ['font-weight', 'weight'], ['font-stretch', 'stretch'], ['unicode-range', 'unicodeRange']]
+              .forEach(function (pair) { var v = style.getPropertyValue(pair[0]); if (v) descriptors[pair[1]] = v; });
+            var key;
+            try { key = keyOf(new FontFace(plain(style.getPropertyValue('font-family')), 'url(x)', descriptors)); } catch (e) { continue; }
+            if (!used[key] || taken[key]) continue;
+            taken[key] = 1;
+            var url = source(style.getPropertyValue('src'), faces[i].base);
+            if (!url) continue;
+            var kept = [];
+            for (var k = 0; k < style.length; k++) {
+              if (style[k] !== 'src') kept.push(style[k] + ':' + style.getPropertyValue(style[k]));
+            }
+            out.unshift({ url: url, descriptors: kept.join(';') });
+          }
+          return JSON.stringify(out);
+        })(${JSONObject(sheets)})
+    """.trimIndent()
+
+    /** Appends [css] as a style element, after every sheet the page has, so its rules win. */
+    fun appendStyle(css: String): String =
+        "(function (css) { var s = document.createElement('style'); s.textContent = css; " +
+            "(document.body || document.documentElement).appendChild(s); return 1; })(${JSONObject.quote(css)})"
 
     /** The class and id names in the document, as a JSON string. */
     const val PAGE_NAMES = """

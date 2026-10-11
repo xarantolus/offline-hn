@@ -18,10 +18,12 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.webkit.RenderProcessGoneDetail
 import io.github.xarantolus.page_capture.filter.AdblockEngine
+import org.json.JSONArray
 import org.json.JSONObject
 import org.json.JSONTokener
 import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.concurrent.thread
 
 /** What one capture needs besides the request, loaded before the WebView exists. */
 class CaptureTools(val filters: AdblockEngine?, val consent: ConsentAssets?) {
@@ -57,6 +59,7 @@ class CaptureSession(
     private var loadedAt: Long? = null
     private var scrollBeganAt: Long? = null
     private var saveBeganAt: Long? = null
+    private var fonts: FontFetcher? = null
 
     private val deadline get() = startedAt + request.overallMillis - request.saveMillis
     private val now get() = SystemClock.elapsedRealtime()
@@ -233,19 +236,47 @@ class CaptureSession(
     }
 
     private fun settle() {
-        evaluate(PageScripts.SCROLL_TOP) {
-            evaluate(PageScripts.EMBED_FONTS) { waitForFonts { later(request.settleMillis, ::save) } }
+        evaluate(PageScripts.SCROLL_TOP) { embedFonts { later(request.settleMillis, ::save) } }
+    }
+
+    /** The archive writer leaves font files out, so the faces the page loaded go in as data URIs. */
+    private fun embedFonts(next: () -> Unit) {
+        val view = web ?: return
+        val fetcher = FontFetcher(mainUrl, view.settings.userAgentString, minOf(now + FONTS_MILLIS, deadline)) { now }
+        fonts = fetcher
+        fun done() {
+            fetcher.close()
+            next()
+        }
+        evaluate(PageScripts.UNREADABLE_SHEETS) { raw ->
+            val hrefs = jsonArray(raw)?.let { array -> List(array.length()) { array.getString(it) } }.orEmpty()
+            inBackground({ fetcher.styleSheets(hrefs) }) { sheets ->
+                evaluate(PageScripts.usedFontFaces(sheets.orEmpty())) { faces ->
+                    val wanted = jsonArray(faces) ?: return@evaluate done()
+                    inBackground({ fetcher.fontFaceRules(wanted) }) { css ->
+                        if (css.isNullOrEmpty()) done() else evaluate(PageScripts.appendStyle(css)) { done() }
+                    }
+                }
+            }
         }
     }
 
-    private fun waitForFonts(next: () -> Unit) {
-        val begin = now
-        fun check() {
-            evaluate(PageScripts.FONTS_DONE) { done ->
-                if (done == "true" || now > deadline || now - begin > FONTS_MILLIS) next() else later(POLL_MILLIS, ::check)
+    /** [then] gets null when [work] failed. */
+    private fun <T> inBackground(work: () -> T, then: (T?) -> Unit) {
+        thread(name = "page-capture-fonts") {
+            val result = try {
+                work()
+            } catch (e: Exception) {
+                null
             }
+            main.post { if (!finished) then(result) }
         }
-        check()
+    }
+
+    private fun jsonArray(raw: String): JSONArray? = try {
+        JSONArray(JSONTokener(raw).nextValue() as String)
+    } catch (e: Exception) {
+        null
     }
 
     private fun save() {
@@ -318,6 +349,7 @@ class CaptureSession(
             view.destroy()
         }
         web = null
+        fonts?.close()
         if (outcome is CaptureOutcome.Failure) File(request.outputPath).delete()
         onFinished(outcome.toMap(now - startedAt))
     }
