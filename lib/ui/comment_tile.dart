@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show SelectedContent;
 import 'package:offline_hn/comments/comment_block.dart';
 import 'package:offline_hn/ui/comment_body.dart';
 import 'package:offline_hn/ui/format.dart';
 import 'package:offline_hn/ui/reveal.dart';
+import 'package:offline_hn/ui/selection_guard.dart';
 import 'package:offline_hn/ui/tokens.dart';
 
-class CommentTile extends StatelessWidget {
+class CommentTile extends StatefulWidget {
   const CommentTile({
     super.key,
     required this.author,
@@ -21,6 +23,7 @@ class CommentTile extends StatelessWidget {
     this.textSize = 15,
     this.onToggle,
     this.onLink,
+    this.selectionGuard,
   });
 
   final String author;
@@ -36,41 +39,72 @@ class CommentTile extends StatelessWidget {
   final double textSize;
   final VoidCallback? onToggle;
   final LinkHandler? onLink;
+  final SelectionGuard? selectionGuard;
+
+  @override
+  State<CommentTile> createState() => _CommentTileState();
+}
+
+class _CommentTileState extends State<CommentTile> {
+  final _area = GlobalKey<SelectionAreaState>();
+
+  void _selectionChanged(SelectedContent? content) {
+    widget.selectionGuard?.changed(
+      this,
+      selected: content != null && content.plainText.isNotEmpty,
+      clear: () => _area.currentState?.selectableRegion.clearSelection(),
+    );
+  }
+
+  void _tap() {
+    if (widget.selectionGuard?.dismiss() ?? false) return;
+    widget.onToggle?.call();
+  }
+
+  @override
+  void dispose() {
+    widget.selectionGuard?.changed(this, selected: false);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final tile = DepthRails(
-      depth: depth.clamp(0, 6),
-      child: InkWell(
-        onTap: hasChildren ? onToggle : null,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            depth == 0 ? Spacing.gutter : Spacing.sm,
-            startsGroup ? Spacing.md : Spacing.sm,
-            Spacing.lg,
-            Spacing.sm,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _Byline(row: this),
-              Reveal(
-                open: !collapsed,
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 3),
-                  child: CommentBody(
-                    blocks: blocks,
-                    textSize: textSize - 1,
-                    onLink: onLink,
+      depth: widget.depth.clamp(0, 6),
+      child: SelectionArea(
+        key: _area,
+        onSelectionChanged: _selectionChanged,
+        child: InkWell(
+          onTap: widget.hasChildren ? _tap : null,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              widget.depth == 0 ? Spacing.gutter : Spacing.sm,
+              widget.startsGroup ? Spacing.md : Spacing.sm,
+              Spacing.lg,
+              Spacing.sm,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _Byline(row: widget),
+                Reveal(
+                  open: !widget.collapsed,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 3),
+                    child: CommentBody(
+                      blocks: widget.blocks,
+                      textSize: widget.textSize - 1,
+                      onLink: widget.onLink,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
-    if (!startsGroup) return tile;
+    if (!widget.startsGroup) return tile;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [

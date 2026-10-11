@@ -16,6 +16,7 @@ import 'package:offline_hn/pages/thread/copy_info.dart';
 import 'package:offline_hn/pages/thread/thread_header_view.dart';
 import 'package:offline_hn/ui/comment_tile.dart';
 import 'package:offline_hn/ui/reveal.dart';
+import 'package:offline_hn/ui/selection_guard.dart';
 import 'package:offline_hn/ui/tokens.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
@@ -37,6 +38,7 @@ class _ThreadPageState extends State<ThreadPage> {
   final _scroll = ItemScrollController();
   final _blocks = <int, List<CommentBlock>>{};
   final _subscriptions = <StreamSubscription<Object?>>[];
+  final _selection = SelectionGuard();
   Timer? _settle;
   Set<int> _closing = {};
   Set<int> _entering = {};
@@ -310,52 +312,53 @@ class _ThreadPageState extends State<ThreadPage> {
     final newCount = countNewComments(_open.shown.map((c) => c.time), seen);
     final now = DateTime.now();
     final bottom = MediaQuery.viewPaddingOf(context).bottom + 88;
-    return SelectionArea(
-      child: ScrollablePositionedList.builder(
-        itemScrollController: _scroll,
-        itemPositionsListener: _positions,
-        initialScrollIndex: _focusIndex ?? 0,
-        padding: EdgeInsets.only(bottom: bottom),
-        itemCount: _visible.isEmpty ? 2 : _visible.length + 1,
-        itemBuilder: (context, index) {
-          if (index == 0) {
-            return ThreadHeaderView(
+    return ScrollablePositionedList.builder(
+      itemScrollController: _scroll,
+      itemPositionsListener: _positions,
+      initialScrollIndex: _focusIndex ?? 0,
+      padding: EdgeInsets.only(bottom: bottom),
+      itemCount: _visible.isEmpty ? 2 : _visible.length + 1,
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return SelectionArea(
+            child: ThreadHeaderView(
               storyId: widget.storyId,
               newComments: newCount,
               textSize: textSize,
               onLink: (link) => unawaited(_openLink(link)),
-            );
-          }
-          if (_visible.isEmpty) return _EmptyThread(fetched: _fetched);
-          final entry = _visible[index - 1];
-          final row = entry.row;
-          final time = row.time;
-          final tile = CommentTile(
-            key: ValueKey(row.id),
-            author: row.author ?? '[removed]',
-            age: time == null ? Duration.zero : now.difference(time),
-            depth: entry.depth,
-            blocks: _blocksOf(row),
-            isOp: _storyAuthor != null && row.author == _storyAuthor,
-            startsGroup: entry.depth == 0 && index > 1,
-            isNew: seen != null && time != null && time.isAfter(seen),
-            collapsed: _collapsed.contains(row.id),
-            hiddenCount: entry.descendants,
-            hasChildren: entry.descendants > 0,
-            textSize: textSize,
-            onToggle: () => _toggle(row.id),
-            onLink: (link) => unawaited(_openLink(link)),
+            ),
           );
-          final closing = _closing.contains(row.id);
-          if (!closing && !_entering.contains(row.id)) return tile;
-          return Reveal(
-            key: ValueKey(row.id),
-            open: !closing,
-            animateIn: !closing,
-            child: tile,
-          );
-        },
-      ),
+        }
+        if (_visible.isEmpty) return _EmptyThread(fetched: _fetched);
+        final entry = _visible[index - 1];
+        final row = entry.row;
+        final time = row.time;
+        final tile = CommentTile(
+          key: ValueKey(row.id),
+          author: row.author ?? '[removed]',
+          age: time == null ? Duration.zero : now.difference(time),
+          depth: entry.depth,
+          blocks: _blocksOf(row),
+          isOp: _storyAuthor != null && row.author == _storyAuthor,
+          startsGroup: entry.depth == 0 && index > 1,
+          isNew: seen != null && time != null && time.isAfter(seen),
+          collapsed: _collapsed.contains(row.id),
+          hiddenCount: entry.descendants,
+          hasChildren: entry.descendants > 0,
+          textSize: textSize,
+          selectionGuard: _selection,
+          onToggle: () => _toggle(row.id),
+          onLink: (link) => unawaited(_openLink(link)),
+        );
+        final closing = _closing.contains(row.id);
+        if (!closing && !_entering.contains(row.id)) return tile;
+        return Reveal(
+          key: ValueKey(row.id),
+          open: !closing,
+          animateIn: !closing,
+          child: tile,
+        );
+      },
     );
   }
 }
