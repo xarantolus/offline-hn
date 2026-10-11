@@ -286,6 +286,7 @@ class _ThreadPageState extends State<ThreadPage> {
             depth: entry.depth,
             blocks: _blocksOf(row),
             isOp: _storyAuthor != null && row.author == _storyAuthor,
+            startsGroup: entry.depth == 0 && index > 1,
             isNew: seen != null && time != null && time.isAfter(seen),
             collapsed: _collapsed.contains(row.id),
             hiddenCount: entry.descendants,

@@ -13,6 +13,7 @@ class CommentTile extends StatelessWidget {
     required this.blocks,
     this.isOp = false,
     this.isNew = false,
+    this.startsGroup = false,
     this.collapsed = false,
     this.hiddenCount = 0,
     this.hasChildren = false,
@@ -27,6 +28,7 @@ class CommentTile extends StatelessWidget {
   final List<CommentBlock> blocks;
   final bool isOp;
   final bool isNew;
+  final bool startsGroup;
   final bool collapsed;
   final int hiddenCount;
   final bool hasChildren;
@@ -36,14 +38,14 @@ class CommentTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DepthRails(
+    final tile = DepthRails(
       depth: depth.clamp(0, 6),
       child: InkWell(
         onTap: hasChildren ? onToggle : null,
         child: Padding(
           padding: EdgeInsets.fromLTRB(
             depth == 0 ? Spacing.gutter : Spacing.sm,
-            Spacing.sm,
+            startsGroup ? Spacing.md : Spacing.sm,
             Spacing.lg,
             Spacing.sm,
           ),
@@ -63,6 +65,15 @@ class CommentTile extends StatelessWidget {
           ),
         ),
       ),
+    );
+    if (!startsGroup) return tile;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(height: Spacing.sm),
+        Divider(height: 1, thickness: 1, color: context.tokens.divider),
+        tile,
+      ],
     );
   }
 }

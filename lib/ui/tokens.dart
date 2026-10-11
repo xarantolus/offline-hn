@@ -19,6 +19,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
     required this.text,
     required this.muted,
     required this.hairline,
+    required this.divider,
     required this.accent,
     required this.accentWash,
     required this.marker,
@@ -29,6 +30,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
   final Color text;
   final Color muted;
   final Color hairline;
+  final Color divider;
   final Color accent;
   final Color accentWash;
   final Color marker;
@@ -39,6 +41,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
     text: Color(0xFF1C1B18),
     muted: Color(0xFF5C584E),
     hairline: Color(0xFFDAD4C6),
+    divider: Color(0xFFB5AD9B),
     accent: Color(0xFFB03F00),
     accentWash: Color(0xFFFCE8DA),
     marker: Color(0xFF00695C),
@@ -50,6 +53,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
     text: Color(0xFFECE8DF),
     muted: Color(0xFFABA598),
     hairline: Color(0xFF3A3731),
+    divider: Color(0xFF6A6558),
     accent: Color(0xFFFF9A5C),
     accentWash: Color(0xFF3A2A1F),
     marker: Color(0xFF4DD0C0),
@@ -94,8 +98,8 @@ class AppTokens extends ThemeExtension<AppTokens> {
 
   /// Alternating neutral and accent, both visible against [page].
   Color railColor(int level) => level.isEven
-      ? muted.withValues(alpha: 0.5)
-      : accent.withValues(alpha: 0.6);
+      ? muted.withValues(alpha: 0.65)
+      : accent.withValues(alpha: 0.75);
 
   TextStyle get label => TextStyle(fontSize: 16, color: text);
 
@@ -113,6 +117,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
     Color? text,
     Color? muted,
     Color? hairline,
+    Color? divider,
     Color? accent,
     Color? accentWash,
     Color? marker,
@@ -123,6 +128,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
       text: text ?? this.text,
       muted: muted ?? this.muted,
       hairline: hairline ?? this.hairline,
+      divider: divider ?? this.divider,
       accent: accent ?? this.accent,
       accentWash: accentWash ?? this.accentWash,
       marker: marker ?? this.marker,
@@ -138,6 +144,7 @@ class AppTokens extends ThemeExtension<AppTokens> {
       text: Color.lerp(text, other.text, t)!,
       muted: Color.lerp(muted, other.muted, t)!,
       hairline: Color.lerp(hairline, other.hairline, t)!,
+      divider: Color.lerp(divider, other.divider, t)!,
       accent: Color.lerp(accent, other.accent, t)!,
       accentWash: Color.lerp(accentWash, other.accentWash, t)!,
       marker: Color.lerp(marker, other.marker, t)!,

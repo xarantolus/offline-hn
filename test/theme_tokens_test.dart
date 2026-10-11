@@ -35,6 +35,14 @@ void main() {
       }
     });
 
+    test('${entry.key}: the divider between threads beats a hairline', () {
+      expect(
+        _contrast(tokens.divider, tokens.page),
+        greaterThan(_contrast(tokens.hairline, tokens.page)),
+      );
+      expect(_contrast(tokens.divider, tokens.page), greaterThanOrEqualTo(1.8));
+    });
+
     test('${entry.key}: time picker text clears 4.5:1 on its fills', () {
       final picker = theme.timePickerTheme;
       for (final states in [
