@@ -26,7 +26,7 @@ class PdfFailed extends PdfResult {
 class PdfDownloader {
   PdfDownloader({
     http.Client? client,
-    this.timeout = const Duration(minutes: 2),
+    this.timeout = const Duration(minutes: 1),
     this.connectTimeout = const Duration(seconds: 20),
     this.stallTimeout = const Duration(seconds: 30),
   }) : _client = client ?? http.Client();

@@ -58,7 +58,7 @@ class CaptureSession(
     private var scrollBeganAt: Long? = null
     private var saveBeganAt: Long? = null
 
-    private val deadline get() = startedAt + request.overallMillis
+    private val deadline get() = startedAt + request.overallMillis - request.saveMillis
     private val now get() = SystemClock.elapsedRealtime()
 
     fun start() {

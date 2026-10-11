@@ -51,7 +51,7 @@ class PageSaver implements StoryPageSaver {
     required this.probe,
     required this.filterListsDirectory,
     DateTime Function()? clock,
-    this.watchdog = const Duration(seconds: 150),
+    this.watchdog = const Duration(seconds: 70),
   }) : _clock = clock ?? DateTime.now;
 
   final PageFiles files;

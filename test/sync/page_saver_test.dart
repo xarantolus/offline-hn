@@ -41,7 +41,7 @@ void main() {
     hidden: false,
   );
 
-  PageSaver saver({Duration watchdog = const Duration(seconds: 150)}) =>
+  PageSaver saver({Duration watchdog = const Duration(seconds: 70)}) =>
       PageSaver(
         files: files,
         pages: pages,

@@ -12,15 +12,16 @@ class CaptureTimeouts {
   const CaptureTimeouts({
     this.idle = const Duration(milliseconds: 1500),
     this.overall = const Duration(seconds: 60),
-    this.save = const Duration(seconds: 30),
+    this.save = const Duration(seconds: 15),
     this.settle = const Duration(milliseconds: 600),
   });
 
   /// No new resource for this long counts as the page being quiet.
   final Duration idle;
 
-  /// The page must have finished loading by then. After it, scrolling and
-  /// waiting for quiet stop and the page is saved as it stands.
+  /// The whole capture, from when it starts working to the file being written.
+  /// Loading, scrolling and waiting for quiet stop early enough that saving
+  /// still gets its [save] share, and the page is saved as it stands.
   final Duration overall;
   final Duration save;
   final Duration settle;
