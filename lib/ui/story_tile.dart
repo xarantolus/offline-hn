@@ -37,67 +37,67 @@ class StoryTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.tokens;
     final byline = ['${formatAge(age)} ago', ?author].join(' · ');
-    return InkWell(
-      onTap: onTap,
-      onLongPress: onLongPress,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          Spacing.gutter,
-          20,
-          Spacing.sm,
-          Spacing.xs,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(right: Spacing.md),
-              child: Text(title, style: read ? t.storyTitleRead : t.storyTitle),
-            ),
-            const SizedBox(height: Spacing.sm),
-            Padding(
-              padding: const EdgeInsets.only(right: Spacing.md),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: SmallCaps(
-                      [
-                        source,
-                        if (points != null) pluralize(points!, 'point'),
-                      ].join(' · '),
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: InkWell(
+              onTap: onTap,
+              onLongPress: onLongPress,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  Spacing.gutter,
+                  20,
+                  Spacing.md,
+                  Spacing.md,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: read ? t.storyTitleRead : t.storyTitle),
+                    const SizedBox(height: Spacing.sm),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: SmallCaps(
+                            [
+                              source,
+                              if (points != null) pluralize(points!, 'point'),
+                            ].join(' · '),
+                          ),
+                        ),
+                        if (hasCopy)
+                          Padding(
+                            padding: const EdgeInsets.only(left: Spacing.sm),
+                            child: Icon(
+                              Icons.offline_pin_outlined,
+                              size: 16,
+                              color: t.muted,
+                              semanticLabel: 'Saved copy',
+                            ),
+                          ),
+                        if (saved)
+                          Padding(
+                            padding: const EdgeInsets.only(left: Spacing.sm),
+                            child: Icon(
+                              Icons.bookmark,
+                              size: 16,
+                              color: t.accent,
+                              semanticLabel: 'Bookmarked',
+                            ),
+                          ),
+                      ],
                     ),
-                  ),
-                  if (hasCopy)
-                    Padding(
-                      padding: const EdgeInsets.only(left: Spacing.sm),
-                      child: Icon(
-                        Icons.offline_pin_outlined,
-                        size: 16,
-                        color: t.muted,
-                        semanticLabel: 'Saved copy',
-                      ),
-                    ),
-                  if (saved)
-                    Padding(
-                      padding: const EdgeInsets.only(left: Spacing.sm),
-                      child: Icon(
-                        Icons.bookmark,
-                        size: 16,
-                        color: t.accent,
-                        semanticLabel: 'Bookmarked',
-                      ),
-                    ),
-                ],
+                    const SizedBox(height: Spacing.sm),
+                    SmallCaps(byline),
+                  ],
+                ),
               ),
             ),
-            Row(
-              children: [
-                Expanded(child: SmallCaps(byline)),
-                _CommentsButton(count: comments, onTap: onOpenComments),
-              ],
-            ),
-          ],
-        ),
+          ),
+          _CommentsButton(count: comments, onTap: onOpenComments),
+        ],
       ),
     );
   }
@@ -118,17 +118,17 @@ class _CommentsButton extends StatelessWidget {
       excludeSemantics: true,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 44, minWidth: 56),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.end,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            border: Border(left: BorderSide(color: t.hairline)),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 64),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              spacing: 2,
               children: [
-                Icon(Icons.mode_comment_outlined, size: 16, color: t.accent),
-                const SizedBox(width: 6),
+                Icon(Icons.mode_comment_outlined, size: 20, color: t.accent),
                 Text(
                   formatCount(count),
                   style: TextStyle(
