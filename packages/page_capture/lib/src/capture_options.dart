@@ -1,3 +1,5 @@
+import 'package:page_capture/src/filters/filter_sources.dart';
+
 class CaptureViewport {
   const CaptureViewport({this.width = 412, this.height = 915});
 
@@ -71,5 +73,6 @@ class CaptureOptions {
     'rejectConsent': cleanup.rejectConsent,
     'maxBytes': maxBytes,
     'filterListsDirectory': filterListsDirectory,
+    'filterResourcesFile': FilterSources.resourcesFileName,
   };
 }

@@ -14,6 +14,8 @@ import 'package:page_capture/filters.dart';
 const _a = 'https://lists.example/a.txt';
 const _b = 'https://lists.example/b.txt';
 const _resources = FilterSources.resourcesUrl;
+const _resourcesList =
+    'https://cdn.ghostery.com/adblocker/resources/ublock-resources/abc/list.txt';
 
 String _list(int rules) =>
     '[Adblock Plus 2.0]\n${[for (var i = 0; i < rules; i++) '||ads$i.example.com^'].join('\n')}\n##.banner\n';
@@ -34,7 +36,8 @@ void main() {
     served = {
       _a: _list(3),
       _b: _list(5),
-      _resources: '[{"name":"noop.js","aliases":[],"content":"eA=="}]',
+      _resources: '{"revisions":["old","abc"]}',
+      _resourcesList: 'noop.js application/javascript\n(function(){})();\n',
     };
     requested = [];
   });
@@ -63,8 +66,8 @@ void main() {
   Future<Map<String, Object?>> statuses() async =>
       (await settings.load()).filterListStatus;
 
-  test('the defaults are EasyList and EasyPrivacy', () async {
-    expect((await settings.load()).filterListUrls, [
+  test('the defaults are EasyList and EasyPrivacy first', () async {
+    expect((await settings.load()).filterListUrls.take(2), [
       'https://easylist.to/easylist/easylist.txt',
       'https://easylist.to/easylist/easyprivacy.txt',
     ]);
@@ -91,7 +94,7 @@ void main() {
     final l = lists();
     final result = await l.update();
 
-    expect(l.resourcesFile.readAsStringSync(), served[_resources]);
+    expect(l.resourcesFile.readAsStringSync(), served[_resourcesList]);
     expect(result[_resources]!.updatedAt, now);
     expect(result[_resources]!.error, isNull);
   });
@@ -103,7 +106,7 @@ void main() {
     final before = l.resourcesFile.readAsStringSync();
 
     now = now.add(const Duration(days: 8));
-    served[_resources] = '<html>rate limited</html>';
+    served[_resourcesList] = '<html>rate limited</html>';
     final result = await l.update();
 
     expect(result[_resources]!.error, isNotNull);
@@ -148,7 +151,7 @@ void main() {
     expect(result['not a url']!.error, isNotNull);
     expect(result['ftp://lists.example/a.txt']!.error, isNotNull);
     expect(result[_a]!.error, isNull);
-    expect(requested, [_a, _resources]);
+    expect(requested, [_a, _resources, _resourcesList]);
   });
 
   test('removing a URL deletes its copy and bookkeeping', () async {
@@ -183,7 +186,7 @@ void main() {
 
       await use([_a, _b]);
       expect(await l.ensureFresh(mayDownload: true), isNotNull);
-      expect(requested, [_a, _b, _resources]);
+      expect(requested, [_a, _b, _resources, _resourcesList]);
       expect(l.fileFor(_b).existsSync(), isTrue);
     });
 
@@ -217,7 +220,7 @@ void main() {
       expect(await l.ensureFresh(mayDownload: true), isNull);
       now = now.add(const Duration(minutes: 31));
       expect(await l.ensureFresh(mayDownload: true), isNotNull);
-      expect(requested, [_a, _resources]);
+      expect(requested, [_a, _resources, _resourcesList]);
     });
 
     test('a deleted file counts as no copy', () async {

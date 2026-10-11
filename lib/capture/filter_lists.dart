@@ -31,7 +31,6 @@ class FilterLists {
   static const retryAfter = Duration(hours: 1);
 
   static const _extension = '.txt';
-  static const _resourcesName = 'resources.json';
 
   final Directory directory;
   final SettingsStore settings;
@@ -46,7 +45,8 @@ class FilterLists {
     p.join(directory.path, '${sha1.convert(utf8.encode(url))}$_extension'),
   );
 
-  File get resourcesFile => File(p.join(directory.path, _resourcesName));
+  File get resourcesFile =>
+      File(p.join(directory.path, FilterSources.resourcesFileName));
 
   /// Downloads what is missing or stale when [mayDownload] allows the network;
   /// null when nothing was needed or allowed.
@@ -91,9 +91,9 @@ class FilterLists {
     final statuses = <String, FilterListStatus>{};
     for (final url in urls) {
       statuses[url] = await _refresh(
-        url,
         current.filterListStatus[url],
         fileFor(url),
+        () => FilterSources.download(_client, url),
         (text, now) {
           final counts = FilterListText.inspect(text);
           return FilterListStatus(
@@ -106,9 +106,9 @@ class FilterLists {
       );
     }
     statuses[FilterSources.resourcesUrl] = await _refresh(
-      FilterSources.resourcesUrl,
       current.filterListStatus[FilterSources.resourcesUrl],
       resourcesFile,
+      () => FilterSources.downloadResources(_client),
       (text, now) {
         FilterSources.checkResources(text);
         return FilterListStatus(updatedAt: now, checkedAt: now);
@@ -130,14 +130,14 @@ class FilterLists {
   }
 
   Future<FilterListStatus> _refresh(
-    String url,
     FilterListStatus? before,
     File file,
+    Future<String> Function() fetch,
     FilterListStatus Function(String text, DateTime now) accept,
   ) async {
     final now = _clock();
     try {
-      final text = await FilterSources.download(_client, url);
+      final text = await fetch();
       final status = accept(text, now);
       await directory.create(recursive: true);
       final staging = File('${file.path}.tmp');

@@ -1,5 +1,7 @@
 use adblock::lists::{FilterSet, ParseOptions};
 use adblock::request::Request;
+use adblock::resources::{MimeType, Resource, ResourceType};
+use base64::{Engine as _, prelude::BASE64_STANDARD};
 use adblock::Engine;
 use serde_json::json;
 use std::collections::HashSet;
@@ -16,6 +18,53 @@ pub fn load(bytes: &[u8]) -> Option<Engine> {
     let mut engine = Engine::default();
     engine.deserialize(bytes).ok()?;
     Some(engine)
+}
+
+/// Reads the uBlock Origin resources text: blocks separated by a blank line, each a
+/// `name mime-type[;base64]` line followed by its content.
+pub fn parse_resources(text: &str) -> Vec<Resource> {
+    let mut resources = Vec::new();
+    for block in text.replace("\r\n", "\n").split("\n\n") {
+        let block = block.trim_matches('\n');
+        let Some((header, body)) = block.split_once('\n') else {
+            continue;
+        };
+        let mut parts = header.split_whitespace();
+        let (Some(name), Some(mime), None) = (parts.next(), parts.next(), parts.next()) else {
+            continue;
+        };
+        let (mime, encoded) = match mime.strip_suffix(";base64") {
+            Some(mime) => (mime, true),
+            None => (mime, false),
+        };
+        let kind = if !encoded && body.contains("{{1}}") && mime == "application/javascript" {
+            ResourceType::Template
+        } else {
+            ResourceType::Mime(MimeType::from(mime))
+        };
+        let content = if encoded {
+            body.split_whitespace().collect()
+        } else {
+            BASE64_STANDARD.encode(body)
+        };
+        resources.push(Resource {
+            name: name.to_string(),
+            aliases: Vec::new(),
+            kind,
+            content,
+            dependencies: Vec::new(),
+            permission: Default::default(),
+        });
+    }
+    resources
+}
+
+/// Replaces the engine's scriptlets and redirect resources; returns how many there were.
+pub fn use_resources(engine: &mut Engine, text: &str) -> usize {
+    let resources = parse_resources(text);
+    let count = resources.len();
+    engine.use_resources(resources);
+    count
 }
 
 pub enum Verdict {
@@ -87,6 +136,40 @@ mod tests {
         let engine = engine();
         assert!(blocked(&engine, "https://trk.example/t.js", "script"));
         assert!(!blocked(&engine, "https://trk.example/t.png", "image"));
+    }
+
+    const RESOURCES: &str = "noop.js application/javascript\n// noop\n\nflag.js application/javascript\nwindow.flag={{1}};\n\npixel.gif image/gif;base64\nR0lG\nODlh\n\nbroken\n";
+
+    #[test]
+    fn redirects_to_a_resource() {
+        let mut engine = build(&["||ads.example/x.js$redirect=noop.js\n".to_string()]);
+        assert_eq!(use_resources(&mut engine, RESOURCES), 3);
+        match check(&engine, "https://ads.example/x.js", "https://news.test/a", "script") {
+            Verdict::Redirect(url) => assert!(url.starts_with("data:application/javascript;base64,")),
+            _ => panic!("expected a redirect"),
+        }
+    }
+
+    #[test]
+    fn injects_a_scriptlet_with_its_arguments() {
+        let mut engine = build(&["news.test##+js(flag, 7)\n".to_string()]);
+        assert_eq!(use_resources(&mut engine, RESOURCES), 3);
+        let here: serde_json::Value =
+            serde_json::from_str(&cosmetic(&engine, "https://news.test/a")).unwrap();
+        assert!(here["script"].as_str().unwrap().contains("window.flag=7;"));
+        let elsewhere: serde_json::Value =
+            serde_json::from_str(&cosmetic(&engine, "https://other.test/")).unwrap();
+        assert_eq!(elsewhere["script"], "");
+    }
+
+    #[test]
+    fn keeps_encoded_resources_as_they_are() {
+        let mut engine = build(&["||ads.example/p.gif$redirect=pixel.gif\n".to_string()]);
+        use_resources(&mut engine, RESOURCES);
+        match check(&engine, "https://ads.example/p.gif", "https://news.test/a", "image") {
+            Verdict::Redirect(url) => assert_eq!(url, "data:image/gif;base64,R0lGODlh"),
+            _ => panic!("expected a redirect"),
+        }
     }
 
     #[test]

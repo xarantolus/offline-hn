@@ -317,6 +317,7 @@ name = "page_capture_adblock"
 version = "0.1.0"
 dependencies = [
  "adblock",
+ "base64",
  "jni",
  "serde_json",
 ]

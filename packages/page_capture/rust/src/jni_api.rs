@@ -2,7 +2,7 @@ use crate::engine::{self, Verdict};
 use adblock::Engine;
 use jni::JNIEnv;
 use jni::objects::{JByteArray, JClass, JObjectArray, JString};
-use jni::sys::{jlong, jobjectArray, jstring};
+use jni::sys::{jint, jlong, jobjectArray, jstring};
 use std::collections::HashSet;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
@@ -58,6 +58,21 @@ pub extern "system" fn Java_io_github_xarantolus_page_1capture_AdblockNative_loa
         engine::load(&data).map(into_handle).unwrap_or(0)
     }))
     .unwrap_or(0)
+}
+
+/// Must run before the engine is shared: it needs exclusive access.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_io_github_xarantolus_page_1capture_AdblockNative_useResources(
+    mut env: JNIEnv,
+    _class: JClass,
+    handle: jlong,
+    text: JString,
+) -> jint {
+    let Ok(text) = env.get_string(&text).map(String::from) else {
+        return 0;
+    };
+    let engine = unsafe { &mut *(handle as *mut Engine) };
+    catch_unwind(AssertUnwindSafe(|| engine::use_resources(engine, &text) as jint)).unwrap_or(0)
 }
 
 #[unsafe(no_mangle)]

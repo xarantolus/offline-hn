@@ -9,6 +9,9 @@ object AdblockNative {
 
     external fun load(bytes: ByteArray): Long
 
+    /** Replaces the scriptlets and redirects; returns how many resources were read. */
+    external fun useResources(handle: Long, text: String): Int
+
     external fun serialize(handle: Long): ByteArray
 
     /** Null allows; empty blocks; "r" followed by a body redirects. */

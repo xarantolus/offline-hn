@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:page_capture/filters.dart';
 
 void main() {
@@ -33,18 +35,44 @@ void main() {
   });
 
   group('resources', () {
-    test('accepts a list of named resources', () {
-      FilterSources.checkResources('[{"name":"a.js","content":"eA=="}]');
+    test('accepts a file that starts with a name and a mime type', () {
+      FilterSources.checkResources('noop.js application/javascript\n(x)\n');
+      FilterSources.checkResources('a.mp4 video/mp4;base64\nAAAA\n');
     });
 
     test('rejects anything else', () {
-      for (final bad in ['[]', '{}', '[{"content":"x"}]', 'oops', '<html>']) {
+      for (final bad in ['', '{}', '[]', '<html>', 'one two']) {
         expect(
           () => FilterSources.checkResources(bad),
           throwsA(isA<FilterListException>()),
           reason: bad,
         );
       }
+    });
+  });
+
+  group('resources download', () {
+    test('follows the newest revision in the index', () async {
+      final asked = <String>[];
+      final client = MockClient((request) async {
+        asked.add(request.url.toString());
+        return http.Response(
+          request.url.path.endsWith('metadata.json')
+              ? '{"revisions":["one","two"]}'
+              : 'x.js application/javascript\n1\n',
+          200,
+        );
+      });
+      await FilterSources.downloadResources(client);
+      expect(asked.last, endsWith('/ublock-resources/two/list.txt'));
+    });
+
+    test('rejects an index without revisions', () async {
+      final client = MockClient((_) async => http.Response('{}', 200));
+      expect(
+        FilterSources.downloadResources(client),
+        throwsA(isA<FilterListException>()),
+      );
     });
   });
 }

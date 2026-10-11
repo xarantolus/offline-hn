@@ -9,12 +9,38 @@ abstract final class FilterSources {
     'https://easylist.to/easylist/easyprivacy.txt',
   ];
 
+  /// Where in the filter lists directory the resources are kept.
+  static const resourcesFileName = 'resources.ubo';
+
   static const requestTimeout = Duration(seconds: 60);
 
-  /// Where the scriptlets and redirect resources come from: uBlock Origin's,
-  /// as compiled for adblock-rust. Downloaded like a list, never bundled.
+  /// Index of the uBlock Origin scriptlet and redirect resources that
+  /// Ghostery publishes, newest revision last. Downloaded like a list, never
+  /// bundled.
   static const resourcesUrl =
-      'https://raw.githubusercontent.com/brave/adblock-resources/master/dist/resources.json';
+      'https://cdn.ghostery.com/adblocker/resources/ublock-resources/metadata.json';
+
+  static const _headerLine = r'^\S+ [a-z]+/[a-z0-9.+-]+(;base64)?$';
+
+  /// The newest resources text. Throws [FilterListException] when either
+  /// request fails or the answer is not what was expected.
+  static Future<String> downloadResources(http.Client client) async {
+    final index = await download(client, resourcesUrl);
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(index);
+    } on FormatException {
+      throw const FilterListException('resources index is not JSON');
+    }
+    final revisions = decoded is Map<String, Object?>
+        ? decoded['revisions']
+        : null;
+    if (revisions is! List<Object?> || revisions.last is! String) {
+      throw const FilterListException('resources index has no revision');
+    }
+    final base = Uri.parse(resourcesUrl).resolve('${revisions.last}/list.txt');
+    return download(client, base.toString());
+  }
 
   /// The body served at [url]. Throws [FilterListException] for an unusable
   /// URL or a failed request.
@@ -37,19 +63,12 @@ abstract final class FilterSources {
     return response.body;
   }
 
-  /// Throws [FilterListException] unless [text] is a non-empty JSON list of
-  /// named resources.
+  /// Throws [FilterListException] unless [text] starts like a resources file:
+  /// a `name mime-type` line.
   static void checkResources(String text) {
-    final Object? decoded;
-    try {
-      decoded = jsonDecode(text);
-    } on FormatException {
-      throw const FilterListException('not JSON');
+    final first = text.trimLeft().split('\n').first.trim();
+    if (!RegExp(_headerLine).hasMatch(first)) {
+      throw const FilterListException('not a resources file');
     }
-    final valid =
-        decoded is List<Object?> &&
-        decoded.isNotEmpty &&
-        decoded.every((e) => e is Map<String, Object?> && e['name'] is String);
-    if (!valid) throw const FilterListException('not a list of resources');
   }
 }

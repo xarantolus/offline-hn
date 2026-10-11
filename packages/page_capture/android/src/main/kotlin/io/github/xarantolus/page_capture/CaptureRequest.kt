@@ -17,6 +17,7 @@ class CaptureRequest(
     val rejectConsent: Boolean,
     val maxBytes: Long,
     val filterListsDirectory: String?,
+    val filterResourcesFile: String,
 ) {
     companion object {
         fun from(call: MethodCall) = CaptureRequest(
@@ -34,6 +35,7 @@ class CaptureRequest(
             rejectConsent = call.argument<Boolean>("rejectConsent")!!,
             maxBytes = call.argument<Number>("maxBytes")!!.toLong(),
             filterListsDirectory = call.argument<String>("filterListsDirectory"),
+            filterResourcesFile = call.argument<String>("filterResourcesFile")!!,
         )
     }
 }

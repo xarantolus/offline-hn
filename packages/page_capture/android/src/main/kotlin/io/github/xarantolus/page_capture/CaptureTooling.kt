@@ -38,10 +38,11 @@ class CaptureTooling(private val context: Context, private val assetPrefix: Stri
             ?.sortedBy { it.name }
             ?.takeIf { it.isNotEmpty() }
             ?: return null
-        val key = files.joinToString { "${it.name}:${it.length()}:${it.lastModified()}" }
+        val resources = File(directory, request.filterResourcesFile)
+        val key = (files + resources).joinToString { "${it.name}:${it.length()}:${it.lastModified()}" }
         cachedFilters?.takeIf { it.first == key }?.let { return it.second }
         return try {
-            AdblockEngine.open(files, File(directory, STORED_ENGINE), File(directory, STORED_KEY))
+            AdblockEngine.open(files, File(directory, STORED_ENGINE), File(directory, STORED_KEY), resources)
                 ?.also { cachedFilters = key to it }
         } catch (e: IOException) {
             null

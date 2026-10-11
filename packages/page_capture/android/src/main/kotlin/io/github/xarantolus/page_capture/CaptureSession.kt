@@ -90,6 +90,7 @@ class CaptureSession(
         }
         CookieManager.getInstance().setAcceptThirdPartyCookies(view, true)
         consent?.install(view)
+        if (request.blockRequests) tools.filters?.let { Scriptlets.install(view, it, request.url) }
         view.setDownloadListener { _, _, _, mimeType, _ ->
             fail(CaptureOutcome.Failure.unsupported(mimeType ?: "application/octet-stream"))
         }

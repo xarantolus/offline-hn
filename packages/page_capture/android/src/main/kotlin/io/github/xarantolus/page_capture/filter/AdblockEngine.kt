@@ -1,6 +1,7 @@
 package io.github.xarantolus.page_capture.filter
 
 import android.os.SystemClock
+import android.util.Base64
 import android.util.Log
 import io.github.xarantolus.page_capture.AdblockNative
 import org.json.JSONArray
@@ -14,10 +15,27 @@ class CosmeticResources(
     val genericHidden: Boolean,
 )
 
+sealed interface Verdict {
+    data object Block : Verdict
+
+    class Redirect(val mimeType: String, val body: ByteArray) : Verdict
+}
+
 class AdblockEngine private constructor(private val handle: Long) {
-    /** True when any of [kinds] is a request the lists block. */
-    fun blocks(url: String, pageUrl: String, kinds: List<String>): Boolean =
-        kinds.any { AdblockNative.check(handle, url, pageUrl, it) != null }
+    /** What to do with a request of any of [kinds]; null lets it through. */
+    fun verdict(url: String, pageUrl: String, kinds: List<String>): Verdict? {
+        for (kind in kinds) {
+            val answer = AdblockNative.check(handle, url, pageUrl, kind) ?: continue
+            return redirectOf(answer) ?: Verdict.Block
+        }
+        return null
+    }
+
+    private fun redirectOf(answer: String): Verdict.Redirect? {
+        val match = DATA_URL.matchEntire(answer.removePrefix("r")) ?: return null
+        val (mimeType, payload) = match.destructured
+        return Verdict.Redirect(mimeType, Base64.decode(payload, Base64.DEFAULT))
+    }
 
     fun cosmetic(pageUrl: String): CosmeticResources {
         val json = JSONObject(AdblockNative.cosmetic(handle, pageUrl))
@@ -39,11 +57,21 @@ class AdblockEngine private constructor(private val handle: Long) {
 
     companion object {
         private const val TAG = "PageCapture"
+        private val DATA_URL = Regex("data:([^;,]+);base64,(.*)", RegexOption.DOT_MATCHES_ALL)
 
         private fun strings(array: JSONArray) = List(array.length()) { array.getString(it) }
 
-        /** Loads the stored engine when it matches [lists]; builds it from them and stores it otherwise. */
-        fun open(lists: List<File>, stored: File, storedKey: File): AdblockEngine? {
+        /** Loads the stored engine when it matches [lists]; builds it from them and stores it otherwise. Scriptlets and redirects come from [resources] when it exists. */
+        fun open(lists: List<File>, stored: File, storedKey: File, resources: File?): AdblockEngine? {
+            val engine = openLists(lists, stored, storedKey) ?: return null
+            if (resources != null && resources.isFile) {
+                val count = AdblockNative.useResources(engine.handle, resources.readText())
+                Log.i(TAG, "adblock resources: $count")
+            }
+            return engine
+        }
+
+        private fun openLists(lists: List<File>, stored: File, storedKey: File): AdblockEngine? {
             val key = lists.joinToString { "${it.name}:${it.length()}:${it.lastModified()}" }
             val began = SystemClock.elapsedRealtime()
             if (stored.isFile && storedKey.isFile && storedKey.readText() == key) {

@@ -3,6 +3,7 @@ package io.github.xarantolus.page_capture
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import io.github.xarantolus.page_capture.filter.AdblockEngine
+import io.github.xarantolus.page_capture.filter.Verdict
 import java.io.ByteArrayInputStream
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -11,14 +12,23 @@ class RequestBlocker(private val engine: AdblockEngine) {
 
     val blocked: Int get() = blockedCount.get()
 
-    /** A refusal for requests the lists block; never for the page itself. */
+    /** A refusal, or a stand-in resource, for requests the lists block; never for the page itself. */
     fun intercept(request: WebResourceRequest, pageUrl: String): WebResourceResponse? {
         if (request.isForMainFrame) return null
         val url = request.url.toString()
         if (!url.startsWith("http")) return null
-        if (!engine.blocks(url, pageUrl, kindsOf(request))) return null
+        val verdict = engine.verdict(url, pageUrl, kindsOf(request)) ?: return null
         blockedCount.incrementAndGet()
-        return WebResourceResponse("text/plain", "utf-8", 403, "Blocked", emptyMap(), ByteArrayInputStream(ByteArray(0)))
+        return when (verdict) {
+            is Verdict.Block ->
+                WebResourceResponse("text/plain", "utf-8", 403, "Blocked", emptyMap(), ByteArrayInputStream(ByteArray(0)))
+            is Verdict.Redirect ->
+                WebResourceResponse(
+                    verdict.mimeType, null, 200, "OK",
+                    mapOf("Access-Control-Allow-Origin" to "*"),
+                    ByteArrayInputStream(verdict.body),
+                )
+        }
     }
 
     /** WebView gives no request type, so it is guessed; an unknown one is asked as everything a script can fetch. */
