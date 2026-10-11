@@ -275,13 +275,15 @@ void main() {
         error: 'timeout',
         now: t0,
       );
-      expect(await pages.watchTotalBytes().first, 150);
+      final usage = await pages.watchUsage().first;
+      expect((usage.bytes, usage.count), (150, 2));
       expect((await pages.watch(4).first)!.error, 'timeout');
       expect((await pages.watch(3).first)!.status, PageStatus.tooLarge);
     });
 
     test('with nothing stored the total is zero', () async {
-      expect(await pages.watchTotalBytes().first, 0);
+      final usage = await pages.watchUsage().first;
+      expect((usage.bytes, usage.count), (0, 0));
     });
 
     test('a retry after a failure replaces the failed record', () async {

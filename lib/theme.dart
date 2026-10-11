@@ -37,6 +37,31 @@ ThemeData _withComponents(ThemeData base, AppTokens tokens) {
       backgroundColor: scheme.primary,
       foregroundColor: scheme.onPrimary,
     ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(foregroundColor: scheme.surfaceAccent),
+    ),
+    timePickerTheme: TimePickerThemeData(
+      backgroundColor: scheme.surface,
+      hourMinuteColor: WidgetStateColor.resolveWith(
+        (s) => pick(s, tokens.accentWash, tokens.codeBackground),
+      ),
+      hourMinuteTextColor: WidgetStateColor.resolveWith(
+        (s) => pick(s, tokens.accent, tokens.text),
+      ),
+      dayPeriodColor: WidgetStateColor.resolveWith(
+        (s) => pick(s, tokens.accentWash, Colors.transparent),
+      ),
+      dayPeriodTextColor: WidgetStateColor.resolveWith(
+        (s) => pick(s, tokens.accent, tokens.text),
+      ),
+      dayPeriodBorderSide: BorderSide(color: tokens.hairline),
+      dialBackgroundColor: tokens.codeBackground,
+      dialHandColor: scheme.primary,
+      dialTextColor: WidgetStateColor.resolveWith(
+        (s) => pick(s, scheme.onPrimary, tokens.text),
+      ),
+      entryModeIconColor: tokens.accent,
+    ),
     popupMenuTheme: PopupMenuThemeData(color: scheme.surface),
     switchTheme: SwitchThemeData(
       thumbColor: WidgetStateProperty.resolveWith(

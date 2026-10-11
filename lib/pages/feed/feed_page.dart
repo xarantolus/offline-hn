@@ -8,9 +8,9 @@ import 'package:offline_hn/data/model/feed_kind.dart';
 import 'package:offline_hn/data/model/local_day.dart';
 import 'package:offline_hn/data/model/sync_enums.dart';
 import 'package:offline_hn/data/policy/day_grouping.dart';
-import 'package:offline_hn/debug/design_gallery.dart';
 import 'package:offline_hn/pages/feed/feed_list.dart';
 import 'package:offline_hn/pages/feed/sync_status.dart';
+import 'package:offline_hn/pages/settings/settings_page.dart';
 import 'package:offline_hn/sync/sync_controller.dart';
 import 'package:offline_hn/ui/day_menu.dart';
 import 'package:offline_hn/ui/feed_switcher.dart';
@@ -84,10 +84,10 @@ class _FeedPageState extends State<FeedPage> {
     }
   }
 
-  void _openGallery() {
+  void _openSettings() {
     unawaited(
       Navigator.of(context)
-          .push(MaterialPageRoute<void>(builder: (_) => const DesignGallery())),
+          .push(MaterialPageRoute<void>(builder: (_) => const SettingsPage())),
     );
   }
 
@@ -102,16 +102,10 @@ class _FeedPageState extends State<FeedPage> {
         final day = picked != null && days.contains(picked)
             ? picked
             : (days.isEmpty ? today : days.first);
-        final title = kDebugMode
-            ? GestureDetector(
-                onLongPress: _openGallery,
-                child: const HackerNewsTitle(),
-              )
-            : const HackerNewsTitle();
         return Scaffold(
           appBar: AppBar(
             centerTitle: false,
-            title: title,
+            title: const HackerNewsTitle(),
             actions: [
               DayMenu(
                 days: days,
@@ -123,6 +117,14 @@ class _FeedPageState extends State<FeedPage> {
                 tooltip: 'Fetch now',
                 icon: const Icon(Icons.refresh),
                 onPressed: () => unawaited(_refresh()),
+              ),
+              PopupMenuButton<void>(
+                itemBuilder: (_) => [
+                  PopupMenuItem<void>(
+                    onTap: _openSettings,
+                    child: const Text('Settings'),
+                  ),
+                ],
               ),
             ],
           ),

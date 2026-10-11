@@ -1,1 +1,1 @@
-const appName = 'Offline HN';
+const appName = 'Hacker News';

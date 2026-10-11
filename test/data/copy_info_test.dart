@@ -69,5 +69,6 @@ void main() {
   test('sizes read in the unit that fits', () {
     expect(formatSize(350 * 1024), '350 KB');
     expect(formatSize(2411724), '2.3 MB');
+    expect(formatSize(3 * 1024 * 1024 * 1024 ~/ 2), '1.5 GB');
   });
 }

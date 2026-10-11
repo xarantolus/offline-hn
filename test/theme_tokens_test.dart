@@ -35,6 +35,43 @@ void main() {
       }
     });
 
+    test('${entry.key}: time picker text clears 4.5:1 on its fills', () {
+      final picker = theme.timePickerTheme;
+      for (final states in [
+        <WidgetState>{},
+        {WidgetState.selected},
+      ]) {
+        final fill = Color.alphaBlend(
+          WidgetStateProperty.resolveAs<Color>(picker.hourMinuteColor!, states),
+          tokens.page,
+        );
+        expect(
+          _contrast(
+            WidgetStateProperty.resolveAs<Color>(
+              picker.hourMinuteTextColor!,
+              states,
+            ),
+            fill,
+          ),
+          greaterThanOrEqualTo(4.5),
+        );
+        final dayFill = Color.alphaBlend(
+          WidgetStateProperty.resolveAs<Color>(picker.dayPeriodColor!, states),
+          tokens.page,
+        );
+        expect(
+          _contrast(
+            WidgetStateProperty.resolveAs<Color>(
+              picker.dayPeriodTextColor!,
+              states,
+            ),
+            dayFill,
+          ),
+          greaterThanOrEqualTo(4.5),
+        );
+      }
+    });
+
     test('${entry.key}: the floating button carries white on its fill', () {
       final fab = theme.floatingActionButtonTheme;
       expect(fab.backgroundColor, theme.colorScheme.primary);

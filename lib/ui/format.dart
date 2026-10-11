@@ -19,6 +19,9 @@ String pluralize(int n, String one, [String? many]) =>
 
 String formatSize(int bytes) {
   const kilo = 1024;
+  if (bytes >= kilo * kilo * kilo) {
+    return '${(bytes / (kilo * kilo * kilo)).toStringAsFixed(1)} GB';
+  }
   if (bytes < kilo * kilo) return '${(bytes / kilo).round()} KB';
   return '${(bytes / (kilo * kilo)).toStringAsFixed(1)} MB';
 }

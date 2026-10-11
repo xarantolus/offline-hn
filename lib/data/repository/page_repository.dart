@@ -2,6 +2,13 @@ import 'package:drift/drift.dart';
 import 'package:offline_hn/data/db/database.dart';
 import 'package:offline_hn/data/model/page_enums.dart';
 
+class PageUsage {
+  const PageUsage({required this.bytes, required this.count});
+
+  final int bytes;
+  final int count;
+}
+
 class PageRepository {
   const PageRepository(this._db);
 
@@ -11,12 +18,17 @@ class PageRepository {
     _db.pageCopies,
   )..where((p) => p.storyId.equals(storyId))).watchSingleOrNull();
 
-  Stream<int> watchTotalBytes() {
-    final total = _db.pageCopies.bytes.sum();
-    final query = _db.selectOnly(_db.pageCopies)
-      ..addColumns([total])
-      ..where(_db.pageCopies.status.equalsValue(PageStatus.ok));
-    return query.watchSingle().map((row) => row.read(total) ?? 0);
+  Stream<PageUsage> watchUsage() {
+    final pages = _db.pageCopies;
+    final bytes = pages.bytes.sum();
+    final count = pages.storyId.count();
+    final query = _db.selectOnly(pages)
+      ..addColumns([bytes, count])
+      ..where(pages.status.equalsValue(PageStatus.ok));
+    return query.watchSingle().map(
+      (row) =>
+          PageUsage(bytes: row.read(bytes) ?? 0, count: row.read(count) ?? 0),
+    );
   }
 
   Future<void> recordCaptured({
