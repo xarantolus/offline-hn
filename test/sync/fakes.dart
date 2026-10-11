@@ -44,7 +44,7 @@ class FakeHn implements HnReader {
         RemoteStory(
           id: id,
           title: 'Story $id',
-          url: id % 5 == 0 ? null : 'https://example.com/$id',
+          url: id % 5 == 0 ? null : Uri.parse('https://example.com/$id'),
           points: id,
         ),
     ];
@@ -66,7 +66,7 @@ class FakeHn implements HnReader {
     final story = RemoteStory(
       id: id,
       title: 'Story $id',
-      url: id % 5 == 0 ? null : 'https://example.com/$id',
+      url: id % 5 == 0 ? null : Uri.parse('https://example.com/$id'),
       commentCount: 2,
     );
     if (unindexedThreads.contains(id)) {

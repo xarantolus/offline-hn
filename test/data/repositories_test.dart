@@ -1,6 +1,6 @@
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_hn/data/api/algolia_parser.dart';
+import 'package:offline_hn/data/api/algolia_json.dart';
 import 'package:offline_hn/data/api/models.dart';
 import 'package:offline_hn/data/db/database.dart';
 import 'package:offline_hn/data/model/daily_time.dart';
@@ -25,12 +25,12 @@ import 'fixtures.dart';
 
 Duration _utc(DateTime utc) => Duration.zero;
 
-RemoteStory _story(int id, {String? title, int? points, String? url}) =>
+RemoteStory _story(int id, {String? title, int? points, Uri? url}) =>
     RemoteStory(
       id: id,
       title: title ?? 'Story $id',
       points: points,
-      url: url ?? 'https://www.example.com/$id',
+      url: url ?? Uri.parse('https://www.example.com/$id'),
     );
 
 void main() {
@@ -166,7 +166,7 @@ void main() {
 
   group('threads', () {
     test('the stored comments come back in display order with depth', () async {
-      final thread = AlgoliaParser.thread(fixture('algolia_item.json'))!;
+      final thread = parseThread(fixture('algolia_item.json'))!;
       await stories.replaceThread(thread, t0);
 
       final comments = await stories.watchComments(thread.story.id).first;
@@ -470,7 +470,7 @@ void main() {
       () async {
         await stories.upsertStories([
           _story(1),
-          _story(2, url: 'https://b.example'),
+          _story(2, url: Uri.parse('https://b.example')),
           const RemoteStory(id: 3, title: 'Ask'),
         ], t0);
         await stories.recordSnapshot(FeedKind.top, [9, 10], t0);

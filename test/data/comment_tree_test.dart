@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_hn/data/api/algolia_parser.dart';
+import 'package:offline_hn/data/api/algolia_json.dart';
 import 'package:offline_hn/data/api/models.dart';
 import 'package:offline_hn/data/model/comment_tree.dart';
 import 'package:offline_hn/data/model/thread_view.dart';
@@ -25,7 +25,7 @@ void main() {
     });
 
     test('flattening the recorded tree keeps every comment once', () {
-      final thread = AlgoliaParser.thread(fixture('algolia_item.json'))!;
+      final thread = parseThread(fixture('algolia_item.json'))!;
       final flat = flattenComments(thread.comments);
       expect(flat.length, thread.story.commentCount);
       expect(flat.map((f) => f.comment.id).toSet().length, flat.length);
