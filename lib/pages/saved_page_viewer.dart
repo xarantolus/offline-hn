@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:offline_hn/capture/archive_anchor.dart';
 
 /// Shows a saved web archive inside the app. Nothing here touches the network:
 /// the page is already complete on disk.
@@ -21,6 +24,7 @@ class SavedPageViewer extends StatefulWidget {
 
 class _SavedPageViewerState extends State<SavedPageViewer> {
   final _loading = ValueNotifier<bool>(true);
+  late final Future<Uri?> _location = archiveLocation(File(widget.path));
 
   @override
   void dispose() {
@@ -29,6 +33,24 @@ class _SavedPageViewerState extends State<SavedPageViewer> {
   }
 
   void _loaded(Object? _, Object? _) => _loading.value = false;
+
+  /// A link to a section of the page points at the live address, which
+  /// WebView would load from the network. Load the copy at that fragment
+  /// instead: WebView does not treat a jump within an archive as a jump.
+  Future<NavigationActionPolicy> _followLink(
+    InAppWebViewController controller,
+    NavigationAction action,
+  ) async {
+    final request = action.request.url?.uriValue;
+    final location = await _location;
+    if (request == null || location == null) {
+      return NavigationActionPolicy.ALLOW;
+    }
+    final target = sameDocumentTarget(request, location, Uri.file(widget.path));
+    if (target == null) return NavigationActionPolicy.ALLOW;
+    await controller.loadUrl(urlRequest: URLRequest(url: WebUri.uri(target)));
+    return NavigationActionPolicy.CANCEL;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -60,7 +82,9 @@ class _SavedPageViewerState extends State<SavedPageViewer> {
               supportZoom: true,
               builtInZoomControls: true,
               displayZoomControls: false,
+              useShouldOverrideUrlLoading: true,
             ),
+            shouldOverrideUrlLoading: _followLink,
             onLoadStop: _loaded,
             onReceivedError: (_, _, _) => _loading.value = false,
           ),
