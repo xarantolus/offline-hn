@@ -47,29 +47,32 @@ class _OverviewPageState extends State<OverviewPage> {
         builder: (context, settings) {
           final current = settings.data;
           if (current == null) return const SizedBox.shrink();
-          return ListView(
+          return SingleChildScrollView(
             padding: EdgeInsets.only(
               top: Spacing.lg,
               bottom: MediaQuery.viewPaddingOf(context).bottom + Spacing.lg,
             ),
-            children: [
-              _StoredSection(store: _store, settings: current),
-              gap,
-              _UpdatesSection(
-                settings: current,
-                lastSync: _lastSync,
-                connection: _connection,
-              ),
-              gap,
-              StreamBuilder<List<RunRecord>>(
-                stream: _runs,
-                builder: (context, runs) => StreamBuilder<SyncProgress?>(
-                  stream: _progress,
-                  builder: (context, progress) =>
-                      _RunsSections(runs: runs.data, progress: progress.data),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _StoredSection(store: _store, settings: current),
+                gap,
+                _UpdatesSection(
+                  settings: current,
+                  lastSync: _lastSync,
+                  connection: _connection,
                 ),
-              ),
-            ],
+                gap,
+                StreamBuilder<List<RunRecord>>(
+                  stream: _runs,
+                  builder: (context, runs) => StreamBuilder<SyncProgress?>(
+                    stream: _progress,
+                    builder: (context, progress) =>
+                        _RunsSections(runs: runs.data, progress: progress.data),
+                  ),
+                ),
+              ],
+            ),
           );
         },
       ),
