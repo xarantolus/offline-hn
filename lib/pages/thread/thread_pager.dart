@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:offline_hn/app_services.dart';
 import 'package:offline_hn/pages/thread/thread_page.dart';
 
 /// The stories to page through and where to start, for a story that is open
@@ -6,6 +9,27 @@ import 'package:offline_hn/pages/thread/thread_page.dart';
 ({List<int> ids, int index}) pagerFor(List<int> ids, int storyId) {
   final index = ids.indexOf(storyId);
   return index < 0 ? (ids: [storyId], index: 0) : (ids: ids, index: index);
+}
+
+void openThread(
+  BuildContext context,
+  AppServices services, {
+  required int storyId,
+  required List<int> storyIds,
+  bool openArticle = false,
+}) {
+  unawaited(services.stories.setRead(storyId, value: true));
+  unawaited(
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ThreadPager(
+          storyIds: storyIds,
+          storyId: storyId,
+          openArticle: openArticle,
+        ),
+      ),
+    ),
+  );
 }
 
 /// Swipes between the threads of the list a story was opened from. Only the

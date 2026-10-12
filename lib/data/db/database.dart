@@ -18,6 +18,30 @@ void configureConnection(CommonDatabase db) {
   db.execute('PRAGMA synchronous = NORMAL');
 }
 
+/// Trigram index over the plain-text fields of a story, kept in step by
+/// triggers so no write path has to know about it.
+const storySearchIndexStatements = [
+  '''CREATE VIRTUAL TABLE story_search USING fts5(
+    title, domain, "by", content='stories', content_rowid='id',
+    tokenize='trigram')''',
+  '''CREATE TRIGGER story_search_insert AFTER INSERT ON stories BEGIN
+    INSERT INTO story_search(rowid, title, domain, "by")
+    VALUES (new.id, new.title, new.domain, new."by");
+  END''',
+  '''CREATE TRIGGER story_search_delete AFTER DELETE ON stories BEGIN
+    INSERT INTO story_search(story_search, rowid, title, domain, "by")
+    VALUES ('delete', old.id, old.title, old.domain, old."by");
+  END''',
+  '''CREATE TRIGGER story_search_update AFTER UPDATE OF title, domain, "by"
+  ON stories BEGIN
+    INSERT INTO story_search(story_search, rowid, title, domain, "by")
+    VALUES ('delete', old.id, old.title, old.domain, old."by");
+    INSERT INTO story_search(rowid, title, domain, "by")
+    VALUES (new.id, new.title, new.domain, new."by");
+  END''',
+  "INSERT INTO story_search(story_search) VALUES ('rebuild')",
+];
+
 @DriftDatabase(
   tables: [
     Stories,
@@ -56,15 +80,25 @@ class AppDatabase extends _$AppDatabase {
   );
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-    onCreate: (m) => m.createAll(),
+    onCreate: (m) async {
+      await m.createAll();
+      await _createSearchIndex();
+    },
     onUpgrade: (m, from, to) async {
       if (from < 2) await m.addColumn(syncRuns, syncRuns.heartbeatAt);
       if (from < 3) await m.addColumn(syncRuns, syncRuns.executing);
       if (from < 4) await m.addColumn(stories, stories.savedAt);
+      if (from < 5) await _createSearchIndex();
     },
   );
+
+  Future<void> _createSearchIndex() async {
+    for (final statement in storySearchIndexStatements) {
+      await customStatement(statement);
+    }
+  }
 }

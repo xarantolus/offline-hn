@@ -1,12 +1,15 @@
 import 'package:drift/drift.dart';
+import 'package:html/parser.dart' show parseFragment;
 import 'package:offline_hn/data/api/models.dart';
 import 'package:offline_hn/data/db/database.dart';
 import 'package:offline_hn/data/model/comment_tree.dart';
 import 'package:offline_hn/data/model/domain.dart';
 import 'package:offline_hn/data/model/feed_kind.dart';
 import 'package:offline_hn/data/model/local_day.dart';
+import 'package:offline_hn/data/model/page_enums.dart';
 import 'package:offline_hn/data/policy/capture_scope.dart';
 import 'package:offline_hn/data/policy/day_grouping.dart';
+import 'package:offline_hn/data/policy/story_search.dart';
 import 'package:offline_hn/data/policy/sync_scope.dart';
 
 class FeedEntry {
@@ -15,6 +18,13 @@ class FeedEntry {
   final StoryRow story;
   final int bestRank;
   final PageCopyRow? page;
+
+  bool get hasCopy {
+    final page = this.page;
+    return page != null &&
+        page.status == PageStatus.ok &&
+        page.relativePath != null;
+  }
 }
 
 class StoryRepository {
@@ -88,6 +98,72 @@ class StoryRepository {
       ],
     );
   }
+
+  static const _candidateLimit = 800;
+
+  /// Stored stories matching [query], best first, from every feed and day.
+  /// Never touches the network, and follows later changes to the stories.
+  Stream<List<FeedEntry>> watchSearch(String query, {DateTime? now}) {
+    final words = queryWords(query);
+    if (words.isEmpty) return Stream.value(const []);
+    final match = ftsQueryFor(words);
+    final select = match == null
+        ? _db.customSelect(
+            '''SELECT * FROM stories WHERE hidden = 0 AND (
+              title LIKE ?1 ESCAPE '\\' OR domain LIKE ?1 ESCAPE '\\'
+              OR "by" LIKE ?1 ESCAPE '\\') LIMIT $_candidateLimit''',
+            variables: [Variable<String>('%${_likeEscape(words.first)}%')],
+            readsFrom: {_db.stories},
+          )
+        : _db.customSelect(
+            '''SELECT s.* FROM story_search f JOIN stories s ON s.id = f.rowid
+            WHERE story_search MATCH ?1 AND s.hidden = 0
+            ORDER BY bm25(story_search, 10, 3, 2) LIMIT $_candidateLimit''',
+            variables: [Variable<String>(match)],
+            readsFrom: {_db.stories},
+          );
+    return select.watch().asyncMap((rows) async {
+      final stories = <int, StoryRow>{
+        for (final row in rows) row.read<int>('id'): _db.stories.map(row.data),
+      };
+      final posts = await (_db.select(
+        _db.stories,
+      )..where((s) => s.body.isNotNull() & s.hidden.equals(false))).get();
+      for (final post in posts) {
+        stories.putIfAbsent(post.id, () => post);
+      }
+      final docs = [for (final story in stories.values) _searchDoc(story)];
+      final ranked = rankStories(query, docs, now ?? DateTime.now());
+      final ids = [for (final doc in ranked) doc.id];
+      final pages = {
+        for (final page in await (_db.select(
+          _db.pageCopies,
+        )..where((p) => p.storyId.isIn(ids))).get())
+          page.storyId: page,
+      };
+      return [
+        for (final id in ids)
+          FeedEntry(story: stories[id]!, bestRank: 0, page: pages[id]),
+      ];
+    });
+  }
+
+  SearchDoc _searchDoc(StoryRow story) => SearchDoc(
+    id: story.id,
+    title: story.title,
+    domain: story.domain,
+    by: story.by,
+    body: story.body == null ? null : parseFragment(story.body!).text,
+    points: story.points,
+    time: story.time,
+    saved: story.saved,
+    read: story.read,
+  );
+
+  String _likeEscape(String word) => word
+      .replaceAll(r'\', r'\\')
+      .replaceAll('%', r'\%')
+      .replaceAll('_', r'\_');
 
   /// Days are computed at query time, so a timezone change shows on the next
   /// subscription rather than on an emission.

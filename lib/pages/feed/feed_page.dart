@@ -11,6 +11,7 @@ import 'package:offline_hn/data/model/sync_enums.dart';
 import 'package:offline_hn/data/policy/day_grouping.dart';
 import 'package:offline_hn/data/repository/sync_repository.dart';
 import 'package:offline_hn/pages/feed/feed_list.dart';
+import 'package:offline_hn/pages/feed/search_page.dart';
 import 'package:offline_hn/pages/feed/sync_status.dart';
 import 'package:offline_hn/pages/settings/settings_page.dart';
 import 'package:offline_hn/sync/sync_controller.dart';
@@ -116,6 +117,16 @@ class _FeedPageState extends State<FeedPage> {
     }
   }
 
+  void _openSearch() {
+    unawaited(
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => SearchPage(services: _services),
+        ),
+      ),
+    );
+  }
+
   void _openSettings() {
     unawaited(
       Navigator.of(context)
@@ -149,6 +160,11 @@ class _FeedPageState extends State<FeedPage> {
         centerTitle: false,
         title: const HackerNewsTitle(),
         actions: [
+          IconButton(
+            tooltip: 'Search',
+            icon: const Icon(Icons.search),
+            onPressed: _openSearch,
+          ),
           if (_tab.kind != null)
             DayMenu(
               days: days,
