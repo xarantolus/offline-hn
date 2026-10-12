@@ -91,9 +91,12 @@ class _ThreadHeaderViewState extends State<ThreadHeaderView> {
               textSize: widget.textSize,
               onLink: widget.onLink,
             ),
-      onOpenSaved: copy.state == CopyState.saved && page != null
-          ? () => unawaited(opener.openSavedCopy(context, story, page))
-          : null,
+      onOpenArticle: url == null
+          ? null
+          : () => unawaited(opener.openArticle(context, story)),
+      onOpenDiscussion: () => unawaited(
+        opener.openWeb(context, StoryOpener.discussionUri(story.id)),
+      ),
       onOpenLive: url == null
           ? null
           : () => unawaited(opener.openWeb(context, url)),

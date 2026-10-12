@@ -41,8 +41,9 @@ class ThreadHeader extends StatelessWidget {
     required this.saved,
     required this.offline,
     this.body,
-    this.onOpenSaved,
+    this.onOpenArticle,
     this.onOpenLive,
+    this.onOpenDiscussion,
     this.onToggleSaved,
     this.onShare,
   });
@@ -57,8 +58,11 @@ class ThreadHeader extends StatelessWidget {
   final bool saved;
   final bool offline;
   final Widget? body;
-  final VoidCallback? onOpenSaved;
+
+  /// Null for a post that links nowhere, which leaves the title inert.
+  final VoidCallback? onOpenArticle;
   final VoidCallback? onOpenLive;
+  final VoidCallback? onOpenDiscussion;
   final VoidCallback? onToggleSaved;
   final VoidCallback? onShare;
 
@@ -70,12 +74,12 @@ class ThreadHeader extends StatelessWidget {
       if (points != null) pluralize(points!, 'point'),
       pluralize(comments, 'comment'),
     ].join(' · ');
-    return Padding(
+    final card = Padding(
       padding: const EdgeInsets.fromLTRB(
         Spacing.gutter,
         Spacing.lg,
         Spacing.gutter,
-        Spacing.md,
+        Spacing.sm,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -83,44 +87,71 @@ class ThreadHeader extends StatelessWidget {
           SmallCaps(source, color: t.accent),
           const SizedBox(height: Spacing.sm),
           Text(title, style: t.threadTitle),
-          const SizedBox(height: Spacing.md),
-          Text.rich(
-            TextSpan(
-              style: t.smallCaps,
-              children: [
-                TextSpan(text: facts.toUpperCase()),
-                if (newComments > 0)
-                  TextSpan(
-                    text: ' · $newComments NEW',
-                    style: TextStyle(color: t.marker),
-                  ),
-              ],
-            ),
-          ),
-          if (body != null) ...[const SizedBox(height: Spacing.lg), body!],
-          const SizedBox(height: Spacing.lg),
-          _CopyPanel(
-            copy: copy,
-            saved: saved,
-            offline: offline,
-            onOpenSaved: onOpenSaved,
-            onOpenLive: onOpenLive,
-            onToggleSaved: onToggleSaved,
-            onShare: onShare,
-          ),
         ],
       ),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (onOpenArticle == null)
+          card
+        else
+          Semantics(
+            link: true,
+            hint: copy.state == CopyState.saved
+                ? 'Opens the saved copy'
+                : 'Opens the live site',
+            child: InkWell(onTap: onOpenArticle, child: card),
+          ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            Spacing.gutter,
+            0,
+            Spacing.gutter,
+            Spacing.md,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text.rich(
+                TextSpan(
+                  style: t.smallCaps,
+                  children: [
+                    TextSpan(text: facts.toUpperCase()),
+                    if (newComments > 0)
+                      TextSpan(
+                        text: ' · $newComments NEW',
+                        style: TextStyle(color: t.marker),
+                      ),
+                  ],
+                ),
+              ),
+              if (body != null) ...[const SizedBox(height: Spacing.lg), body!],
+              const SizedBox(height: Spacing.lg),
+              _ActionPanel(
+                copy: copy,
+                saved: saved,
+                offline: offline,
+                onOpenLive: onOpenLive,
+                onOpenDiscussion: onOpenDiscussion,
+                onToggleSaved: onToggleSaved,
+                onShare: onShare,
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
 
-class _CopyPanel extends StatelessWidget {
-  const _CopyPanel({
+class _ActionPanel extends StatelessWidget {
+  const _ActionPanel({
     required this.copy,
     required this.saved,
     required this.offline,
-    this.onOpenSaved,
     this.onOpenLive,
+    this.onOpenDiscussion,
     this.onToggleSaved,
     this.onShare,
   });
@@ -128,8 +159,8 @@ class _CopyPanel extends StatelessWidget {
   final SavedCopyInfo copy;
   final bool saved;
   final bool offline;
-  final VoidCallback? onOpenSaved;
   final VoidCallback? onOpenLive;
+  final VoidCallback? onOpenDiscussion;
   final VoidCallback? onToggleSaved;
   final VoidCallback? onShare;
 
@@ -167,28 +198,19 @@ class _CopyPanel extends StatelessWidget {
         const SizedBox(height: Spacing.md),
         Row(
           children: [
-            if (hasLink)
-              Expanded(
-                child: hasCopy
-                    ? FilledButton.icon(
-                        onPressed: onOpenSaved,
-                        icon: const Icon(Icons.offline_pin_outlined, size: 18),
-                        label: const Text('Open saved copy'),
-                      )
-                    : FilledButton.tonalIcon(
-                        onPressed: onOpenLive,
-                        icon: const Icon(Icons.open_in_new, size: 18),
-                        label: const Text('Open live site'),
-                      ),
-              )
-            else
-              const Spacer(),
+            Expanded(
+              child: FilledButton.tonalIcon(
+                onPressed: onOpenDiscussion,
+                icon: const Icon(Icons.open_in_new, size: 18),
+                label: const Text('Open on Hacker News'),
+              ),
+            ),
             const SizedBox(width: Spacing.xs),
-            if (hasCopy)
+            if (hasCopy && !offline)
               IconButton(
                 tooltip: 'Open live site',
                 onPressed: onOpenLive,
-                icon: const Icon(Icons.open_in_new),
+                icon: const Icon(Icons.language),
               ),
             IconButton(
               tooltip: saved ? 'Remove bookmark' : 'Bookmark',
