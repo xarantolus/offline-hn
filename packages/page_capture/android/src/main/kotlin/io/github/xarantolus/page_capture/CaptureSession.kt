@@ -53,6 +53,7 @@ class CaptureSession(
     private var loaded = false
     private var finished = false
     private var removed = 0
+    private var toRemove: List<String> = emptyList()
     private var scrollSteps = 0
     private var cleanUpBegan: Long? = null
     private var consentSettled = false
@@ -210,10 +211,17 @@ class CaptureSession(
         }
         if (!request.hideElements) return settle()
         hiddenSelectors { selectors ->
-            evaluate(PageScripts.removeElements(selectors)) { count ->
-                removed += count.toIntOrNull() ?: 0
-                settle()
-            }
+            toRemove = selectors
+            settle()
+        }
+    }
+
+    /** Last thing before the save: a page that owns its DOM breaks when pieces vanish while it still runs. */
+    private fun removeThenSave() {
+        if (toRemove.isEmpty()) return save()
+        evaluate(PageScripts.removeElements(toRemove)) { count ->
+            removed += count.toIntOrNull() ?: 0
+            save()
         }
     }
 
@@ -236,7 +244,7 @@ class CaptureSession(
     }
 
     private fun settle() {
-        evaluate(PageScripts.SCROLL_TOP) { embedFonts { later(request.settleMillis, ::save) } }
+        evaluate(PageScripts.SCROLL_TOP) { embedFonts { later(request.settleMillis, ::removeThenSave) } }
     }
 
     /** The archive writer leaves font files out, so the faces the page loaded go in as data URIs. */
