@@ -115,6 +115,7 @@ ThemeData get _lightBase =>
       appBarTheme: const AppBarTheme(
         backgroundColor: _themeColor,
         foregroundColor: Colors.white,
+        scrolledUnderElevation: 0,
         centerTitle: true,
         actionsIconTheme: IconThemeData(color: Colors.white),
         // The bar is saturated blue in both themes, so the icons must be light.
@@ -156,6 +157,7 @@ ThemeData get _darkBase =>
       appBarTheme: const AppBarTheme(
         backgroundColor: _themeColorDark,
         foregroundColor: Colors.white,
+        scrolledUnderElevation: 0,
         centerTitle: true,
         actionsIconTheme: IconThemeData(color: Colors.white),
         systemOverlayStyle: SystemUiOverlayStyle(

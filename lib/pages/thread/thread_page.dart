@@ -14,6 +14,7 @@ import 'package:offline_hn/data/repository/thread_state_repository.dart';
 import 'package:offline_hn/pages/story_opener.dart';
 import 'package:offline_hn/pages/thread/copy_info.dart';
 import 'package:offline_hn/pages/thread/thread_header_view.dart';
+import 'package:offline_hn/pages/thread/thread_pager.dart';
 import 'package:offline_hn/ui/comment_tile.dart';
 import 'package:offline_hn/ui/reveal.dart';
 import 'package:offline_hn/ui/selection_guard.dart';
@@ -274,8 +275,11 @@ class _ThreadPageState extends State<ThreadPage> {
       unawaited(
         Navigator.of(context).push(
           MaterialPageRoute<void>(
-            builder: (_) =>
-                ThreadPage(storyId: storyId, focusCommentId: commentId),
+            builder: (_) => ThreadPager(
+              storyIds: [storyId],
+              storyId: storyId,
+              focusCommentId: commentId,
+            ),
           ),
         ),
       );
@@ -330,7 +334,6 @@ class _ThreadPageState extends State<ThreadPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Comments')),
       floatingActionButton: _ready ? _jumpButton() : null,
       body: _body(),
     );

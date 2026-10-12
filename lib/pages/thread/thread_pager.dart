@@ -40,10 +40,12 @@ class ThreadPager extends StatefulWidget {
     required List<int> storyIds,
     required int storyId,
     this.openArticle = false,
+    this.focusCommentId,
   }) : _start = pagerFor(storyIds, storyId);
 
   final ({List<int> ids, int index}) _start;
   final bool openArticle;
+  final int? focusCommentId;
 
   @override
   State<ThreadPager> createState() => _ThreadPagerState();
@@ -73,18 +75,24 @@ class _ThreadPagerState extends State<ThreadPager> {
   @override
   Widget build(BuildContext context) {
     final ids = widget._start.ids;
-    return NotificationListener<ScrollEndNotification>(
-      onNotification: _settled,
-      child: PageView.builder(
-        controller: _controller,
-        physics: const BouncingScrollPhysics(),
-        itemCount: ids.length,
-        itemBuilder: (context, index) => ThreadPage(
-          key: ValueKey(ids[index]),
-          storyId: ids[index],
-          active: index == _current,
-          openArticle: _articlePending && index == widget._start.index,
-          onArticleOpened: () => _articlePending = false,
+    return Scaffold(
+      appBar: AppBar(title: const Text('Comments')),
+      body: NotificationListener<ScrollEndNotification>(
+        onNotification: _settled,
+        child: PageView.builder(
+          controller: _controller,
+          physics: const BouncingScrollPhysics(),
+          itemCount: ids.length,
+          itemBuilder: (context, index) => ThreadPage(
+            key: ValueKey(ids[index]),
+            storyId: ids[index],
+            focusCommentId: index == widget._start.index
+                ? widget.focusCommentId
+                : null,
+            active: index == _current,
+            openArticle: _articlePending && index == widget._start.index,
+            onArticleOpened: () => _articlePending = false,
+          ),
         ),
       ),
     );
