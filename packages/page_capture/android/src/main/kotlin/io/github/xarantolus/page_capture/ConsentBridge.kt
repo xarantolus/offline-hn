@@ -10,7 +10,24 @@ import org.json.JSONObject
 import java.util.Collections
 import java.util.concurrent.atomic.AtomicInteger
 
-class ConsentAssets(val script: String, val rulesJson: String)
+private const val SHIM = """
+        window.autoconsentSendMessage = function (m) { __ohnConsent.postMessage(JSON.stringify(m)); };
+        __ohnConsent.onmessage = function (e) { window.autoconsentReceiveMessage(JSON.parse(e.data)); };
+    """
+private const val CONFIG = """{"enabled":true,"autoAction":"optOut","disabledCmps":[],"enablePrehide":true,
+        "enableCosmeticRules":true,"enableGeneratedRules":true,"enableHeuristicDetection":true,
+        "heuristicMode":"reject","detectRetries":20,"isMainWorld":true,"prehideTimeout":2000,
+        "logs":{"lifecycle":false,"rulesteps":false,"detectionsteps":false,"evals":false,
+        "errors":true,"messages":false,"waits":false}}"""
+
+/**
+ * Built once, off the main thread. The rules are about 750 KB and every frame of every capture asks
+ * for them, on the main thread, which the app's UI shares.
+ */
+class ConsentAssets(script: String, rulesJson: String) {
+    val startScript = SHIM + script
+    val initReply = """{"type":"initResp","config":$CONFIG,"rules":$rulesJson}"""
+}
 
 /** Runs DuckDuckGo's autoconsent in every frame of one capture and rejects the popups it finds. */
 class ConsentBridge(private val assets: ConsentAssets) {
@@ -30,7 +47,7 @@ class ConsentBridge(private val assets: ConsentAssets) {
         WebViewCompat.addWebMessageListener(web, BRIDGE, origins) { _, message, _, _, reply ->
             handle(message, reply)
         }
-        WebViewCompat.addDocumentStartJavaScript(web, SHIM + assets.script, origins)
+        WebViewCompat.addDocumentStartJavaScript(web, assets.startScript, origins)
         return true
     }
 
@@ -42,7 +59,7 @@ class ConsentBridge(private val assets: ConsentAssets) {
             return
         }
         when (json.optString("type")) {
-            "init" -> reply.postMessage("""{"type":"initResp","config":$CONFIG,"rules":${assets.rulesJson}}""")
+            "init" -> reply.postMessage(assets.initReply)
             "popupFound" -> open.incrementAndGet()
             "optOutResult" -> if (!json.optBoolean("result")) settle()
             "autoconsentDone" -> {
@@ -60,14 +77,5 @@ class ConsentBridge(private val assets: ConsentAssets) {
     private companion object {
         const val TAG = "PageCapture"
         const val BRIDGE = "__ohnConsent"
-        const val SHIM = """
-            window.autoconsentSendMessage = function (m) { __ohnConsent.postMessage(JSON.stringify(m)); };
-            __ohnConsent.onmessage = function (e) { window.autoconsentReceiveMessage(JSON.parse(e.data)); };
-        """
-        const val CONFIG = """{"enabled":true,"autoAction":"optOut","disabledCmps":[],"enablePrehide":true,
-            "enableCosmeticRules":true,"enableGeneratedRules":true,"enableHeuristicDetection":true,
-            "heuristicMode":"reject","detectRetries":20,"isMainWorld":true,"prehideTimeout":2000,
-            "logs":{"lifecycle":false,"rulesteps":false,"detectionsteps":false,"evals":false,
-            "errors":true,"messages":false,"waits":false}}"""
     }
 }
