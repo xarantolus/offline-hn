@@ -105,7 +105,7 @@ class _SavedCopiesSectionState extends State<SavedCopiesSection> {
           ),
           child: StreamBuilder<PageUsage>(
             stream: _usage,
-            builder: (context, snapshot) => _UsageBar(
+            builder: (context, snapshot) => UsageBar(
               used: snapshot.data?.bytes ?? 0,
               count: snapshot.data?.count ?? 0,
               budget: _budgetGb * _gigabyte,
@@ -117,8 +117,9 @@ class _SavedCopiesSectionState extends State<SavedCopiesSection> {
   }
 }
 
-class _UsageBar extends StatelessWidget {
-  const _UsageBar({
+class UsageBar extends StatelessWidget {
+  const UsageBar({
+    super.key,
     required this.used,
     required this.count,
     required this.budget,

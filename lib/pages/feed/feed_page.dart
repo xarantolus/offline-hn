@@ -13,6 +13,7 @@ import 'package:offline_hn/data/repository/sync_repository.dart';
 import 'package:offline_hn/pages/feed/feed_list.dart';
 import 'package:offline_hn/pages/feed/search_page.dart';
 import 'package:offline_hn/pages/feed/sync_status.dart';
+import 'package:offline_hn/pages/overview/overview_page.dart';
 import 'package:offline_hn/pages/settings/settings_page.dart';
 import 'package:offline_hn/sync/sync_controller.dart';
 import 'package:offline_hn/ui/day_menu.dart';
@@ -189,6 +190,10 @@ class _FeedPageState extends State<FeedPage> {
           ),
           PopupMenuButton<void>(
             itemBuilder: (_) => [
+              PopupMenuItem<void>(
+                onTap: () => openOverview(context),
+                child: const Text('Overview'),
+              ),
               PopupMenuItem<void>(
                 onTap: _openSettings,
                 child: const Text('Settings'),

@@ -5,6 +5,7 @@ import 'package:offline_hn/capture/filter_lists.dart';
 import 'package:offline_hn/data/db/database.dart';
 import 'package:offline_hn/data/model/daily_time.dart';
 import 'package:offline_hn/data/repository/link_repository.dart';
+import 'package:offline_hn/data/repository/overview_repository.dart';
 import 'package:offline_hn/data/repository/page_repository.dart';
 import 'package:offline_hn/data/repository/settings_store.dart';
 import 'package:offline_hn/data/repository/story_repository.dart';
@@ -37,6 +38,7 @@ class AppServices {
     required this.stories,
     required this.pages,
     required this.links,
+    required this.overview,
     required this.threadStates,
     required this.sync,
     required this.scheduler,
@@ -50,6 +52,7 @@ class AppServices {
   final StoryRepository stories;
   final PageRepository pages;
   final LinkRepository links;
+  final OverviewRepository overview;
   final ThreadStateRepository threadStates;
   final SyncController sync;
   final Scheduler scheduler;
@@ -77,6 +80,7 @@ class AppServices {
       stories: StoryRepository(db),
       pages: PageRepository(db),
       links: LinkRepository(db),
+      overview: OverviewRepository(db),
       threadStates: ThreadStateRepository(db),
       scheduler: Scheduler(queue),
       notifier: notifier,

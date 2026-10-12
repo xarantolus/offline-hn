@@ -7,6 +7,7 @@ import 'package:offline_hn/sync/sync_controller.dart';
 import 'package:offline_hn/data/model/daily_time.dart';
 import 'package:offline_hn/data/model/settings.dart';
 import 'package:offline_hn/data/repository/settings_store.dart';
+import 'package:offline_hn/pages/settings/last_update_tile.dart';
 import 'package:offline_hn/ui/settings_section.dart';
 import 'package:offline_hn/ui/tokens.dart';
 
@@ -61,6 +62,7 @@ class UpdatesSection extends StatelessWidget {
     return SettingsSection(
       title: 'Updates',
       children: [
+        LastUpdateTile(services: services, settings: settings),
         ListTile(
           title: Text('Update everything now', style: t.label),
           subtitle: Text(
