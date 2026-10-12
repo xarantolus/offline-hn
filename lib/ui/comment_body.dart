@@ -171,9 +171,11 @@ class DepthRails extends StatelessWidget {
     required this.child,
     this.step = 11,
     this.width = 2,
+    this.inset = Spacing.railInset,
   });
 
   final int depth;
+  final double inset;
   final double step;
   final double width;
   final Widget child;
@@ -195,6 +197,11 @@ class DepthRails extends StatelessWidget {
         ),
       );
     }
-    return result;
+    return depth == 0
+        ? result
+        : Padding(
+            padding: EdgeInsets.only(left: inset),
+            child: result,
+          );
   }
 }

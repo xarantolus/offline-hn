@@ -17,6 +17,7 @@ class CommentTile extends StatefulWidget {
     this.isOp = false,
     this.isNew = false,
     this.startsGroup = false,
+    this.startsSibling = false,
     this.collapsed = false,
     this.hiddenCount = 0,
     this.textSize = 15,
@@ -32,6 +33,10 @@ class CommentTile extends StatefulWidget {
   final bool isOp;
   final bool isNew;
   final bool startsGroup;
+
+  /// A reply to the same comment as the one above it, or to one of its
+  /// ancestors.
+  final bool startsSibling;
   final bool collapsed;
   final int hiddenCount;
   final double textSize;
@@ -65,38 +70,54 @@ class _CommentTileState extends State<CommentTile> {
     super.dispose();
   }
 
+  Widget _separated(BuildContext context, Widget child) {
+    if (!widget.startsSibling) return child;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Divider(height: 1, thickness: 1, color: context.tokens.siblingDivider),
+        child,
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final tile = DepthRails(
       depth: widget.depth.clamp(0, 6),
-      child: SelectionArea(
-        key: _area,
-        onSelectionChanged: _selectionChanged,
-        child: InkWell(
-          onTap: _tap,
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              widget.depth == 0 ? Spacing.gutter : Spacing.sm,
-              widget.startsGroup ? Spacing.md : Spacing.sm,
-              Spacing.lg,
-              Spacing.sm,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _Byline(row: widget),
-                Reveal(
-                  open: !widget.collapsed,
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 3),
-                    child: CommentBody(
-                      blocks: widget.blocks,
-                      textSize: widget.textSize - 1,
-                      onLink: widget.onLink,
+      child: _separated(
+        context,
+        SelectionArea(
+          key: _area,
+          onSelectionChanged: _selectionChanged,
+          child: InkWell(
+            onTap: _tap,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                widget.depth == 0
+                    ? Spacing.gutter
+                    : Spacing.sm - Spacing.railInset,
+                widget.startsGroup ? Spacing.md : Spacing.sm,
+                Spacing.lg,
+                Spacing.sm,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _Byline(row: widget),
+                  Reveal(
+                    open: !widget.collapsed,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 3),
+                      child: CommentBody(
+                        blocks: widget.blocks,
+                        textSize: widget.textSize - 1,
+                        onLink: widget.onLink,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
