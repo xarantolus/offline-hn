@@ -1,5 +1,6 @@
 import 'package:html/dom.dart';
 import 'package:html/parser.dart' as html_parser;
+import 'package:offline_hn/comments/bare_links.dart';
 import 'package:offline_hn/comments/comment_block.dart';
 
 const _maxLinkLabel = 44;
@@ -47,10 +48,27 @@ List<CommentBlock> parseCommentHtml(String? source) {
   return blocks;
 }
 
-void _collect(Node node, List<Inline> out, {required bool italic}) {
+void _collect(
+  Node node,
+  List<Inline> out, {
+  required bool italic,
+  bool linkify = true,
+}) {
   if (node is Text) {
     final text = node.data.replaceAll(_whitespace, ' ');
-    if (text.isNotEmpty) out.add(TextRun(text, italic: italic));
+    if (text.isEmpty) return;
+    if (!linkify) {
+      out.add(TextRun(text, italic: italic));
+      return;
+    }
+    for (final part in splitBareLinks(text)) {
+      final uri = part.isLink ? Uri.tryParse(part.text) : null;
+      out.add(
+        uri == null
+            ? TextRun(part.text, italic: italic)
+            : LinkRun(uri: uri, label: part.text, itemId: hnItemId(uri)),
+      );
+    }
     return;
   }
   if (node is! Element) return;
@@ -68,6 +86,10 @@ void _collect(Node node, List<Inline> out, {required bool italic}) {
             itemId: hnItemId(uri),
           ),
         );
+      }
+    case 'code':
+      for (final child in node.nodes) {
+        _collect(child, out, italic: italic, linkify: false);
       }
     case 'br':
       out.add(const TextRun('\n'));
@@ -144,6 +166,20 @@ String dedent(String code) {
       .map((l) => l.trim().isEmpty ? '' : l.substring(shared))
       .join('\n');
 }
+
+/// Every address a reader can tap, in order: the links the markup carries and
+/// the bare ones in its text.
+List<Uri> linksInHtml(String? source) => [
+  for (final block in parseCommentHtml(source))
+    ...switch (block) {
+      Paragraph(:final inlines) => _linksOf(inlines),
+      Quote(:final paragraphs) => paragraphs.expand(_linksOf),
+      CodeBlock() => const <Uri>[],
+    },
+];
+
+Iterable<Uri> _linksOf(List<Inline> inlines) =>
+    inlines.whereType<LinkRun>().map((run) => run.uri);
 
 int? hnItemId(Uri uri) {
   final host = uri.host.startsWith('www.') ? uri.host.substring(4) : uri.host;

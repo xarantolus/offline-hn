@@ -141,4 +141,70 @@ void main() {
       'P one two three',
     ]);
   });
+
+  group('bare addresses', () {
+    test('the story text from the API becomes a link', () {
+      expect(
+        _describe(
+          parseCommentHtml(
+            'Source: https:&#x2F;&#x2F;x.com&#x2F;karpathy&#x2F;status&#x2F;2109361546505966046',
+          ),
+        ),
+        ['P Source: [https://x.com/karpathy/status/2109361546505966046]'],
+      );
+    });
+
+    test('closing punctuation and quotes stay outside the address', () {
+      expect(
+        _describe(
+          parseCommentHtml(
+            'see (https://a.com/x), "https://b.org/y." and https://c.io/z!',
+          ),
+        ),
+        [
+          'P see ([https://a.com/x]), "[https://b.org/y]." and [https://c.io/z]!',
+        ],
+      );
+    });
+
+    test('a bracket inside the address stays with it', () {
+      expect(linksInHtml('https://en.wikipedia.org/wiki/Foo_(bar).'), [
+        Uri.parse('https://en.wikipedia.org/wiki/Foo_(bar)'),
+      ]);
+    });
+
+    test('an address inside a link is not found twice', () {
+      expect(
+        linksInHtml('<a href="https://a.com/x">https://a.com/x</a> and more'),
+        [Uri.parse('https://a.com/x')],
+      );
+    });
+
+    test('code is left alone', () {
+      expect(
+        linksInHtml(
+          '<pre><code>curl https://a.com/x</code></pre>'
+          'use <code>https://b.com/y</code>',
+        ),
+        isEmpty,
+      );
+    });
+
+    test('several addresses are found in order, and hn items are marked', () {
+      expect(
+        _describe(
+          parseCommentHtml(
+            'https://a.com/1 then https://news.ycombinator.com/item?id=42',
+          ),
+        ),
+        [
+          'P [https://a.com/1] then [https://news.ycombinator.com/item?id=42#42]',
+        ],
+      );
+    });
+
+    test('a word without a scheme is not an address', () {
+      expect(linksInHtml('see example.com or www.example.com'), isEmpty);
+    });
+  });
 }

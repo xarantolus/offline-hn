@@ -1,4 +1,3 @@
-import 'package:html/parser.dart' as html_parser;
 import 'package:offline_hn/comments/comment_parser.dart';
 import 'package:offline_hn/data/model/feed_kind.dart';
 import 'package:offline_hn/data/model/page_enums.dart';
@@ -34,10 +33,9 @@ List<Uri> _linksIn(
 }) {
   final found = <Uri>[];
   final seen = <String>{};
-  for (final anchor in html_parser.parseFragment(html).querySelectorAll('a')) {
+  for (final uri in linksInHtml(html)) {
     if (seen.length >= limit) break;
-    final uri = Uri.tryParse(anchor.attributes['href'] ?? '');
-    if (uri == null || !isLinkable(uri)) continue;
+    if (!isLinkable(uri)) continue;
     if (hnItemId(uri) == storyId) continue;
     if (own != null && linkKey(own) == linkKey(uri)) continue;
     if (seen.add(linkKey(uri))) found.add(uri.removeFragment());
