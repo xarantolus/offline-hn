@@ -191,6 +191,24 @@ void main() {
       await expectation;
     });
 
+    test('a rewrite that changes nothing shown is not emitted', () async {
+      await stories.upsertStories([_story(1, points: 1)], t0);
+      await stories.recordSnapshot(FeedKind.top, [1], t0);
+      final points = stories
+          .watchFeed(FeedKind.top, day)
+          .map((f) => f.single.story.points);
+      final expectation = expectLater(points, emitsInOrder([1, 2]));
+      await Future<void>.delayed(Duration.zero);
+      await stories.upsertStories([
+        _story(1, points: 1),
+      ], t0.add(const Duration(minutes: 1)));
+      await Future<void>.delayed(const Duration(seconds: 1));
+      await stories.upsertStories([
+        _story(1, points: 2),
+      ], t0.add(const Duration(minutes: 2)));
+      await expectation;
+    });
+
     test('the newest fetch is the latest snapshot, null for none', () async {
       expect(await stories.watchNewestFetch().first, isNull);
       await stories.upsertStories([_story(1)], t0);

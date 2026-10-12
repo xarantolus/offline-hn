@@ -36,6 +36,7 @@ class _FeedPageState extends State<FeedPage> {
       .watch()
       .map((s) => s.enabledFeeds)
       .distinct(setEquals);
+  late final Stream<SyncProgress?> _progress = _services.sync.progress;
   final _subscriptions = <StreamSubscription<Object?>>[];
   final _pages = PageController();
   List<FeedTab> _shownTabs = FeedTab.values;
@@ -173,7 +174,7 @@ class _FeedPageState extends State<FeedPage> {
               onSelected: (d) => setState(() => _picked = d),
             ),
           StreamBuilder<SyncProgress?>(
-            stream: _services.sync.progress,
+            stream: _progress,
             builder: (context, progress) => progress.data == null
                 ? IconButton(
                     tooltip: 'Refresh',

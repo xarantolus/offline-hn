@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:html/parser.dart' show parseFragment;
 import 'package:offline_hn/data/api/models.dart';
 import 'package:offline_hn/data/db/database.dart';
+import 'package:offline_hn/data/db/throttled_watch.dart';
 import 'package:offline_hn/data/model/comment_tree.dart';
 import 'package:offline_hn/data/model/domain.dart';
 import 'package:offline_hn/data/model/feed_kind.dart';
@@ -25,12 +26,42 @@ class FeedEntry {
         page.status == PageStatus.ok &&
         page.relativePath != null;
   }
+
+  /// Whether a list would show this entry exactly like [other]. The times a
+  /// sync stamps on every story it touches are not shown.
+  bool showsSameAs(FeedEntry other) =>
+      bestRank == other.bestRank &&
+      hasCopy == other.hasCopy &&
+      story.copyWith(
+            lastSeen: other.story.lastSeen,
+            commentsFetchedAt: Value(other.story.commentsFetchedAt),
+          ) ==
+          other.story;
+}
+
+bool showSameEntries(List<FeedEntry> a, List<FeedEntry> b) {
+  if (a.length != b.length) return false;
+  for (var i = 0; i < a.length; i++) {
+    if (!a[i].showsSameAs(b[i])) return false;
+  }
+  return true;
 }
 
 class StoryRepository {
   const StoryRepository(this._db);
 
   final AppDatabase _db;
+
+  static const _listRefresh = Duration(milliseconds: 500);
+
+  Stream<List<FeedEntry>> _watchList(
+    List<TableInfo<Table, Object?>> tables,
+    Future<List<FeedEntry>> Function() fetch,
+  ) => throttledWatch(
+    _db.tableUpdates(TableUpdateQuery.onAllTables(tables)),
+    fetch,
+    interval: _listRefresh,
+  ).distinct(showSameEntries);
 
   /// Stories that appeared in [kind]'s snapshots within [day], best rank of
   /// the day first.
@@ -58,9 +89,10 @@ class StoryRepository {
             OrderingTerm.asc(_db.stories.id),
           ]);
 
-    return query.watch().map(
-      (rows) => [
-        for (final row in rows)
+    return _watchList(
+      [snapshots, _db.stories, _db.pageCopies],
+      () async => [
+        for (final row in await query.get())
           FeedEntry(
             story: row.readTable(_db.stories),
             bestRank: row.read(bestRank)!,
@@ -87,9 +119,10 @@ class StoryRepository {
             OrderingTerm.desc(savedWhen),
             OrderingTerm.desc(stories.id),
           ]);
-    return query.watch().map(
-      (rows) => [
-        for (final row in rows)
+    return _watchList(
+      [stories, _db.pageCopies],
+      () async => [
+        for (final row in await query.get())
           FeedEntry(
             story: row.readTable(stories),
             bestRank: 0,

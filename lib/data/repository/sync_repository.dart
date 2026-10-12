@@ -168,8 +168,10 @@ class SyncRepository {
     return row?.finishedAt;
   }
 
-  Stream<DateTime?> watchLastSuccessfulSync() =>
-      _lastSuccess().watchSingleOrNull().map((row) => row?.finishedAt);
+  Stream<DateTime?> watchLastSuccessfulSync() => _lastSuccess()
+      .watchSingleOrNull()
+      .map((row) => row?.finishedAt)
+      .distinct();
 
   SimpleSelectStatement<$SyncRunsTable, SyncRunRow> _lastSuccess() =>
       _db.select(_db.syncRuns)
