@@ -79,7 +79,7 @@ class ThreadHeader extends StatelessWidget {
         Spacing.gutter,
         Spacing.lg,
         Spacing.gutter,
-        Spacing.sm,
+        Spacing.lg,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -87,11 +87,25 @@ class ThreadHeader extends StatelessWidget {
           SmallCaps(source, color: t.accent),
           const SizedBox(height: Spacing.sm),
           Text(title, style: t.threadTitle),
+          const SizedBox(height: Spacing.sm),
+          Text.rich(
+            TextSpan(
+              style: t.smallCaps,
+              children: [
+                TextSpan(text: facts.toUpperCase()),
+                if (newComments > 0)
+                  TextSpan(
+                    text: ' · $newComments NEW',
+                    style: TextStyle(color: t.marker),
+                  ),
+              ],
+            ),
+          ),
         ],
       ),
     );
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (onOpenArticle == null)
           card
@@ -113,21 +127,7 @@ class ThreadHeader extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text.rich(
-                TextSpan(
-                  style: t.smallCaps,
-                  children: [
-                    TextSpan(text: facts.toUpperCase()),
-                    if (newComments > 0)
-                      TextSpan(
-                        text: ' · $newComments NEW',
-                        style: TextStyle(color: t.marker),
-                      ),
-                  ],
-                ),
-              ),
-              if (body != null) ...[const SizedBox(height: Spacing.lg), body!],
-              const SizedBox(height: Spacing.lg),
+              if (body != null) ...[body!, const SizedBox(height: Spacing.lg)],
               _ActionPanel(
                 copy: copy,
                 saved: saved,
