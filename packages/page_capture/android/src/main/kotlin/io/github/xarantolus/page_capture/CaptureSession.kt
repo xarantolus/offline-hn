@@ -53,7 +53,6 @@ class CaptureSession(
     private var loaded = false
     private var finished = false
     private var removed = 0
-    private var toRemove: List<String> = emptyList()
     private var scrollSteps = 0
     private var cleanUpBegan: Long? = null
     private var consentSettled = false
@@ -209,19 +208,18 @@ class CaptureSession(
             consentSettled = true
             return later(CONSENT_SETTLE_MILLIS) { waitForQuiet(QUIET_AFTER_SCROLL_MILLIS, ::cleanUp) }
         }
-        if (!request.hideElements) return settle()
-        hiddenSelectors { selectors ->
-            toRemove = selectors
-            settle()
-        }
+        settle()
     }
 
-    /** Last thing before the save: a page that owns its DOM breaks when pieces vanish while it still runs. */
+    /** Last thing before the save, from the page as it is now: popups and banners the page's own scripts add late bring names no earlier look saw. A page that owns its DOM breaks when pieces vanish while it still runs. */
     private fun removeThenSave() {
-        if (toRemove.isEmpty()) return save()
-        evaluate(PageScripts.removeElements(toRemove)) { count ->
-            removed += count.toIntOrNull() ?: 0
-            save()
+        if (!request.hideElements) return save()
+        hiddenSelectors { selectors ->
+            if (selectors.isEmpty()) return@hiddenSelectors save()
+            evaluate(PageScripts.removeElements(selectors)) { count ->
+                removed += count.toIntOrNull() ?: 0
+                save()
+            }
         }
     }
 
