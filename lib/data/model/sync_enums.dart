@@ -19,6 +19,6 @@ enum SyncOutcome { succeeded, failed, abandoned }
 /// For [link] the item's id is a `link_copies` id, not a story's.
 enum SyncItemKind { comments, page, link }
 
-enum SyncItemStatus { pending, done, failed }
+enum SyncItemStatus { pending, done, tooLarge, failed }
 
 enum ConnectionKind { wifi, mobile, none }

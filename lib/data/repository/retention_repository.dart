@@ -4,6 +4,14 @@ import 'package:offline_hn/data/model/feed_kind.dart';
 import 'package:offline_hn/data/model/page_enums.dart';
 import 'package:offline_hn/data/policy/prune_policy.dart';
 
+/// Files a deletion left behind to remove, and what they weighed.
+class RemovedFiles {
+  const RemovedFiles(this.paths, this.bytes);
+
+  final List<String> paths;
+  final int bytes;
+}
+
 class RetentionRepository {
   const RetentionRepository(this._db);
 
@@ -53,8 +61,8 @@ class RetentionRepository {
     ];
   }
 
-  /// Removes the rows and returns the relative paths of the files they named.
-  Future<List<String>> deleteLinks(List<int> ids) => _db.transaction(() async {
+  /// Removes the rows and returns the files they named.
+  Future<RemovedFiles> deleteLinks(List<int> ids) => _db.transaction(() async {
     final rows = await (_db.select(
       _db.linkCopies,
     )..where((l) => l.id.isIn(ids))).get();
@@ -62,11 +70,13 @@ class RetentionRepository {
       _db.linkReferences,
     )..where((r) => r.linkId.isIn(ids))).go();
     await (_db.delete(_db.linkCopies)..where((l) => l.id.isIn(ids))).go();
-    return [for (final row in rows) ?row.relativePath];
+    return RemovedFiles([
+      for (final row in rows) ?row.relativePath,
+    ], rows.fold(0, (sum, row) => sum + row.bytes));
   });
 
   /// Copies no remaining story links to.
-  Future<List<String>> deleteUnreferencedLinks() async {
+  Future<RemovedFiles> deleteUnreferencedLinks() async {
     final referenced = _db.selectOnly(_db.linkReferences, distinct: true)
       ..addColumns([_db.linkReferences.linkId]);
     final orphans = await (_db.select(
@@ -136,8 +146,8 @@ class RetentionRepository {
     ];
   }
 
-  /// Removes the rows and returns the relative paths of the files they named.
-  Future<List<String>> deletePages(List<int> storyIds) =>
+  /// Removes the rows and returns the files they named.
+  Future<RemovedFiles> deletePages(List<int> storyIds) =>
       _db.transaction(() async {
         final rows = await (_db.select(
           _db.pageCopies,
@@ -145,7 +155,9 @@ class RetentionRepository {
         await (_db.delete(
           _db.pageCopies,
         )..where((p) => p.storyId.isIn(storyIds))).go();
-        return [for (final row in rows) ?row.relativePath];
+        return RemovedFiles([
+          for (final row in rows) ?row.relativePath,
+        ], rows.fold(0, (sum, row) => sum + row.bytes));
       });
 
   Future<void> deleteStories(List<int> storyIds) => _db.transaction(() async {

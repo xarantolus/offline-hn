@@ -82,7 +82,7 @@ class AppDatabase extends _$AppDatabase {
   );
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -98,6 +98,16 @@ class AppDatabase extends _$AppDatabase {
       if (from < 6) {
         await m.createTable(linkCopies);
         await m.createTable(linkReferences);
+      }
+      if (from < 7) {
+        await m.addColumn(syncRuns, syncRuns.connection);
+        await m.addColumn(syncRuns, syncRuns.storiesUpdated);
+        await m.addColumn(syncRuns, syncRuns.listsRefreshed);
+        await m.addColumn(syncRuns, syncRuns.prunedCopies);
+        await m.addColumn(syncRuns, syncRuns.prunedStories);
+        await m.addColumn(syncRuns, syncRuns.prunedBytes);
+        await m.addColumn(syncItems, syncItems.bytes);
+        await m.addColumn(syncItems, syncItems.asThread);
       }
     },
   );

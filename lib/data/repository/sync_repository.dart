@@ -114,6 +114,36 @@ class SyncRepository {
         SyncRunsCompanion(executing: Value(value)),
       );
 
+  Future<void> recordConnection(int runId, ConnectionKind connection) =>
+      (_db.update(_db.syncRuns)..where((r) => r.id.equals(runId))).write(
+        SyncRunsCompanion(connection: Value(connection)),
+      );
+
+  Future<void> addStoriesUpdated(int runId, int count) =>
+      (_db.update(_db.syncRuns)..where((r) => r.id.equals(runId))).write(
+        SyncRunsCompanion.custom(
+          storiesUpdated: _db.syncRuns.storiesUpdated + Constant(count),
+        ),
+      );
+
+  Future<void> recordListsRefreshed(int runId) =>
+      (_db.update(_db.syncRuns)..where((r) => r.id.equals(runId))).write(
+        const SyncRunsCompanion(listsRefreshed: Value(true)),
+      );
+
+  Future<void> recordPruned(
+    int runId, {
+    required int copies,
+    required int stories,
+    required int bytes,
+  }) => (_db.update(_db.syncRuns)..where((r) => r.id.equals(runId))).write(
+    SyncRunsCompanion(
+      prunedCopies: Value(copies),
+      prunedStories: Value(stories),
+      prunedBytes: Value(bytes),
+    ),
+  );
+
   Future<void> heartbeat(int runId, DateTime now) =>
       (_db.update(_db.syncRuns)..where((r) => r.id.equals(runId))).write(
         SyncRunsCompanion(heartbeatAt: Value(now)),
@@ -164,6 +194,8 @@ class SyncRepository {
     SyncItemStatus status,
     DateTime now, {
     String? error,
+    int bytes = 0,
+    bool asThread = false,
   }) => _db.transaction(() async {
     await (_db.update(_db.syncItems)..where(
           (i) =>
@@ -171,7 +203,14 @@ class SyncRepository {
               i.kind.equalsValue(kind) &
               i.storyId.equals(storyId),
         ))
-        .write(SyncItemsCompanion(status: Value(status), error: Value(error)));
+        .write(
+          SyncItemsCompanion(
+            status: Value(status),
+            error: Value(error),
+            bytes: Value(bytes),
+            asThread: Value(asThread),
+          ),
+        );
     await heartbeat(runId, now);
   });
 

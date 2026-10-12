@@ -132,7 +132,10 @@ class FakeLists implements FilterListSync {
   String get directoryPath => '/lists';
 
   @override
-  Future<void> ensureFresh() async => ensured++;
+  Future<bool> ensureFresh() async {
+    ensured++;
+    return true;
+  }
 }
 
 /// Records pages the way the real saver does, without a WebView.

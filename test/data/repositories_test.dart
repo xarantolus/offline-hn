@@ -736,9 +736,8 @@ void main() {
 
       await stories.setSaved(2, value: false);
       await RetentionRepository(db).deleteStories([1, 2]);
-      expect(await RetentionRepository(db).deleteUnreferencedLinks(), [
-        'pages/links/shared.mhtml',
-      ]);
+      final removed = await RetentionRepository(db).deleteUnreferencedLinks();
+      expect(removed.paths, ['pages/links/shared.mhtml']);
     });
 
     test('the top comments are the first three live ones in order', () async {

@@ -124,6 +124,13 @@ class SyncRuns extends Table {
   DateTimeColumn get finishedAt => dateTime().nullable()();
   TextColumn get outcome => textEnum<SyncOutcome>().nullable()();
   TextColumn get error => text().nullable()();
+  TextColumn get connection => textEnum<ConnectionKind>().nullable()();
+  IntColumn get storiesUpdated => integer().withDefault(const Constant(0))();
+  BoolColumn get listsRefreshed =>
+      boolean().withDefault(const Constant(false))();
+  IntColumn get prunedCopies => integer().withDefault(const Constant(0))();
+  IntColumn get prunedStories => integer().withDefault(const Constant(0))();
+  IntColumn get prunedBytes => integer().withDefault(const Constant(0))();
 }
 
 @DataClassName('SyncItemRow')
@@ -134,6 +141,10 @@ class SyncItems extends Table {
   TextColumn get status =>
       textEnum<SyncItemStatus>().withDefault(const Constant('pending'))();
   TextColumn get error => text().nullable()();
+  IntColumn get bytes => integer().withDefault(const Constant(0))();
+
+  /// A linked Hacker News discussion fetched as text instead of a page.
+  BoolColumn get asThread => boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column<Object>> get primaryKey => {runId, kind, storyId};

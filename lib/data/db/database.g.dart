@@ -3611,6 +3611,78 @@ class $SyncRunsTable extends SyncRuns
     requiredDuringInsert: false,
   );
   @override
+  late final GeneratedColumnWithTypeConverter<ConnectionKind?, String>
+  connection = GeneratedColumn<String>(
+    'connection',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  ).withConverter<ConnectionKind?>($SyncRunsTable.$converterconnectionn);
+  static const VerificationMeta _storiesUpdatedMeta = const VerificationMeta(
+    'storiesUpdated',
+  );
+  @override
+  late final GeneratedColumn<int> storiesUpdated = GeneratedColumn<int>(
+    'stories_updated',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _listsRefreshedMeta = const VerificationMeta(
+    'listsRefreshed',
+  );
+  @override
+  late final GeneratedColumn<bool> listsRefreshed = GeneratedColumn<bool>(
+    'lists_refreshed',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("lists_refreshed" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _prunedCopiesMeta = const VerificationMeta(
+    'prunedCopies',
+  );
+  @override
+  late final GeneratedColumn<int> prunedCopies = GeneratedColumn<int>(
+    'pruned_copies',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _prunedStoriesMeta = const VerificationMeta(
+    'prunedStories',
+  );
+  @override
+  late final GeneratedColumn<int> prunedStories = GeneratedColumn<int>(
+    'pruned_stories',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _prunedBytesMeta = const VerificationMeta(
+    'prunedBytes',
+  );
+  @override
+  late final GeneratedColumn<int> prunedBytes = GeneratedColumn<int>(
+    'pruned_bytes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  @override
   List<GeneratedColumn> get $columns => [
     id,
     trigger,
@@ -3621,6 +3693,12 @@ class $SyncRunsTable extends SyncRuns
     finishedAt,
     outcome,
     error,
+    connection,
+    storiesUpdated,
+    listsRefreshed,
+    prunedCopies,
+    prunedStories,
+    prunedBytes,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3670,6 +3748,51 @@ class $SyncRunsTable extends SyncRuns
       context.handle(
         _errorMeta,
         error.isAcceptableOrUnknown(data['error']!, _errorMeta),
+      );
+    }
+    if (data.containsKey('stories_updated')) {
+      context.handle(
+        _storiesUpdatedMeta,
+        storiesUpdated.isAcceptableOrUnknown(
+          data['stories_updated']!,
+          _storiesUpdatedMeta,
+        ),
+      );
+    }
+    if (data.containsKey('lists_refreshed')) {
+      context.handle(
+        _listsRefreshedMeta,
+        listsRefreshed.isAcceptableOrUnknown(
+          data['lists_refreshed']!,
+          _listsRefreshedMeta,
+        ),
+      );
+    }
+    if (data.containsKey('pruned_copies')) {
+      context.handle(
+        _prunedCopiesMeta,
+        prunedCopies.isAcceptableOrUnknown(
+          data['pruned_copies']!,
+          _prunedCopiesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('pruned_stories')) {
+      context.handle(
+        _prunedStoriesMeta,
+        prunedStories.isAcceptableOrUnknown(
+          data['pruned_stories']!,
+          _prunedStoriesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('pruned_bytes')) {
+      context.handle(
+        _prunedBytesMeta,
+        prunedBytes.isAcceptableOrUnknown(
+          data['pruned_bytes']!,
+          _prunedBytesMeta,
+        ),
       );
     }
     return context;
@@ -3723,6 +3846,32 @@ class $SyncRunsTable extends SyncRuns
         DriftSqlType.string,
         data['${effectivePrefix}error'],
       ),
+      connection: $SyncRunsTable.$converterconnectionn.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}connection'],
+        ),
+      ),
+      storiesUpdated: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}stories_updated'],
+      )!,
+      listsRefreshed: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}lists_refreshed'],
+      )!,
+      prunedCopies: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}pruned_copies'],
+      )!,
+      prunedStories: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}pruned_stories'],
+      )!,
+      prunedBytes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}pruned_bytes'],
+      )!,
     );
   }
 
@@ -3739,6 +3888,12 @@ class $SyncRunsTable extends SyncRuns
       const EnumNameConverter<SyncOutcome>(SyncOutcome.values);
   static JsonTypeConverter2<SyncOutcome?, String?, String?> $converteroutcomen =
       JsonTypeConverter2.asNullable($converteroutcome);
+  static JsonTypeConverter2<ConnectionKind, String, String>
+  $converterconnection = const EnumNameConverter<ConnectionKind>(
+    ConnectionKind.values,
+  );
+  static JsonTypeConverter2<ConnectionKind?, String?, String?>
+  $converterconnectionn = JsonTypeConverter2.asNullable($converterconnection);
 }
 
 class SyncRunRow extends DataClass implements Insertable<SyncRunRow> {
@@ -3754,6 +3909,12 @@ class SyncRunRow extends DataClass implements Insertable<SyncRunRow> {
   final DateTime? finishedAt;
   final SyncOutcome? outcome;
   final String? error;
+  final ConnectionKind? connection;
+  final int storiesUpdated;
+  final bool listsRefreshed;
+  final int prunedCopies;
+  final int prunedStories;
+  final int prunedBytes;
   const SyncRunRow({
     required this.id,
     required this.trigger,
@@ -3764,6 +3925,12 @@ class SyncRunRow extends DataClass implements Insertable<SyncRunRow> {
     this.finishedAt,
     this.outcome,
     this.error,
+    this.connection,
+    required this.storiesUpdated,
+    required this.listsRefreshed,
+    required this.prunedCopies,
+    required this.prunedStories,
+    required this.prunedBytes,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3795,6 +3962,16 @@ class SyncRunRow extends DataClass implements Insertable<SyncRunRow> {
     if (!nullToAbsent || error != null) {
       map['error'] = Variable<String>(error);
     }
+    if (!nullToAbsent || connection != null) {
+      map['connection'] = Variable<String>(
+        $SyncRunsTable.$converterconnectionn.toSql(connection),
+      );
+    }
+    map['stories_updated'] = Variable<int>(storiesUpdated);
+    map['lists_refreshed'] = Variable<bool>(listsRefreshed);
+    map['pruned_copies'] = Variable<int>(prunedCopies);
+    map['pruned_stories'] = Variable<int>(prunedStories);
+    map['pruned_bytes'] = Variable<int>(prunedBytes);
     return map;
   }
 
@@ -3817,6 +3994,14 @@ class SyncRunRow extends DataClass implements Insertable<SyncRunRow> {
       error: error == null && nullToAbsent
           ? const Value.absent()
           : Value(error),
+      connection: connection == null && nullToAbsent
+          ? const Value.absent()
+          : Value(connection),
+      storiesUpdated: Value(storiesUpdated),
+      listsRefreshed: Value(listsRefreshed),
+      prunedCopies: Value(prunedCopies),
+      prunedStories: Value(prunedStories),
+      prunedBytes: Value(prunedBytes),
     );
   }
 
@@ -3841,6 +4026,14 @@ class SyncRunRow extends DataClass implements Insertable<SyncRunRow> {
         serializer.fromJson<String?>(json['outcome']),
       ),
       error: serializer.fromJson<String?>(json['error']),
+      connection: $SyncRunsTable.$converterconnectionn.fromJson(
+        serializer.fromJson<String?>(json['connection']),
+      ),
+      storiesUpdated: serializer.fromJson<int>(json['storiesUpdated']),
+      listsRefreshed: serializer.fromJson<bool>(json['listsRefreshed']),
+      prunedCopies: serializer.fromJson<int>(json['prunedCopies']),
+      prunedStories: serializer.fromJson<int>(json['prunedStories']),
+      prunedBytes: serializer.fromJson<int>(json['prunedBytes']),
     );
   }
   @override
@@ -3862,6 +4055,14 @@ class SyncRunRow extends DataClass implements Insertable<SyncRunRow> {
         $SyncRunsTable.$converteroutcomen.toJson(outcome),
       ),
       'error': serializer.toJson<String?>(error),
+      'connection': serializer.toJson<String?>(
+        $SyncRunsTable.$converterconnectionn.toJson(connection),
+      ),
+      'storiesUpdated': serializer.toJson<int>(storiesUpdated),
+      'listsRefreshed': serializer.toJson<bool>(listsRefreshed),
+      'prunedCopies': serializer.toJson<int>(prunedCopies),
+      'prunedStories': serializer.toJson<int>(prunedStories),
+      'prunedBytes': serializer.toJson<int>(prunedBytes),
     };
   }
 
@@ -3875,6 +4076,12 @@ class SyncRunRow extends DataClass implements Insertable<SyncRunRow> {
     Value<DateTime?> finishedAt = const Value.absent(),
     Value<SyncOutcome?> outcome = const Value.absent(),
     Value<String?> error = const Value.absent(),
+    Value<ConnectionKind?> connection = const Value.absent(),
+    int? storiesUpdated,
+    bool? listsRefreshed,
+    int? prunedCopies,
+    int? prunedStories,
+    int? prunedBytes,
   }) => SyncRunRow(
     id: id ?? this.id,
     trigger: trigger ?? this.trigger,
@@ -3885,6 +4092,12 @@ class SyncRunRow extends DataClass implements Insertable<SyncRunRow> {
     finishedAt: finishedAt.present ? finishedAt.value : this.finishedAt,
     outcome: outcome.present ? outcome.value : this.outcome,
     error: error.present ? error.value : this.error,
+    connection: connection.present ? connection.value : this.connection,
+    storiesUpdated: storiesUpdated ?? this.storiesUpdated,
+    listsRefreshed: listsRefreshed ?? this.listsRefreshed,
+    prunedCopies: prunedCopies ?? this.prunedCopies,
+    prunedStories: prunedStories ?? this.prunedStories,
+    prunedBytes: prunedBytes ?? this.prunedBytes,
   );
   SyncRunRow copyWithCompanion(SyncRunsCompanion data) {
     return SyncRunRow(
@@ -3901,6 +4114,24 @@ class SyncRunRow extends DataClass implements Insertable<SyncRunRow> {
           : this.finishedAt,
       outcome: data.outcome.present ? data.outcome.value : this.outcome,
       error: data.error.present ? data.error.value : this.error,
+      connection: data.connection.present
+          ? data.connection.value
+          : this.connection,
+      storiesUpdated: data.storiesUpdated.present
+          ? data.storiesUpdated.value
+          : this.storiesUpdated,
+      listsRefreshed: data.listsRefreshed.present
+          ? data.listsRefreshed.value
+          : this.listsRefreshed,
+      prunedCopies: data.prunedCopies.present
+          ? data.prunedCopies.value
+          : this.prunedCopies,
+      prunedStories: data.prunedStories.present
+          ? data.prunedStories.value
+          : this.prunedStories,
+      prunedBytes: data.prunedBytes.present
+          ? data.prunedBytes.value
+          : this.prunedBytes,
     );
   }
 
@@ -3915,7 +4146,13 @@ class SyncRunRow extends DataClass implements Insertable<SyncRunRow> {
           ..write('executing: $executing, ')
           ..write('finishedAt: $finishedAt, ')
           ..write('outcome: $outcome, ')
-          ..write('error: $error')
+          ..write('error: $error, ')
+          ..write('connection: $connection, ')
+          ..write('storiesUpdated: $storiesUpdated, ')
+          ..write('listsRefreshed: $listsRefreshed, ')
+          ..write('prunedCopies: $prunedCopies, ')
+          ..write('prunedStories: $prunedStories, ')
+          ..write('prunedBytes: $prunedBytes')
           ..write(')'))
         .toString();
   }
@@ -3931,6 +4168,12 @@ class SyncRunRow extends DataClass implements Insertable<SyncRunRow> {
     finishedAt,
     outcome,
     error,
+    connection,
+    storiesUpdated,
+    listsRefreshed,
+    prunedCopies,
+    prunedStories,
+    prunedBytes,
   );
   @override
   bool operator ==(Object other) =>
@@ -3944,7 +4187,13 @@ class SyncRunRow extends DataClass implements Insertable<SyncRunRow> {
           other.executing == this.executing &&
           other.finishedAt == this.finishedAt &&
           other.outcome == this.outcome &&
-          other.error == this.error);
+          other.error == this.error &&
+          other.connection == this.connection &&
+          other.storiesUpdated == this.storiesUpdated &&
+          other.listsRefreshed == this.listsRefreshed &&
+          other.prunedCopies == this.prunedCopies &&
+          other.prunedStories == this.prunedStories &&
+          other.prunedBytes == this.prunedBytes);
 }
 
 class SyncRunsCompanion extends UpdateCompanion<SyncRunRow> {
@@ -3957,6 +4206,12 @@ class SyncRunsCompanion extends UpdateCompanion<SyncRunRow> {
   final Value<DateTime?> finishedAt;
   final Value<SyncOutcome?> outcome;
   final Value<String?> error;
+  final Value<ConnectionKind?> connection;
+  final Value<int> storiesUpdated;
+  final Value<bool> listsRefreshed;
+  final Value<int> prunedCopies;
+  final Value<int> prunedStories;
+  final Value<int> prunedBytes;
   const SyncRunsCompanion({
     this.id = const Value.absent(),
     this.trigger = const Value.absent(),
@@ -3967,6 +4222,12 @@ class SyncRunsCompanion extends UpdateCompanion<SyncRunRow> {
     this.finishedAt = const Value.absent(),
     this.outcome = const Value.absent(),
     this.error = const Value.absent(),
+    this.connection = const Value.absent(),
+    this.storiesUpdated = const Value.absent(),
+    this.listsRefreshed = const Value.absent(),
+    this.prunedCopies = const Value.absent(),
+    this.prunedStories = const Value.absent(),
+    this.prunedBytes = const Value.absent(),
   });
   SyncRunsCompanion.insert({
     this.id = const Value.absent(),
@@ -3978,6 +4239,12 @@ class SyncRunsCompanion extends UpdateCompanion<SyncRunRow> {
     this.finishedAt = const Value.absent(),
     this.outcome = const Value.absent(),
     this.error = const Value.absent(),
+    this.connection = const Value.absent(),
+    this.storiesUpdated = const Value.absent(),
+    this.listsRefreshed = const Value.absent(),
+    this.prunedCopies = const Value.absent(),
+    this.prunedStories = const Value.absent(),
+    this.prunedBytes = const Value.absent(),
   }) : trigger = Value(trigger),
        phase = Value(phase),
        startedAt = Value(startedAt);
@@ -3991,6 +4258,12 @@ class SyncRunsCompanion extends UpdateCompanion<SyncRunRow> {
     Expression<DateTime>? finishedAt,
     Expression<String>? outcome,
     Expression<String>? error,
+    Expression<String>? connection,
+    Expression<int>? storiesUpdated,
+    Expression<bool>? listsRefreshed,
+    Expression<int>? prunedCopies,
+    Expression<int>? prunedStories,
+    Expression<int>? prunedBytes,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -4002,6 +4275,12 @@ class SyncRunsCompanion extends UpdateCompanion<SyncRunRow> {
       if (finishedAt != null) 'finished_at': finishedAt,
       if (outcome != null) 'outcome': outcome,
       if (error != null) 'error': error,
+      if (connection != null) 'connection': connection,
+      if (storiesUpdated != null) 'stories_updated': storiesUpdated,
+      if (listsRefreshed != null) 'lists_refreshed': listsRefreshed,
+      if (prunedCopies != null) 'pruned_copies': prunedCopies,
+      if (prunedStories != null) 'pruned_stories': prunedStories,
+      if (prunedBytes != null) 'pruned_bytes': prunedBytes,
     });
   }
 
@@ -4015,6 +4294,12 @@ class SyncRunsCompanion extends UpdateCompanion<SyncRunRow> {
     Value<DateTime?>? finishedAt,
     Value<SyncOutcome?>? outcome,
     Value<String?>? error,
+    Value<ConnectionKind?>? connection,
+    Value<int>? storiesUpdated,
+    Value<bool>? listsRefreshed,
+    Value<int>? prunedCopies,
+    Value<int>? prunedStories,
+    Value<int>? prunedBytes,
   }) {
     return SyncRunsCompanion(
       id: id ?? this.id,
@@ -4026,6 +4311,12 @@ class SyncRunsCompanion extends UpdateCompanion<SyncRunRow> {
       finishedAt: finishedAt ?? this.finishedAt,
       outcome: outcome ?? this.outcome,
       error: error ?? this.error,
+      connection: connection ?? this.connection,
+      storiesUpdated: storiesUpdated ?? this.storiesUpdated,
+      listsRefreshed: listsRefreshed ?? this.listsRefreshed,
+      prunedCopies: prunedCopies ?? this.prunedCopies,
+      prunedStories: prunedStories ?? this.prunedStories,
+      prunedBytes: prunedBytes ?? this.prunedBytes,
     );
   }
 
@@ -4065,6 +4356,26 @@ class SyncRunsCompanion extends UpdateCompanion<SyncRunRow> {
     if (error.present) {
       map['error'] = Variable<String>(error.value);
     }
+    if (connection.present) {
+      map['connection'] = Variable<String>(
+        $SyncRunsTable.$converterconnectionn.toSql(connection.value),
+      );
+    }
+    if (storiesUpdated.present) {
+      map['stories_updated'] = Variable<int>(storiesUpdated.value);
+    }
+    if (listsRefreshed.present) {
+      map['lists_refreshed'] = Variable<bool>(listsRefreshed.value);
+    }
+    if (prunedCopies.present) {
+      map['pruned_copies'] = Variable<int>(prunedCopies.value);
+    }
+    if (prunedStories.present) {
+      map['pruned_stories'] = Variable<int>(prunedStories.value);
+    }
+    if (prunedBytes.present) {
+      map['pruned_bytes'] = Variable<int>(prunedBytes.value);
+    }
     return map;
   }
 
@@ -4079,7 +4390,13 @@ class SyncRunsCompanion extends UpdateCompanion<SyncRunRow> {
           ..write('executing: $executing, ')
           ..write('finishedAt: $finishedAt, ')
           ..write('outcome: $outcome, ')
-          ..write('error: $error')
+          ..write('error: $error, ')
+          ..write('connection: $connection, ')
+          ..write('storiesUpdated: $storiesUpdated, ')
+          ..write('listsRefreshed: $listsRefreshed, ')
+          ..write('prunedCopies: $prunedCopies, ')
+          ..write('prunedStories: $prunedStories, ')
+          ..write('prunedBytes: $prunedBytes')
           ..write(')'))
         .toString();
   }
@@ -4139,8 +4456,41 @@ class $SyncItemsTable extends SyncItems
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _bytesMeta = const VerificationMeta('bytes');
   @override
-  List<GeneratedColumn> get $columns => [runId, kind, storyId, status, error];
+  late final GeneratedColumn<int> bytes = GeneratedColumn<int>(
+    'bytes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _asThreadMeta = const VerificationMeta(
+    'asThread',
+  );
+  @override
+  late final GeneratedColumn<bool> asThread = GeneratedColumn<bool>(
+    'as_thread',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("as_thread" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    runId,
+    kind,
+    storyId,
+    status,
+    error,
+    bytes,
+    asThread,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -4173,6 +4523,18 @@ class $SyncItemsTable extends SyncItems
       context.handle(
         _errorMeta,
         error.isAcceptableOrUnknown(data['error']!, _errorMeta),
+      );
+    }
+    if (data.containsKey('bytes')) {
+      context.handle(
+        _bytesMeta,
+        bytes.isAcceptableOrUnknown(data['bytes']!, _bytesMeta),
+      );
+    }
+    if (data.containsKey('as_thread')) {
+      context.handle(
+        _asThreadMeta,
+        asThread.isAcceptableOrUnknown(data['as_thread']!, _asThreadMeta),
       );
     }
     return context;
@@ -4208,6 +4570,14 @@ class $SyncItemsTable extends SyncItems
         DriftSqlType.string,
         data['${effectivePrefix}error'],
       ),
+      bytes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}bytes'],
+      )!,
+      asThread: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}as_thread'],
+      )!,
     );
   }
 
@@ -4228,12 +4598,18 @@ class SyncItemRow extends DataClass implements Insertable<SyncItemRow> {
   final int storyId;
   final SyncItemStatus status;
   final String? error;
+  final int bytes;
+
+  /// A linked Hacker News discussion fetched as text instead of a page.
+  final bool asThread;
   const SyncItemRow({
     required this.runId,
     required this.kind,
     required this.storyId,
     required this.status,
     this.error,
+    required this.bytes,
+    required this.asThread,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4253,6 +4629,8 @@ class SyncItemRow extends DataClass implements Insertable<SyncItemRow> {
     if (!nullToAbsent || error != null) {
       map['error'] = Variable<String>(error);
     }
+    map['bytes'] = Variable<int>(bytes);
+    map['as_thread'] = Variable<bool>(asThread);
     return map;
   }
 
@@ -4265,6 +4643,8 @@ class SyncItemRow extends DataClass implements Insertable<SyncItemRow> {
       error: error == null && nullToAbsent
           ? const Value.absent()
           : Value(error),
+      bytes: Value(bytes),
+      asThread: Value(asThread),
     );
   }
 
@@ -4283,6 +4663,8 @@ class SyncItemRow extends DataClass implements Insertable<SyncItemRow> {
         serializer.fromJson<String>(json['status']),
       ),
       error: serializer.fromJson<String?>(json['error']),
+      bytes: serializer.fromJson<int>(json['bytes']),
+      asThread: serializer.fromJson<bool>(json['asThread']),
     );
   }
   @override
@@ -4298,6 +4680,8 @@ class SyncItemRow extends DataClass implements Insertable<SyncItemRow> {
         $SyncItemsTable.$converterstatus.toJson(status),
       ),
       'error': serializer.toJson<String?>(error),
+      'bytes': serializer.toJson<int>(bytes),
+      'asThread': serializer.toJson<bool>(asThread),
     };
   }
 
@@ -4307,12 +4691,16 @@ class SyncItemRow extends DataClass implements Insertable<SyncItemRow> {
     int? storyId,
     SyncItemStatus? status,
     Value<String?> error = const Value.absent(),
+    int? bytes,
+    bool? asThread,
   }) => SyncItemRow(
     runId: runId ?? this.runId,
     kind: kind ?? this.kind,
     storyId: storyId ?? this.storyId,
     status: status ?? this.status,
     error: error.present ? error.value : this.error,
+    bytes: bytes ?? this.bytes,
+    asThread: asThread ?? this.asThread,
   );
   SyncItemRow copyWithCompanion(SyncItemsCompanion data) {
     return SyncItemRow(
@@ -4321,6 +4709,8 @@ class SyncItemRow extends DataClass implements Insertable<SyncItemRow> {
       storyId: data.storyId.present ? data.storyId.value : this.storyId,
       status: data.status.present ? data.status.value : this.status,
       error: data.error.present ? data.error.value : this.error,
+      bytes: data.bytes.present ? data.bytes.value : this.bytes,
+      asThread: data.asThread.present ? data.asThread.value : this.asThread,
     );
   }
 
@@ -4331,13 +4721,16 @@ class SyncItemRow extends DataClass implements Insertable<SyncItemRow> {
           ..write('kind: $kind, ')
           ..write('storyId: $storyId, ')
           ..write('status: $status, ')
-          ..write('error: $error')
+          ..write('error: $error, ')
+          ..write('bytes: $bytes, ')
+          ..write('asThread: $asThread')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(runId, kind, storyId, status, error);
+  int get hashCode =>
+      Object.hash(runId, kind, storyId, status, error, bytes, asThread);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -4346,7 +4739,9 @@ class SyncItemRow extends DataClass implements Insertable<SyncItemRow> {
           other.kind == this.kind &&
           other.storyId == this.storyId &&
           other.status == this.status &&
-          other.error == this.error);
+          other.error == this.error &&
+          other.bytes == this.bytes &&
+          other.asThread == this.asThread);
 }
 
 class SyncItemsCompanion extends UpdateCompanion<SyncItemRow> {
@@ -4355,6 +4750,8 @@ class SyncItemsCompanion extends UpdateCompanion<SyncItemRow> {
   final Value<int> storyId;
   final Value<SyncItemStatus> status;
   final Value<String?> error;
+  final Value<int> bytes;
+  final Value<bool> asThread;
   final Value<int> rowid;
   const SyncItemsCompanion({
     this.runId = const Value.absent(),
@@ -4362,6 +4759,8 @@ class SyncItemsCompanion extends UpdateCompanion<SyncItemRow> {
     this.storyId = const Value.absent(),
     this.status = const Value.absent(),
     this.error = const Value.absent(),
+    this.bytes = const Value.absent(),
+    this.asThread = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   SyncItemsCompanion.insert({
@@ -4370,6 +4769,8 @@ class SyncItemsCompanion extends UpdateCompanion<SyncItemRow> {
     required int storyId,
     this.status = const Value.absent(),
     this.error = const Value.absent(),
+    this.bytes = const Value.absent(),
+    this.asThread = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : runId = Value(runId),
        kind = Value(kind),
@@ -4380,6 +4781,8 @@ class SyncItemsCompanion extends UpdateCompanion<SyncItemRow> {
     Expression<int>? storyId,
     Expression<String>? status,
     Expression<String>? error,
+    Expression<int>? bytes,
+    Expression<bool>? asThread,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -4388,6 +4791,8 @@ class SyncItemsCompanion extends UpdateCompanion<SyncItemRow> {
       if (storyId != null) 'story_id': storyId,
       if (status != null) 'status': status,
       if (error != null) 'error': error,
+      if (bytes != null) 'bytes': bytes,
+      if (asThread != null) 'as_thread': asThread,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -4398,6 +4803,8 @@ class SyncItemsCompanion extends UpdateCompanion<SyncItemRow> {
     Value<int>? storyId,
     Value<SyncItemStatus>? status,
     Value<String?>? error,
+    Value<int>? bytes,
+    Value<bool>? asThread,
     Value<int>? rowid,
   }) {
     return SyncItemsCompanion(
@@ -4406,6 +4813,8 @@ class SyncItemsCompanion extends UpdateCompanion<SyncItemRow> {
       storyId: storyId ?? this.storyId,
       status: status ?? this.status,
       error: error ?? this.error,
+      bytes: bytes ?? this.bytes,
+      asThread: asThread ?? this.asThread,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -4432,6 +4841,12 @@ class SyncItemsCompanion extends UpdateCompanion<SyncItemRow> {
     if (error.present) {
       map['error'] = Variable<String>(error.value);
     }
+    if (bytes.present) {
+      map['bytes'] = Variable<int>(bytes.value);
+    }
+    if (asThread.present) {
+      map['as_thread'] = Variable<bool>(asThread.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -4446,6 +4861,8 @@ class SyncItemsCompanion extends UpdateCompanion<SyncItemRow> {
           ..write('storyId: $storyId, ')
           ..write('status: $status, ')
           ..write('error: $error, ')
+          ..write('bytes: $bytes, ')
+          ..write('asThread: $asThread, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -6540,6 +6957,12 @@ typedef $$SyncRunsTableCreateCompanionBuilder = SyncRunsCompanion Function({
   Value<DateTime?> finishedAt,
   Value<SyncOutcome?> outcome,
   Value<String?> error,
+  Value<ConnectionKind?> connection,
+  Value<int> storiesUpdated,
+  Value<bool> listsRefreshed,
+  Value<int> prunedCopies,
+  Value<int> prunedStories,
+  Value<int> prunedBytes,
 });
 typedef $$SyncRunsTableUpdateCompanionBuilder = SyncRunsCompanion Function({
   Value<int> id,
@@ -6551,6 +6974,12 @@ typedef $$SyncRunsTableUpdateCompanionBuilder = SyncRunsCompanion Function({
   Value<DateTime?> finishedAt,
   Value<SyncOutcome?> outcome,
   Value<String?> error,
+  Value<ConnectionKind?> connection,
+  Value<int> storiesUpdated,
+  Value<bool> listsRefreshed,
+  Value<int> prunedCopies,
+  Value<int> prunedStories,
+  Value<int> prunedBytes,
 });
 
 class $$SyncRunsTableFilterComposer
@@ -6609,6 +7038,37 @@ class $$SyncRunsTableFilterComposer
     column: $table.error,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnWithTypeConverterFilters<ConnectionKind?, ConnectionKind, String>
+  get connection => $composableBuilder(
+    column: $table.connection,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<int> get storiesUpdated => $composableBuilder(
+    column: $table.storiesUpdated,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get listsRefreshed => $composableBuilder(
+    column: $table.listsRefreshed,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get prunedCopies => $composableBuilder(
+    column: $table.prunedCopies,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get prunedStories => $composableBuilder(
+    column: $table.prunedStories,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get prunedBytes => $composableBuilder(
+    column: $table.prunedBytes,
+    builder: (column) => ColumnFilters(column),
+  );
 }
 
 class $$SyncRunsTableOrderingComposer
@@ -6664,6 +7124,36 @@ class $$SyncRunsTableOrderingComposer
     column: $table.error,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get connection => $composableBuilder(
+    column: $table.connection,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get storiesUpdated => $composableBuilder(
+    column: $table.storiesUpdated,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get listsRefreshed => $composableBuilder(
+    column: $table.listsRefreshed,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get prunedCopies => $composableBuilder(
+    column: $table.prunedCopies,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get prunedStories => $composableBuilder(
+    column: $table.prunedStories,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get prunedBytes => $composableBuilder(
+    column: $table.prunedBytes,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SyncRunsTableAnnotationComposer
@@ -6705,6 +7195,37 @@ class $$SyncRunsTableAnnotationComposer
 
   GeneratedColumn<String> get error =>
       $composableBuilder(column: $table.error, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<ConnectionKind?, String> get connection =>
+      $composableBuilder(
+        column: $table.connection,
+        builder: (column) => column,
+      );
+
+  GeneratedColumn<int> get storiesUpdated => $composableBuilder(
+    column: $table.storiesUpdated,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get listsRefreshed => $composableBuilder(
+    column: $table.listsRefreshed,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get prunedCopies => $composableBuilder(
+    column: $table.prunedCopies,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get prunedStories => $composableBuilder(
+    column: $table.prunedStories,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get prunedBytes => $composableBuilder(
+    column: $table.prunedBytes,
+    builder: (column) => column,
+  );
 }
 
 class $$SyncRunsTableTableManager
@@ -6747,6 +7268,12 @@ class $$SyncRunsTableTableManager
                 Value<DateTime?> finishedAt = const Value.absent(),
                 Value<SyncOutcome?> outcome = const Value.absent(),
                 Value<String?> error = const Value.absent(),
+                Value<ConnectionKind?> connection = const Value.absent(),
+                Value<int> storiesUpdated = const Value.absent(),
+                Value<bool> listsRefreshed = const Value.absent(),
+                Value<int> prunedCopies = const Value.absent(),
+                Value<int> prunedStories = const Value.absent(),
+                Value<int> prunedBytes = const Value.absent(),
               }) => SyncRunsCompanion(
                 id: id,
                 trigger: trigger,
@@ -6757,6 +7284,12 @@ class $$SyncRunsTableTableManager
                 finishedAt: finishedAt,
                 outcome: outcome,
                 error: error,
+                connection: connection,
+                storiesUpdated: storiesUpdated,
+                listsRefreshed: listsRefreshed,
+                prunedCopies: prunedCopies,
+                prunedStories: prunedStories,
+                prunedBytes: prunedBytes,
               ),
           createCompanionCallback:
               ({
@@ -6769,6 +7302,12 @@ class $$SyncRunsTableTableManager
                 Value<DateTime?> finishedAt = const Value.absent(),
                 Value<SyncOutcome?> outcome = const Value.absent(),
                 Value<String?> error = const Value.absent(),
+                Value<ConnectionKind?> connection = const Value.absent(),
+                Value<int> storiesUpdated = const Value.absent(),
+                Value<bool> listsRefreshed = const Value.absent(),
+                Value<int> prunedCopies = const Value.absent(),
+                Value<int> prunedStories = const Value.absent(),
+                Value<int> prunedBytes = const Value.absent(),
               }) => SyncRunsCompanion.insert(
                 id: id,
                 trigger: trigger,
@@ -6779,6 +7318,12 @@ class $$SyncRunsTableTableManager
                 finishedAt: finishedAt,
                 outcome: outcome,
                 error: error,
+                connection: connection,
+                storiesUpdated: storiesUpdated,
+                listsRefreshed: listsRefreshed,
+                prunedCopies: prunedCopies,
+                prunedStories: prunedStories,
+                prunedBytes: prunedBytes,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -6817,6 +7362,8 @@ typedef $$SyncItemsTableCreateCompanionBuilder = SyncItemsCompanion Function({
   required int storyId,
   Value<SyncItemStatus> status,
   Value<String?> error,
+  Value<int> bytes,
+  Value<bool> asThread,
   Value<int> rowid,
 });
 typedef $$SyncItemsTableUpdateCompanionBuilder = SyncItemsCompanion Function({
@@ -6825,6 +7372,8 @@ typedef $$SyncItemsTableUpdateCompanionBuilder = SyncItemsCompanion Function({
   Value<int> storyId,
   Value<SyncItemStatus> status,
   Value<String?> error,
+  Value<int> bytes,
+  Value<bool> asThread,
   Value<int> rowid,
 });
 
@@ -6863,6 +7412,16 @@ class $$SyncItemsTableFilterComposer
     column: $table.error,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnFilters<int> get bytes => $composableBuilder(
+    column: $table.bytes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get asThread => $composableBuilder(
+    column: $table.asThread,
+    builder: (column) => ColumnFilters(column),
+  );
 }
 
 class $$SyncItemsTableOrderingComposer
@@ -6898,6 +7457,16 @@ class $$SyncItemsTableOrderingComposer
     column: $table.error,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get bytes => $composableBuilder(
+    column: $table.bytes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get asThread => $composableBuilder(
+    column: $table.asThread,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SyncItemsTableAnnotationComposer
@@ -6923,6 +7492,12 @@ class $$SyncItemsTableAnnotationComposer
 
   GeneratedColumn<String> get error =>
       $composableBuilder(column: $table.error, builder: (column) => column);
+
+  GeneratedColumn<int> get bytes =>
+      $composableBuilder(column: $table.bytes, builder: (column) => column);
+
+  GeneratedColumn<bool> get asThread =>
+      $composableBuilder(column: $table.asThread, builder: (column) => column);
 }
 
 class $$SyncItemsTableTableManager
@@ -6961,6 +7536,8 @@ class $$SyncItemsTableTableManager
                 Value<int> storyId = const Value.absent(),
                 Value<SyncItemStatus> status = const Value.absent(),
                 Value<String?> error = const Value.absent(),
+                Value<int> bytes = const Value.absent(),
+                Value<bool> asThread = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SyncItemsCompanion(
                 runId: runId,
@@ -6968,6 +7545,8 @@ class $$SyncItemsTableTableManager
                 storyId: storyId,
                 status: status,
                 error: error,
+                bytes: bytes,
+                asThread: asThread,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -6977,6 +7556,8 @@ class $$SyncItemsTableTableManager
                 required int storyId,
                 Value<SyncItemStatus> status = const Value.absent(),
                 Value<String?> error = const Value.absent(),
+                Value<int> bytes = const Value.absent(),
+                Value<bool> asThread = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SyncItemsCompanion.insert(
                 runId: runId,
@@ -6984,6 +7565,8 @@ class $$SyncItemsTableTableManager
                 storyId: storyId,
                 status: status,
                 error: error,
+                bytes: bytes,
+                asThread: asThread,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

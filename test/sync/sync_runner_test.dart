@@ -330,6 +330,31 @@ void main() {
     expect((await runs()).single.outcome, SyncOutcome.succeeded);
   });
 
+  test('a run records what it did', () async {
+    hn.failingThreads.add(3);
+    saver.failing.add(2);
+    probe.kind = ConnectionKind.wifi;
+    expect(await runner.run(SyncTrigger.manual), SyncResult.completed);
+
+    final run = (await runs()).single;
+    expect(run.connection, ConnectionKind.wifi);
+    expect(run.storiesUpdated, 5);
+    expect(run.listsRefreshed, isTrue);
+    final failedPage = (await items(SyncItemKind.page))
+        .singleWhere((i) => i.status == SyncItemStatus.failed);
+    expect(failedPage.error, 'boom');
+    final savedPages = (await items(SyncItemKind.page))
+        .where((i) => i.status == SyncItemStatus.done);
+    expect(savedPages.every((i) => i.bytes == 1000), isTrue);
+  });
+
+  test('a light refresh records no pruning', () async {
+    await runner.run(SyncTrigger.refresh);
+    final run = (await runs()).single;
+    expect(run.prunedCopies, 0);
+    expect(run.listsRefreshed, isFalse);
+  });
+
   test(
     'a thread the index has not caught up with keeps its comments',
     () async {

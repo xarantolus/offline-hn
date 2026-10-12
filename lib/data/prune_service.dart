@@ -9,6 +9,7 @@ class PruneResult {
     required this.stories,
     required this.threadStates,
     required this.snapshotFetches,
+    required this.bytes,
   });
 
   final int pages;
@@ -16,6 +17,9 @@ class PruneResult {
   final int stories;
   final int threadStates;
   final int snapshotFetches;
+
+  /// Weight of the saved copies removed.
+  final int bytes;
 }
 
 class PruneService {
@@ -40,7 +44,7 @@ class PruneService {
       textRetentionDays: settings.textRetentionDays,
       now: now,
     );
-    final linkPaths = await _retention.deleteLinks(links);
+    final linkFiles = await _retention.deleteLinks(links);
     final pages = pagesToPrune(
       pageCandidates,
       budgetBytes: settings.pageBudgetBytes,
@@ -49,8 +53,8 @@ class PruneService {
           .fold(0, (sum, link) => sum + link.bytes),
       now: now,
     );
-    final paths = await _retention.deletePages(pages);
-    for (final path in [...linkPaths, ...paths]) {
+    final pageFiles = await _retention.deletePages(pages);
+    for (final path in [...linkFiles.paths, ...pageFiles.paths]) {
       await deleteFile(path);
     }
 
@@ -61,7 +65,7 @@ class PruneService {
     );
     await _retention.deleteStories(stories);
     final orphaned = await _retention.deleteUnreferencedLinks();
-    for (final path in orphaned) {
+    for (final path in orphaned.paths) {
       await deleteFile(path);
     }
 
@@ -80,10 +84,11 @@ class PruneService {
 
     return PruneResult(
       pages: pages.length,
-      links: links.length + orphaned.length,
+      links: links.length + orphaned.paths.length,
       stories: stories.length,
       threadStates: states.length,
       snapshotFetches: fetches.length,
+      bytes: linkFiles.bytes + pageFiles.bytes + orphaned.bytes,
     );
   }
 }

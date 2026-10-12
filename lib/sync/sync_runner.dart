@@ -72,6 +72,28 @@ class _Context {
   final RunBudget budget;
 }
 
+class _PageOutcome {
+  const _PageOutcome(this.status, {this.error, this.bytes = 0});
+
+  final PageStatus? status;
+  final String? error;
+  final int bytes;
+}
+
+class _LinkOutcome {
+  const _LinkOutcome(
+    this.status, {
+    this.error,
+    this.bytes = 0,
+    this.asThread = false,
+  });
+
+  final LinkStatus? status;
+  final String? error;
+  final int bytes;
+  final bool asThread;
+}
+
 /// The only code that fetches. Every trigger, in the foreground or the
 /// background, ends up here, and everything it learns goes to the database.
 ///
@@ -154,6 +176,7 @@ class SyncRunner {
       return SyncResult.interrupted;
     }
     await _syncs.setExecuting(run.id, value: true);
+    await _syncs.recordConnection(run.id, await _probe.current());
     _activeRun = run.id;
     await _notifier.runStarted();
     try {
@@ -210,7 +233,7 @@ class SyncRunner {
     final stop = await _saveLinks(context);
     if (stop != null) return stop;
 
-    await _pruneStore(context.settings);
+    await _pruneStore(context);
     await _syncs.finish(run.id, SyncOutcome.succeeded, _clock());
     return SyncResult.completed;
   }
@@ -313,6 +336,7 @@ class SyncRunner {
               .stories(batch)
               .timeout(_metadataWorstCase);
           await _stories.upsertStories(found, _clock());
+          await _syncs.addStoriesUpdated(context.run.id, found.length);
         } on Exception catch (e) {
           failed++;
           debugPrintSynchronously('story details failed: $e');
@@ -432,7 +456,9 @@ class SyncRunner {
     final gate = await _pagesGate(context);
     if (gate == SyncResult.paused) return gate;
     if (gate != null) return null;
-    await _freshenLists();
+    if (await _freshenLists()) {
+      await _syncs.recordListsRefreshed(context.run.id);
+    }
 
     final rankings = await _rankings(context.settings);
     final ids = _idsByRank(rankings);
@@ -467,11 +493,14 @@ class SyncRunner {
           context.run.id,
           SyncItemKind.page,
           id,
-          outcome.status == PageStatus.failed
-              ? SyncItemStatus.failed
-              : SyncItemStatus.done,
+          switch (outcome.status) {
+            PageStatus.failed => SyncItemStatus.failed,
+            PageStatus.tooLarge => SyncItemStatus.tooLarge,
+            _ => SyncItemStatus.done,
+          },
           _clock(),
           error: outcome.error,
+          bytes: outcome.bytes,
         );
         return null;
       },
@@ -538,11 +567,15 @@ class SyncRunner {
           context.run.id,
           SyncItemKind.link,
           id,
-          outcome.status == LinkStatus.failed
-              ? SyncItemStatus.failed
-              : SyncItemStatus.done,
+          switch (outcome.status) {
+            LinkStatus.failed => SyncItemStatus.failed,
+            LinkStatus.tooLarge => SyncItemStatus.tooLarge,
+            _ => SyncItemStatus.done,
+          },
           _clock(),
           error: outcome.error,
+          bytes: outcome.bytes,
+          asThread: outcome.asThread,
         );
         return null;
       },
@@ -550,27 +583,25 @@ class SyncRunner {
     return result == SyncResult.completed ? null : result;
   }
 
-  Future<({LinkStatus? status, String? error})> _saveLink(
-    int id,
-    AppSettings settings,
-  ) async {
+  Future<_LinkOutcome> _saveLink(int id, AppSettings settings) async {
     try {
       final link = await _links.byId(id);
       if (link == null) {
-        return (status: LinkStatus.failed, error: 'unknown link');
+        return const _LinkOutcome(LinkStatus.failed, error: 'unknown link');
       }
       final itemId = hnItemId(Uri.parse(link.url));
       if (itemId != null) return await _saveLinkedThread(link.id, itemId);
       final saved = await _saver.saveLink(link, settings);
-      return (
-        status: switch (saved) {
-          null => null,
-          PageStatus.ok => LinkStatus.ok,
-          PageStatus.tooLarge => LinkStatus.tooLarge,
-          PageStatus.failed => LinkStatus.failed,
-        },
-        error: null,
-      );
+      final copy = await _links.byId(id);
+      return switch (saved) {
+        null => const _LinkOutcome(null),
+        PageStatus.ok => _LinkOutcome(LinkStatus.ok, bytes: copy?.bytes ?? 0),
+        PageStatus.tooLarge => const _LinkOutcome(LinkStatus.tooLarge),
+        PageStatus.failed => _LinkOutcome(
+          LinkStatus.failed,
+          error: copy?.error,
+        ),
+      };
     } on Exception catch (e) {
       await _links.recordFailed(
         id: id,
@@ -578,24 +609,21 @@ class SyncRunner {
         error: '$e',
         now: _clock(),
       );
-      return (status: LinkStatus.failed, error: '$e');
+      return _LinkOutcome(LinkStatus.failed, error: '$e');
     }
   }
 
   /// A link to a Hacker News discussion is fetched as text instead of being
   /// captured, so it opens in the app.
-  Future<({LinkStatus? status, String? error})> _saveLinkedThread(
-    int linkId,
-    int itemId,
-  ) async {
-    Future<({LinkStatus? status, String? error})> failed(String error) async {
+  Future<_LinkOutcome> _saveLinkedThread(int linkId, int itemId) async {
+    Future<_LinkOutcome> failed(String error) async {
       await _links.recordFailed(
         id: linkId,
         kind: PageKind.thread,
         error: error,
         now: _clock(),
       );
-      return (status: LinkStatus.failed, error: error);
+      return _LinkOutcome(LinkStatus.failed, error: error, asThread: true);
     }
 
     if (await _stories.locateItem(itemId) == null) {
@@ -611,37 +639,51 @@ class SyncRunner {
       await _stories.replaceThread(await _inHnOrder(thread), _clock());
     }
     await _links.recordThread(id: linkId, now: _clock());
-    return (status: LinkStatus.ok, error: null);
+    return const _LinkOutcome(LinkStatus.ok, asThread: true);
   }
 
-  Future<({PageStatus? status, String? error})> _savePage(
-    int id,
-    AppSettings settings,
-  ) async {
+  Future<_PageOutcome> _savePage(int id, AppSettings settings) async {
     try {
       final story = await _stories.story(id);
       if (story == null) {
-        return (status: PageStatus.failed, error: 'unknown story');
+        return const _PageOutcome(PageStatus.failed, error: 'unknown story');
       }
-      return (status: await _saver.save(story, settings), error: null);
+      final status = await _saver.save(story, settings);
+      final copy = (await _pages.forStories([id]))[id];
+      return switch (status) {
+        PageStatus.ok => _PageOutcome(status, bytes: copy?.bytes ?? 0),
+        PageStatus.failed => _PageOutcome(status, error: copy?.error),
+        _ => _PageOutcome(status),
+      };
     } on Exception catch (e) {
-      return (status: PageStatus.failed, error: '$e');
+      return _PageOutcome(PageStatus.failed, error: '$e');
     }
   }
 
-  Future<void> _freshenLists() async {
+  Future<bool> _freshenLists() async {
     try {
-      await _lists.ensureFresh().timeout(_listsTimeout);
+      return await _lists.ensureFresh().timeout(_listsTimeout);
     } on Exception catch (e) {
       debugPrintSynchronously('filter lists failed: $e');
+      return false;
     }
   }
 
-  Future<void> _pruneStore(AppSettings settings) async {
+  Future<void> _pruneStore(_Context context) async {
     try {
-      await _prune
-          .run(settings: settings, now: _clock(), deleteFile: _files.delete)
+      final result = await _prune
+          .run(
+            settings: context.settings,
+            now: _clock(),
+            deleteFile: _files.delete,
+          )
           .timeout(_pruneTimeout);
+      await _syncs.recordPruned(
+        context.run.id,
+        copies: result.pages + result.links,
+        stories: result.stories,
+        bytes: result.bytes,
+      );
     } on Exception catch (e) {
       debugPrintSynchronously('pruning failed: $e');
     }
