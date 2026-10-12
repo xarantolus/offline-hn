@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:offline_hn/app_services.dart';
 import 'package:offline_hn/app_services_scope.dart';
+import 'package:offline_hn/comments/comment_block.dart';
 import 'package:offline_hn/comments/comment_parser.dart';
 import 'package:offline_hn/data/db/database.dart';
 import 'package:offline_hn/data/model/story_source.dart';
@@ -39,6 +40,16 @@ class _ThreadHeaderViewState extends State<ThreadHeaderView> {
   );
   late final Stream<PageCopyRow?> _page = _services.pages.watch(widget.storyId);
   late final Stream<ConnectionKind> _connection = _services.sync.connection;
+  String? _bodyHtml;
+  List<CommentBlock> _body = const [];
+
+  List<CommentBlock> _bodyOf(String? html) {
+    if (html != _bodyHtml) {
+      _bodyHtml = html;
+      _body = parseCommentHtml(html);
+    }
+    return _body;
+  }
 
   String _fetched(DateTime at) {
     final l10n = MaterialLocalizations.of(context);
@@ -72,7 +83,7 @@ class _ThreadHeaderViewState extends State<ThreadHeaderView> {
   Widget _build(StoryRow story, PageCopyRow? page, ConnectionKind? connection) {
     final opener = StoryOpener(_services);
     final url = story.url == null ? null : Uri.tryParse(story.url!);
-    final body = parseCommentHtml(story.body);
+    final body = _bodyOf(story.body);
     final copy = copyInfoFor(story, page, _fetched);
     return ThreadHeader(
       title: story.title,

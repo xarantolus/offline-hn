@@ -52,6 +52,7 @@ class _ThreadPageState extends State<ThreadPage> {
   final _scroll = ItemScrollController();
   final _blocks = <int, List<CommentBlock>>{};
   final _subscriptions = <StreamSubscription<Object?>>[];
+  StreamSubscription<List<CommentRow>>? _comments;
   final _selection = SelectionGuard();
   Timer? _settle;
   Set<int> _closing = {};
@@ -88,6 +89,7 @@ class _ThreadPageState extends State<ThreadPage> {
   @override
   void dispose() {
     _settle?.cancel();
+    unawaited(_comments?.cancel());
     for (final subscription in _subscriptions) {
       unawaited(subscription.cancel());
     }
@@ -116,8 +118,10 @@ class _ThreadPageState extends State<ThreadPage> {
     _focusIndex = _indexOfComment(widget.focusCommentId);
     setState(() => _ready = true);
 
+    if (_open.shown.isEmpty) {
+      _comments = _services.stories.watchComments(id).listen(_onComments);
+    }
     _subscriptions
-      ..add(_services.stories.watchComments(id).skip(1).listen(_onComments))
       ..add(_services.settings.watch().skip(1).listen(_onSettings))
       ..add(
         _services.stories.watchStory(id).listen((s) {
@@ -152,8 +156,12 @@ class _ThreadPageState extends State<ThreadPage> {
     await _services.stories.setRead(widget.storyId, value: true);
   }
 
+  /// Watched only until the thread has comments: they are never replaced
+  /// while it is open.
   void _onComments(List<CommentRow> rows) {
     if (!_open.receive(rows)) return;
+    unawaited(_comments?.cancel());
+    _comments = null;
     _rearrange();
     setState(() {});
     if (_opened) unawaited(_markOpened());
