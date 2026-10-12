@@ -29,6 +29,7 @@ class FakeHn implements HnReader {
   var failStories = false;
   var rankingCalls = 0;
   final threadCalls = <int>[];
+  void Function(int id)? onThread;
   var latency = Duration.zero;
   var _threadsInFlight = 0;
   var maxThreadsInFlight = 0;
@@ -57,6 +58,7 @@ class FakeHn implements HnReader {
   @override
   Future<RemoteThread?> thread(int id) async {
     threadCalls.add(id);
+    onThread?.call(id);
     _threadsInFlight++;
     if (_threadsInFlight > maxThreadsInFlight) {
       maxThreadsInFlight = _threadsInFlight;

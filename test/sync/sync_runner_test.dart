@@ -522,6 +522,62 @@ void main() {
     },
   );
 
+  group('the connection is checked before every item', () {
+    Future<Iterable<SyncItemRow>> pendingComments() async =>
+        (await items(SyncItemKind.comments))
+            .where((i) => i.status == SyncItemStatus.pending);
+
+    test(
+      'a Wi-Fi only run that lands on mobile data pauses in the comments',
+      () async {
+        hn.onThread = (_) => probe.kind = ConnectionKind.mobile;
+        expect(await runner.run(SyncTrigger.scheduled), SyncResult.paused);
+        expect(await pendingComments(), isNotEmpty);
+        expect(saver.saved, isEmpty);
+        expect((await runs()).single.finishedAt, isNull);
+
+        hn.onThread = null;
+        probe.kind = ConnectionKind.wifi;
+        expect(await runner.run(SyncTrigger.scheduled), SyncResult.completed);
+        expect(await pendingComments(), isEmpty);
+        expect(saver.saved.toSet(), {1, 2, 3, 4});
+        expect(await runs(), hasLength(1));
+      },
+    );
+
+    test(
+      'a Wi-Fi only run that lands on mobile data pauses in the pages',
+      () async {
+        saver.onSave = (_) => probe.kind = ConnectionKind.mobile;
+        expect(await runner.run(SyncTrigger.scheduled), SyncResult.paused);
+        expect((await runs()).single.finishedAt, isNull);
+        expect(saver.saved.length, inInclusiveRange(1, 2));
+
+        saver.onSave = null;
+        probe.kind = ConnectionKind.wifi;
+        expect(await runner.run(SyncTrigger.scheduled), SyncResult.completed);
+        expect(saver.saved.toSet(), {1, 2, 3, 4});
+      },
+    );
+
+    test('a manual run keeps fetching text on mobile data', () async {
+      hn.onThread = (_) => probe.kind = ConnectionKind.mobile;
+      expect(await runner.run(SyncTrigger.manual), SyncResult.completed);
+      expect(await pendingComments(), isEmpty);
+      expect(saver.saved, isEmpty);
+    });
+
+    test(
+      'a manual run on mobile data saves pages once Wi-Fi is back',
+      () async {
+        probe.kind = ConnectionKind.mobile;
+        hn.onThread = (_) => probe.kind = ConnectionKind.wifi;
+        expect(await runner.run(SyncTrigger.manual), SyncResult.completed);
+        expect(saver.saved.toSet(), {1, 2, 3, 4});
+      },
+    );
+  });
+
   test('a page that is already saved is not captured again', () async {
     await pages.recordCaptured(
       storyId: 1,

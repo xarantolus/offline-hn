@@ -331,6 +331,8 @@ class SyncRunner {
       parallel: _textParallel,
       worstCase: _metadataWorstCase,
       work: (batch) async {
+        final closed = await _gate(context, pages: false);
+        if (closed != null) return closed;
         try {
           final found = await _source
               .stories(batch)
@@ -384,6 +386,8 @@ class SyncRunner {
       parallel: _textParallel,
       worstCase: _commentWorstCase,
       work: (id) async {
+        final closed = await _gate(context, pages: false);
+        if (closed != null) return closed;
         final error = await _refreshThread(id);
         await _syncs.markItem(
           context.run.id,
@@ -437,23 +441,25 @@ class SyncRunner {
     }
   }
 
-  /// Pages need the right kind of connection. With none at all the run waits
-  /// for one rather than ending: the job is retried when the network is back.
-  Future<SyncResult?> _pagesGate(_Context context) async {
-    final connection = await _probe.current();
+  /// Checked before every item, since the connection can change mid-run.
+  /// A connection the trigger may not use, or none, pauses the run to resume
+  /// on a better one. Pages additionally need more than text is allowed:
+  /// without that they end and the run carries on without them.
+  Future<SyncResult?> _gate(_Context context, {required bool pages}) async {
     final allowance = syncAllowance(
       trigger: context.trigger,
-      connection: connection,
+      connection: await _probe.current(),
       settings: context.settings,
     );
-    if (allowance == SyncAllowance.textAndPages) return null;
-    return connection == ConnectionKind.none
-        ? SyncResult.paused
-        : SyncResult.completed;
+    return switch (allowance) {
+      SyncAllowance.nothing => SyncResult.paused,
+      SyncAllowance.textOnly when pages => SyncResult.completed,
+      _ => null,
+    };
   }
 
   Future<SyncResult?> _savePages(_Context context) async {
-    final gate = await _pagesGate(context);
+    final gate = await _gate(context, pages: true);
     if (gate == SyncResult.paused) return gate;
     if (gate != null) return null;
     if (await _freshenLists()) {
@@ -483,7 +489,7 @@ class SyncRunner {
       parallel: _captureParallel,
       worstCase: _pageWorstCase,
       work: (id) async {
-        final open = await _pagesGate(context);
+        final open = await _gate(context, pages: true);
         if (open != null) return open;
         final outcome = await _savePage(id, context.settings);
         if (outcome.status == null) {
@@ -512,7 +518,7 @@ class SyncRunner {
   /// the stories at the front of the feeds and of bookmarked ones. They come after every article, so they
   /// never hold one up.
   Future<SyncResult?> _saveLinks(_Context context) async {
-    final gate = await _pagesGate(context);
+    final gate = await _gate(context, pages: true);
     if (gate == SyncResult.paused) return gate;
     if (gate != null) return null;
 
@@ -560,7 +566,7 @@ class SyncRunner {
       parallel: _captureParallel,
       worstCase: _pageWorstCase,
       work: (id) async {
-        final open = await _pagesGate(context);
+        final open = await _gate(context, pages: true);
         if (open != null) return open;
         final outcome = await _saveLink(id, context.settings);
         if (outcome.status == null) {
