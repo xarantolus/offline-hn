@@ -1,3 +1,4 @@
+import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:offline_hn/ui/tokens.dart';
@@ -18,10 +19,10 @@ extension SurfaceAccent on ColorScheme {
       : AppTokens.light.accent;
 }
 
-// Fade-upwards, not the Android default side slide: pages are pushed from a
-// vertically scrolled list.
+// Fade-through, not the Android default side slide: pages are pushed from a
+// vertically scrolled list and nothing about them is sideways.
 const _pageTransitions = PageTransitionsTheme(
-  builders: {TargetPlatform.android: FadeUpwardsPageTransitionsBuilder()},
+  builders: {TargetPlatform.android: FadeThroughPageTransitionsBuilder()},
 );
 
 ThemeData _withComponents(ThemeData base, AppTokens tokens) {

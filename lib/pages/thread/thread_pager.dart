@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
 import 'package:offline_hn/app_services.dart';
 import 'package:offline_hn/pages/thread/thread_page.dart';
@@ -21,14 +22,33 @@ void openThread(
   unawaited(services.stories.setRead(storyId, value: true));
   unawaited(
     Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => ThreadPager(
+      _threadRoute(
+        ThreadPager(
           storyIds: storyIds,
           storyId: storyId,
           openArticle: openArticle,
         ),
+        instant: openArticle,
       ),
     ),
+  );
+}
+
+/// The article opens on top of the comments straight away, so the comments
+/// arrive without a transition and only the article's own animation plays.
+/// Going back still fades.
+Route<void> _threadRoute(Widget page, {required bool instant}) {
+  if (!instant) return MaterialPageRoute<void>(builder: (_) => page);
+  return PageRouteBuilder<void>(
+    transitionDuration: Duration.zero,
+    reverseTransitionDuration: const Duration(milliseconds: 300),
+    pageBuilder: (_, _, _) => page,
+    transitionsBuilder: (_, animation, secondary, child) =>
+        FadeThroughTransition(
+          animation: animation,
+          secondaryAnimation: secondary,
+          child: child,
+        ),
   );
 }
 

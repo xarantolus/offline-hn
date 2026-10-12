@@ -1,3 +1,4 @@
+import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:offline_hn/theme.dart';
@@ -41,7 +42,7 @@ void main() {
     for (final theme in [lightTheme, darkTheme]) {
       expect(
         theme.pageTransitionsTheme.builders[TargetPlatform.android],
-        isA<FadeUpwardsPageTransitionsBuilder>(),
+        isA<FadeThroughPageTransitionsBuilder>(),
       );
     }
   });
