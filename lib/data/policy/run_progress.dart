@@ -4,9 +4,11 @@ import 'package:offline_hn/data/repository/sync_repository.dart';
 const _rankingEnd = 2;
 const _metadataEnd = 5;
 const _commentsEnd = 25;
+const _pagesEnd = 80;
 
 /// Whole-run progress, 0 to 100. Text is quick and pages take most of the
-/// time, so the weights follow that rather than the item counts.
+/// time, so the weights follow that rather than the item counts: articles
+/// 55%, linked pages the last 20%.
 int runPercent(SyncProgress progress) {
   if (progress.trigger.textOnly) return _lightPercent(progress);
   double within(int from, int to) {
@@ -20,7 +22,8 @@ int runPercent(SyncProgress progress) {
     SyncPhase.ranking => 0.0,
     SyncPhase.metadata => _rankingEnd.toDouble(),
     SyncPhase.comments => within(_metadataEnd, _commentsEnd),
-    SyncPhase.pages => within(_commentsEnd, 100),
+    SyncPhase.pages => within(_commentsEnd, _pagesEnd),
+    SyncPhase.links => within(_pagesEnd, 100),
     SyncPhase.done => 100.0,
   };
   return percent.floor();
@@ -36,13 +39,16 @@ int _lightPercent(SyncProgress progress) {
     SyncPhase.metadata => _rankingEnd,
     SyncPhase.comments =>
       (_metadataEnd + (100 - _metadataEnd) * fraction).floor(),
-    SyncPhase.pages || SyncPhase.done => 100,
+    SyncPhase.pages || SyncPhase.links || SyncPhase.done => 100,
   };
 }
 
 /// What the notification says, without counts.
-String runStageText(SyncPhase phase) =>
-    phase == SyncPhase.pages ? 'Saving pages' : 'Updating stories';
+String runStageText(SyncPhase phase) => switch (phase) {
+  SyncPhase.pages => 'Saving pages',
+  SyncPhase.links => 'Saving linked pages',
+  _ => 'Updating stories',
+};
 
 /// Decides which progress readings become notification updates: never
 /// backwards within a run, only when the whole percent changed, and no more

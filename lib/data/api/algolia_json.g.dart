@@ -29,6 +29,7 @@ AlgoliaNode _$AlgoliaNodeFromJson(Map<String, dynamic> json) => AlgoliaNode(
   createdAtI: epochSeconds(json['created_at_i']),
   text: lenientString(json['text']),
   parentId: lenientInt(json['parent_id']),
+  storyId: lenientInt(json['story_id']),
   children: json['children'] == null
       ? const []
       : _readChildren(json['children']),

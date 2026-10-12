@@ -51,8 +51,15 @@ class RemoteComment {
 }
 
 class RemoteThread {
-  const RemoteThread({required this.story, required this.comments});
+  const RemoteThread({
+    required this.story,
+    required this.comments,
+    this.containingStoryId,
+  });
 
   final RemoteStory story;
   final List<RemoteComment> comments;
+
+  /// For an item that is a comment: the story it belongs to.
+  final int? containingStoryId;
 }

@@ -17,6 +17,7 @@ String progressLabel(SyncProgress progress) {
     SyncPhase.metadata => 'Fetching stories',
     SyncPhase.comments => 'Fetching comments$counted',
     SyncPhase.pages => 'Saving pages$counted',
+    SyncPhase.links => 'Saving linked pages$counted',
     SyncPhase.done => 'Finishing',
   };
 }

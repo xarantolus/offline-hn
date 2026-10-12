@@ -10,6 +10,7 @@ class PageFiles {
   const PageFiles(this.root);
 
   static const directoryName = 'pages';
+  static const linkDirectoryName = 'links';
 
   final Directory root;
 
@@ -19,10 +20,14 @@ class PageFiles {
   String relativePathFor(int storyId, PageKind kind) =>
       '$directoryName/$storyId.${kind == PageKind.pdf ? 'pdf' : 'mhtml'}';
 
+  String relativeLinkPathFor(int linkId, PageKind kind) =>
+      '$directoryName/$linkDirectoryName/$linkId.${kind == PageKind.pdf ? 'pdf' : 'mhtml'}';
+
   File fileFor(String relativePath) => File(p.join(root.path, relativePath));
 
   Future<void> ensureDirectory() =>
-      Directory(p.join(root.path, directoryName)).create(recursive: true);
+      Directory(p.join(root.path, directoryName, linkDirectoryName))
+          .create(recursive: true);
 
   Future<void> delete(String relativePath) async {
     final file = fileFor(relativePath);

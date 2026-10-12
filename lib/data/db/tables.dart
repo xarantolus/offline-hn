@@ -73,6 +73,32 @@ class PageCopies extends Table {
   Set<Column<Object>> get primaryKey => {storyId};
 }
 
+/// A page linked from a top comment. One copy per address, however many
+/// stories link to it.
+@DataClassName('LinkCopyRow')
+class LinkCopies extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get url => text().unique()();
+  TextColumn get kind =>
+      textEnum<PageKind>().withDefault(Constant(PageKind.mhtml.name))();
+  TextColumn get relativePath => text().nullable()();
+  IntColumn get bytes => integer().withDefault(const Constant(0))();
+  DateTimeColumn get capturedAt => dateTime().withDefault(currentDateAndTime)();
+  TextColumn get status =>
+      textEnum<LinkStatus>().withDefault(Constant(LinkStatus.pending.name))();
+  TextColumn get error => text().nullable()();
+  DateTimeColumn get lastOpenedAt => dateTime().nullable()();
+}
+
+@DataClassName('LinkReferenceRow')
+class LinkReferences extends Table {
+  IntColumn get storyId => integer()();
+  IntColumn get linkId => integer()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {storyId, linkId};
+}
+
 @DataClassName('ThreadStateRow')
 class ThreadStates extends Table {
   IntColumn get storyId => integer()();

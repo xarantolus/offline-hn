@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:offline_hn/comments/comment_parser.dart';
 import 'package:offline_hn/data/api/hn_reader.dart';
 import 'package:offline_hn/data/api/models.dart';
 import 'package:offline_hn/data/db/database.dart';
@@ -10,9 +11,11 @@ import 'package:offline_hn/data/model/page_enums.dart';
 import 'package:offline_hn/data/model/settings.dart';
 import 'package:offline_hn/data/model/sync_enums.dart';
 import 'package:offline_hn/data/policy/capture_scope.dart';
+import 'package:offline_hn/data/policy/link_scope.dart';
 import 'package:offline_hn/data/policy/network_policy.dart';
 import 'package:offline_hn/data/policy/sync_scope.dart';
 import 'package:offline_hn/data/prune_service.dart';
+import 'package:offline_hn/data/repository/link_repository.dart';
 import 'package:offline_hn/data/repository/page_repository.dart';
 import 'package:offline_hn/data/repository/settings_store.dart';
 import 'package:offline_hn/data/repository/story_repository.dart';
@@ -74,12 +77,13 @@ class _Context {
 ///
 /// A run is a list of phases with a checkpoint per item, so it can stop
 /// anywhere and the next call carries on: ranking, story details, comment
-/// threads, saved pages, pruning.
+/// threads, saved pages, pages linked from top comments, pruning.
 class SyncRunner {
   SyncRunner({
     required this._syncs,
     required this._stories,
     required this._pages,
+    required this._links,
     required this._settings,
     required this._source,
     required this._probe,
@@ -108,6 +112,7 @@ class SyncRunner {
   final SyncRepository _syncs;
   final StoryRepository _stories;
   final PageRepository _pages;
+  final LinkRepository _links;
   final SettingsStore _settings;
   final HnReader _source;
   final ConnectionProbe _probe;
@@ -195,8 +200,14 @@ class SyncRunner {
         return SyncResult.completed;
       }
       await _syncs.setPhase(run.id, SyncPhase.pages, _clock());
+      phase = SyncPhase.pages;
     }
-    final stop = await _savePages(context);
+    if (phase == SyncPhase.pages) {
+      final stop = await _savePages(context);
+      if (stop != null) return stop;
+      await _syncs.setPhase(run.id, SyncPhase.links, _clock());
+    }
+    final stop = await _saveLinks(context);
     if (stop != null) return stop;
 
     await _pruneStore(context.settings);
@@ -380,7 +391,11 @@ class SyncRunner {
 
   Future<RemoteThread?> _loadThread(int id) async {
     final thread = await _source.thread(id);
-    if (thread == null) return null;
+    return thread == null ? null : _inHnOrder(thread);
+  }
+
+  Future<RemoteThread> _inHnOrder(RemoteThread thread) async {
+    final id = thread.story.id;
     final ranked = thread.comments.length < 2
         ? const <int>[]
         : await _rankedOrEmpty(id);
@@ -462,6 +477,141 @@ class SyncRunner {
       },
     );
     return result == SyncResult.completed ? null : result;
+  }
+
+  /// Pages linked from the top comments of the stories at the front of the
+  /// feeds and of bookmarked ones. They come after every article, so they
+  /// never hold one up.
+  Future<SyncResult?> _saveLinks(_Context context) async {
+    final gate = await _pagesGate(context);
+    if (gate == SyncResult.paused) return gate;
+    if (gate != null) return null;
+
+    final rankings = await _rankings(context.settings);
+    final bookmarked = await _links.bookmarkedStoryIds();
+    final ids = {
+      for (final list in rankings.values)
+        for (final story in list.take(linkedStoryDepth)) story.id,
+      ...bookmarked,
+    };
+    final plan = planLinks(
+      ranked: {
+        for (final entry in rankings.entries)
+          entry.key: [for (final story in entry.value) story.id],
+      },
+      bookmarked: bookmarked,
+      topComments: await _links.topComments(ids),
+      storyUrls: await _links.storyUrls(ids),
+    );
+    final needed = linksNeedingCopy(
+      plan.addresses,
+      await _links.existing(plan.addresses),
+      _clock(),
+    );
+    await _links.prepare(needed);
+    final linkIds = await _links.idsFor(plan.addresses);
+    await _links.replaceReferences({
+      for (final entry in plan.byStory.entries)
+        entry.key: {for (final uri in entry.value) ?linkIds[linkKey(uri)]},
+    });
+    await _syncs.enqueue(context.run.id, SyncItemKind.link, [
+      for (final uri in needed) ?linkIds[linkKey(uri)],
+    ]);
+
+    final pending = await _syncs.pendingStoryIds(
+      context.run.id,
+      SyncItemKind.link,
+    );
+    final result = await _each(
+      context,
+      pending,
+      parallel: _captureParallel,
+      worstCase: _pageWorstCase,
+      work: (id) async {
+        final open = await _pagesGate(context);
+        if (open != null) return open;
+        final outcome = await _saveLink(id, context.settings);
+        if (outcome.status == null) {
+          return _stopRequested ? SyncResult.stopped : SyncResult.paused;
+        }
+        await _syncs.markItem(
+          context.run.id,
+          SyncItemKind.link,
+          id,
+          outcome.status == LinkStatus.failed
+              ? SyncItemStatus.failed
+              : SyncItemStatus.done,
+          _clock(),
+          error: outcome.error,
+        );
+        return null;
+      },
+    );
+    return result == SyncResult.completed ? null : result;
+  }
+
+  Future<({LinkStatus? status, String? error})> _saveLink(
+    int id,
+    AppSettings settings,
+  ) async {
+    try {
+      final link = await _links.byId(id);
+      if (link == null) {
+        return (status: LinkStatus.failed, error: 'unknown link');
+      }
+      final itemId = hnItemId(Uri.parse(link.url));
+      if (itemId != null) return await _saveLinkedThread(link.id, itemId);
+      final saved = await _saver.saveLink(link, settings);
+      return (
+        status: switch (saved) {
+          null => null,
+          PageStatus.ok => LinkStatus.ok,
+          PageStatus.tooLarge => LinkStatus.tooLarge,
+          PageStatus.failed => LinkStatus.failed,
+        },
+        error: null,
+      );
+    } on Exception catch (e) {
+      await _links.recordFailed(
+        id: id,
+        kind: PageKind.mhtml,
+        error: '$e',
+        now: _clock(),
+      );
+      return (status: LinkStatus.failed, error: '$e');
+    }
+  }
+
+  /// A link to a Hacker News discussion is fetched as text instead of being
+  /// captured, so it opens in the app.
+  Future<({LinkStatus? status, String? error})> _saveLinkedThread(
+    int linkId,
+    int itemId,
+  ) async {
+    Future<({LinkStatus? status, String? error})> failed(String error) async {
+      await _links.recordFailed(
+        id: linkId,
+        kind: PageKind.thread,
+        error: error,
+        now: _clock(),
+      );
+      return (status: LinkStatus.failed, error: error);
+    }
+
+    if (await _stories.locateItem(itemId) == null) {
+      var thread = await _source.thread(itemId).timeout(_commentWorstCase);
+      final story = thread?.containingStoryId;
+      if (thread != null && thread.story.type == ItemType.comment) {
+        if (story == null) return failed('comment of an unknown story');
+        thread = await _source.thread(story).timeout(_commentWorstCase);
+      }
+      if (thread == null || thread.story.title == null) {
+        return failed('not found');
+      }
+      await _stories.replaceThread(await _inHnOrder(thread), _clock());
+    }
+    await _links.recordThread(id: linkId, now: _clock());
+    return (status: LinkStatus.ok, error: null);
   }
 
   Future<({PageStatus? status, String? error})> _savePage(

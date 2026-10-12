@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:offline_hn/data/model/feed_kind.dart';
+import 'package:offline_hn/data/model/page_enums.dart';
 import 'package:offline_hn/data/policy/prune_policy.dart';
 
 final _now = DateTime.utc(2026, 10, 10, 12);
@@ -36,7 +37,85 @@ TextCandidate _text(
       : _now.subtract(Duration(days: threadOpenedDaysAgo)),
 );
 
+LinkCandidate _link(
+  int id,
+  int bytes, {
+  int ageDays = 1,
+  bool saved = false,
+  PageKind kind = PageKind.mhtml,
+  Duration? openedAgo,
+}) => LinkCandidate(
+  id: id,
+  kind: kind,
+  bytes: bytes,
+  capturedAt: _now.subtract(Duration(days: ageDays)),
+  saved: saved,
+  lastOpenedAt: openedAgo == null ? null : _now.subtract(openedAgo),
+);
+
 void main() {
+  group('linked pages', () {
+    List<int> prune(
+      List<LinkCandidate> links, {
+      int pageBytes = 0,
+      int budget = 1000,
+    }) => linksToPrune(
+      links,
+      pageBytes: pageBytes,
+      budgetBytes: budget,
+      textRetentionDays: 30,
+      now: _now,
+    );
+
+    test('nothing goes while articles and links fit together', () {
+      expect(prune([_link(1, 300)], pageBytes: 600), isEmpty);
+    });
+
+    test('oldest go first, and the articles count towards the total', () {
+      expect(
+        prune([
+          _link(1, 300, ageDays: 1),
+          _link(2, 300, ageDays: 5),
+          _link(3, 300, ageDays: 3),
+        ], pageBytes: 600),
+        [2, 3],
+      );
+    });
+
+    test('they go before any article, however old the article is', () {
+      final links = [_link(1, 400)];
+      final pages = [_page(1, 700, ageDays: 40)];
+      final chosen = prune(links, pageBytes: 700);
+      expect(chosen, [1]);
+      expect(
+        pagesToPrune(pages, budgetBytes: 1000, otherBytes: 0, now: _now),
+        isEmpty,
+      );
+    });
+
+    test('bookmarked stories keep theirs, and so does a recent open', () {
+      expect(
+        prune([
+          _link(1, 500, ageDays: 9, saved: true),
+          _link(2, 500, ageDays: 8, openedAgo: const Duration(minutes: 5)),
+          _link(3, 500, ageDays: 1),
+        ], budget: 1200),
+        [3],
+      );
+    });
+
+    test('a stored discussion goes with the text retention, not the size', () {
+      expect(
+        prune([
+          _link(1, 0, ageDays: 31, kind: PageKind.thread),
+          _link(2, 0, ageDays: 5, kind: PageKind.thread),
+          _link(3, 0, ageDays: 31, kind: PageKind.thread, saved: true),
+        ], budget: 1 << 30),
+        [1],
+      );
+    });
+  });
+
   group('pages', () {
     test('nothing goes while the total fits the budget', () {
       expect(

@@ -7,6 +7,7 @@ import 'package:offline_hn/data/model/page_enums.dart';
 import 'package:offline_hn/data/model/settings.dart';
 import 'package:offline_hn/data/model/sync_enums.dart';
 import 'package:offline_hn/data/policy/capture_scope.dart';
+import 'package:offline_hn/data/repository/link_repository.dart';
 import 'package:offline_hn/data/repository/page_repository.dart';
 import 'package:offline_hn/sync/connection_probe.dart';
 import 'package:offline_hn/sync/page_files.dart';
@@ -37,15 +38,39 @@ abstract interface class StoryPageSaver {
   /// connection is gone: the page is still owed, not failed.
   Future<PageStatus?> save(StoryRow story, AppSettings settings);
 
+  /// The same for a page linked from a comment, under the smaller limit.
+  Future<PageStatus?> saveLink(LinkCopyRow link, AppSettings settings);
+
   void cancel();
 }
 
-/// Saves one story's page and records the outcome. A failure is a recorded
-/// result, not an exception.
+/// Where one save is filed: its path, its size limit and how its outcome is
+/// recorded.
+class _Target {
+  const _Target({
+    required this.label,
+    required this.pathFor,
+    required this.maxBytes,
+    required this.captured,
+    required this.tooLarge,
+    required this.failed,
+  });
+
+  final String label;
+  final String Function(PageKind kind) pathFor;
+  final int maxBytes;
+  final Future<void> Function(PageKind kind, String path, int bytes) captured;
+  final Future<void> Function(PageKind kind) tooLarge;
+  final Future<void> Function(PageKind kind, String error) failed;
+}
+
+/// Saves one page and records the outcome. A failure is a recorded result,
+/// not an exception.
 class PageSaver implements StoryPageSaver {
   PageSaver({
     required this.files,
     required this.pages,
+    required this.links,
     required this.capture,
     required this.pdf,
     required this.probe,
@@ -56,6 +81,7 @@ class PageSaver implements StoryPageSaver {
 
   final PageFiles files;
   final PageRepository pages;
+  final LinkRepository links;
   final CaptureFn capture;
   final PdfDownloader pdf;
   final ConnectionProbe probe;
@@ -73,26 +99,81 @@ class PageSaver implements StoryPageSaver {
   }
 
   @override
-  Future<PageStatus?> save(StoryRow story, AppSettings settings) async {
-    final url = Uri.tryParse(story.url ?? '');
+  Future<PageStatus?> save(StoryRow story, AppSettings settings) => _save(
+    _Target(
+      label: '${story.id}',
+      pathFor: (kind) => files.relativePathFor(story.id, kind),
+      maxBytes: maxPageBytes,
+      captured: (kind, path, bytes) => pages.recordCaptured(
+        storyId: story.id,
+        kind: kind,
+        relativePath: path,
+        bytes: bytes,
+        now: _clock(),
+      ),
+      tooLarge: (kind) =>
+          pages.recordTooLarge(storyId: story.id, kind: kind, now: _clock()),
+      failed: (kind, error) => pages.recordFailed(
+        storyId: story.id,
+        kind: kind,
+        error: error,
+        now: _clock(),
+      ),
+    ),
+    story.url,
+    settings,
+  );
+
+  @override
+  Future<PageStatus?> saveLink(LinkCopyRow link, AppSettings settings) => _save(
+    _Target(
+      label: 'link ${link.id}',
+      pathFor: (kind) => files.relativeLinkPathFor(link.id, kind),
+      maxBytes: maxLinkPageBytes,
+      captured: (kind, path, bytes) => links.recordCaptured(
+        id: link.id,
+        kind: kind,
+        relativePath: path,
+        bytes: bytes,
+        now: _clock(),
+      ),
+      tooLarge: (kind) =>
+          links.recordTooLarge(id: link.id, kind: kind, now: _clock()),
+      failed: (kind, error) => links.recordFailed(
+        id: link.id,
+        kind: kind,
+        error: error,
+        now: _clock(),
+      ),
+    ),
+    link.url,
+    settings,
+  );
+
+  Future<PageStatus?> _save(
+    _Target target,
+    String? address,
+    AppSettings settings,
+  ) async {
+    final url = Uri.tryParse(address ?? '');
     if (url == null || !(url.isScheme('http') || url.isScheme('https'))) {
-      return _failed(story.id, PageKind.mhtml, 'not an http(s) address');
+      return _failed(target, PageKind.mhtml, 'not an http(s) address');
     }
     await files.ensureDirectory();
     if (url.path.toLowerCase().endsWith('.pdf')) {
-      return _savePdf(story.id, url);
+      return _savePdf(target, url);
     }
-    return _saveArchive(story.id, url, settings);
+    return _saveArchive(target, url, settings);
   }
 
   Future<PageStatus?> _saveArchive(
-    int id,
+    _Target target,
     Uri url,
     AppSettings settings,
   ) async {
     final cancellation = CaptureCancellation();
     _inFlight.add(cancellation);
-    final relative = files.relativePathFor(id, PageKind.mhtml);
+    final relative = target.pathFor(PageKind.mhtml);
     final file = files.fileFor(relative);
     var timedOut = false;
     final guard = Timer(watchdog, () {
@@ -104,7 +185,11 @@ class PageSaver implements StoryPageSaver {
       result = await capture(
         url,
         file.path,
-        captureOptionsFor(settings, filterListsDirectory: filterListsDirectory),
+        captureOptionsFor(
+          settings,
+          filterListsDirectory: filterListsDirectory,
+          maxBytes: target.maxBytes,
+        ),
         cancellation,
       );
     } finally {
@@ -115,36 +200,30 @@ class PageSaver implements StoryPageSaver {
     switch (result) {
       case CaptureSuccess(:final bytes, :final timings):
         debugPrintSynchronously(
-          'capture $id ${result.duration.inMilliseconds} ms: '
+          'capture ${target.label} ${result.duration.inMilliseconds} ms: '
           'load ${timings.load.inMilliseconds} '
           'idle ${timings.idle.inMilliseconds} '
           'scroll ${timings.scroll.inMilliseconds} '
           'cleanup ${timings.cleanup.inMilliseconds} '
           'save ${timings.save.inMilliseconds}',
         );
-        if (exceedsPageLimit(bytes)) {
+        if (exceedsPageLimit(bytes, limit: target.maxBytes)) {
           await files.delete(relative);
-          return _tooLarge(id, PageKind.mhtml);
+          return _tooLarge(target, PageKind.mhtml);
         }
-        await pages.recordCaptured(
-          storyId: id,
-          kind: PageKind.mhtml,
-          relativePath: relative,
-          bytes: bytes,
-          now: _clock(),
-        );
+        await target.captured(PageKind.mhtml, relative, bytes);
         return PageStatus.ok;
       case CaptureFailure(kind: CaptureFailureKind.tooLarge):
         await files.delete(relative);
-        return _tooLarge(id, PageKind.mhtml);
+        return _tooLarge(target, PageKind.mhtml);
       case CaptureFailure(isPdf: true):
         await files.delete(relative);
-        return _savePdf(id, url);
+        return _savePdf(target, url);
       case CaptureFailure(kind: CaptureFailureKind.cancelled):
         await files.delete(relative);
         if (!timedOut) return null;
         return _failed(
-          id,
+          target,
           PageKind.mhtml,
           'timeout: over ${watchdog.inSeconds} s',
         );
@@ -155,49 +234,42 @@ class PageSaver implements StoryPageSaver {
           return null;
         }
         final detail = httpStatus == null ? message : 'HTTP $httpStatus';
-        return _failed(id, PageKind.mhtml, '${kind.name}: $detail');
+        return _failed(target, PageKind.mhtml, '${kind.name}: $detail');
     }
   }
 
   bool _looksOffline(CaptureFailureKind kind) =>
       kind == CaptureFailureKind.network || kind == CaptureFailureKind.timeout;
 
-  Future<PageStatus?> _savePdf(int id, Uri url) async {
-    final relative = files.relativePathFor(id, PageKind.pdf);
+  Future<PageStatus?> _savePdf(_Target target, Uri url) async {
+    final relative = target.pathFor(PageKind.pdf);
     final result = await pdf.download(
       url,
       files.fileFor(relative),
-      maxBytes: maxPageBytes,
+      maxBytes: target.maxBytes,
     );
     switch (result) {
       case PdfSaved(:final bytes):
-        await pages.recordCaptured(
-          storyId: id,
-          kind: PageKind.pdf,
-          relativePath: relative,
-          bytes: bytes,
-          now: _clock(),
-        );
+        await target.captured(PageKind.pdf, relative, bytes);
         return PageStatus.ok;
       case PdfTooLarge():
-        return _tooLarge(id, PageKind.pdf);
+        return _tooLarge(target, PageKind.pdf);
       case PdfFailed(:final reason):
-        return _failed(id, PageKind.pdf, reason);
+        return _failed(target, PageKind.pdf, reason);
     }
   }
 
-  Future<PageStatus> _tooLarge(int id, PageKind kind) async {
-    await pages.recordTooLarge(storyId: id, kind: kind, now: _clock());
+  Future<PageStatus> _tooLarge(_Target target, PageKind kind) async {
+    await target.tooLarge(kind);
     return PageStatus.tooLarge;
   }
 
-  Future<PageStatus> _failed(int id, PageKind kind, String error) async {
-    await pages.recordFailed(
-      storyId: id,
-      kind: kind,
-      error: error,
-      now: _clock(),
-    );
+  Future<PageStatus> _failed(
+    _Target target,
+    PageKind kind,
+    String error,
+  ) async {
+    await target.failed(kind, error);
     return PageStatus.failed;
   }
 }

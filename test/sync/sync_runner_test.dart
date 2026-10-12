@@ -7,6 +7,7 @@ import 'package:offline_hn/data/model/page_enums.dart';
 import 'package:offline_hn/data/model/settings.dart';
 import 'package:offline_hn/data/model/sync_enums.dart';
 import 'package:offline_hn/data/prune_service.dart';
+import 'package:offline_hn/data/repository/link_repository.dart';
 import 'package:offline_hn/data/repository/page_repository.dart';
 import 'package:offline_hn/data/repository/retention_repository.dart';
 import 'package:offline_hn/data/repository/settings_store.dart';
@@ -49,11 +50,12 @@ void main() {
     probe = FakeProbe();
     notifier = FakeNotifier();
     lists = FakeLists();
-    saver = FakeSaver(pages, clock);
+    saver = FakeSaver(pages, clock, LinkRepository(db));
     runner = SyncRunner(
       syncs: syncs,
       stories: stories,
       pages: pages,
+      links: LinkRepository(db),
       settings: settings,
       source: hn,
       probe: probe,
@@ -90,6 +92,79 @@ void main() {
     expect(await syncs.lastSuccessfulSync(), isNotNull);
     expect(notifier.events, ['started', 'ended']);
     expect(lists.ensured, 1);
+  });
+
+  group('pages linked from comments', () {
+    const article = 'https://a.example/post';
+
+    setUp(() {
+      hn.firstCommentHtml[1] =
+          '<a href="$article">post</a> '
+          '<a href="https://www.youtube.com/watch?v=1">video</a> '
+          '<a href="https://news.ycombinator.com/item?id=777">talk</a>';
+      hn.firstCommentHtml[2] = '<a href="$article">again</a>';
+    });
+
+    test(
+      'are saved once, after the articles, and discussions as text',
+      () async {
+        expect(await runner.run(SyncTrigger.manual), SyncResult.completed);
+
+        expect(saver.savedLinks, [article]);
+        expect(hn.threadCalls, contains(777));
+        expect((await stories.story(777))!.title, 'Story 777');
+        final links = LinkRepository(db);
+        expect(
+          (await links.copyFor(Uri.parse(article)))!.status,
+          LinkStatus.ok,
+        );
+        expect(
+          (await links.copyFor(
+            Uri.parse('https://news.ycombinator.com/item?id=777'),
+          ))!.kind,
+          PageKind.thread,
+        );
+        final done = await items(SyncItemKind.link);
+        expect(done, hasLength(2));
+        expect(done.every((i) => i.status == SyncItemStatus.done), isTrue);
+      },
+    );
+
+    test('a second run leaves what is saved alone', () async {
+      await runner.run(SyncTrigger.manual);
+      saver.savedLinks.clear();
+      hn.threadCalls.clear();
+      now = now.add(const Duration(days: 1));
+
+      await runner.run(SyncTrigger.manual);
+
+      expect(saver.savedLinks, isEmpty);
+      expect(hn.threadCalls, isNot(contains(777)));
+    });
+
+    test('a failed one is recorded and retried only after a while', () async {
+      saver.failingLinks.add(article);
+      await runner.run(SyncTrigger.manual);
+      expect(
+        (await LinkRepository(db).copyFor(Uri.parse(article)))!.status,
+        LinkStatus.failed,
+      );
+
+      saver.savedLinks.clear();
+      now = now.add(const Duration(hours: 1));
+      await runner.run(SyncTrigger.manual);
+      expect(saver.savedLinks, isEmpty);
+
+      saver.failingLinks.clear();
+      now = now.add(const Duration(hours: 7));
+      await runner.run(SyncTrigger.manual);
+      expect(saver.savedLinks, [article]);
+    });
+
+    test('a light refresh saves none', () async {
+      await runner.run(SyncTrigger.refresh);
+      expect(saver.savedLinks, isEmpty);
+    });
   });
 
   group('light refresh', () {

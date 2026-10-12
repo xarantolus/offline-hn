@@ -12,6 +12,8 @@ class SyncProgress {
     this.commentsDone = 0,
     this.pagesTotal = 0,
     this.pagesDone = 0,
+    this.linksTotal = 0,
+    this.linksDone = 0,
     required this.heartbeatAt,
   });
 
@@ -22,10 +24,20 @@ class SyncProgress {
   final int commentsDone;
   final int pagesTotal;
   final int pagesDone;
+  final int linksTotal;
+  final int linksDone;
 
   /// Of the items the current phase works through.
-  int get total => phase == SyncPhase.pages ? pagesTotal : commentsTotal;
-  int get done => phase == SyncPhase.pages ? pagesDone : commentsDone;
+  int get total => switch (phase) {
+    SyncPhase.pages => pagesTotal,
+    SyncPhase.links => linksTotal,
+    _ => commentsTotal,
+  };
+  int get done => switch (phase) {
+    SyncPhase.pages => pagesDone,
+    SyncPhase.links => linksDone,
+    _ => commentsDone,
+  };
 
   /// Last sign of life from whoever is running it.
   final DateTime heartbeatAt;
@@ -187,11 +199,14 @@ class SyncRepository {
         '(SELECT COUNT(*) FROM sync_items i WHERE i.run_id = r.id AND i.kind = ?1) AS comments_total, '
         "(SELECT COUNT(*) FROM sync_items i WHERE i.run_id = r.id AND i.kind = ?1 AND i.status <> 'pending') AS comments_done, "
         '(SELECT COUNT(*) FROM sync_items i WHERE i.run_id = r.id AND i.kind = ?2) AS pages_total, '
-        "(SELECT COUNT(*) FROM sync_items i WHERE i.run_id = r.id AND i.kind = ?2 AND i.status <> 'pending') AS pages_done "
+        "(SELECT COUNT(*) FROM sync_items i WHERE i.run_id = r.id AND i.kind = ?2 AND i.status <> 'pending') AS pages_done, "
+        '(SELECT COUNT(*) FROM sync_items i WHERE i.run_id = r.id AND i.kind = ?3) AS links_total, '
+        "(SELECT COUNT(*) FROM sync_items i WHERE i.run_id = r.id AND i.kind = ?3 AND i.status <> 'pending') AS links_done "
         'FROM sync_runs r WHERE r.finished_at IS NULL ORDER BY r.id DESC LIMIT 1',
         variables: [
           Variable.withString(SyncItemKind.comments.name),
           Variable.withString(SyncItemKind.page.name),
+          Variable.withString(SyncItemKind.link.name),
         ],
         readsFrom: {_db.syncRuns, _db.syncItems},
       )
@@ -207,6 +222,8 @@ class SyncRepository {
           commentsDone: row.read<int>('comments_done'),
           pagesTotal: row.read<int>('pages_total'),
           pagesDone: row.read<int>('pages_done'),
+          linksTotal: row.read<int>('links_total'),
+          linksDone: row.read<int>('links_done'),
           heartbeatAt: DateTime.fromMillisecondsSinceEpoch(
             row.read<int>('heartbeat_at') * 1000,
           ),

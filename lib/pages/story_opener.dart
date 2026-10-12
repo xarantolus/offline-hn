@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:offline_hn/app_services.dart';
 import 'package:offline_hn/data/db/database.dart';
@@ -25,7 +27,6 @@ class StoryOpener {
     StoryRow story,
     PageCopyRow page,
   ) async {
-    final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
     final relative = page.relativePath;
     final file = relative == null
@@ -36,24 +37,61 @@ class StoryOpener {
       return;
     }
     await _services.pages.markOpened(story.id, DateTime.now());
+    if (!context.mounted) return;
+    await _show(
+      context,
+      file,
+      page.kind,
+      title: story.title,
+      live: story.url == null ? null : Uri.tryParse(story.url!),
+    );
+  }
+
+  /// A page saved from a link in a comment. False when its file is gone, so
+  /// the caller can open the link as usual.
+  Future<bool> openLinkCopy(
+    BuildContext context,
+    Uri uri,
+    LinkCopyRow copy,
+  ) async {
+    final relative = copy.relativePath;
+    final file = relative == null
+        ? null
+        : _services.pageFiles.fileFor(relative);
+    if (file == null || !file.existsSync()) return false;
+    await _services.links.markOpened(copy.id, DateTime.now());
+    if (!context.mounted) return true;
+    await _show(context, file, copy.kind, title: uri.host, live: uri);
+    return true;
+  }
+
+  Future<void> _show(
+    BuildContext context,
+    File file,
+    PageKind kind, {
+    required String title,
+    required Uri? live,
+  }) async {
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
     final viewer = await _services.settings.read(Settings.viewer);
-    final shown = switch (page.kind) {
+    final shown = switch (kind) {
       PageKind.pdf => await PageCapture.openPdf(file.path),
       PageKind.mhtml =>
         viewer == ViewerKind.customTab &&
             await PageCapture.openInCustomTab(file.path),
+      PageKind.thread => false,
     };
     if (shown) return;
-    if (page.kind == PageKind.pdf) {
+    if (kind == PageKind.pdf) {
       _say(messenger, 'No app on this phone can show PDFs');
       return;
     }
-    final live = story.url == null ? null : Uri.tryParse(story.url!);
     await navigator.push(
       MaterialPageRoute<void>(
         builder: (_) => SavedPageViewer(
           path: file.path,
-          title: story.title,
+          title: title,
           onOpenLive: live == null
               ? null
               : () => openWeb(navigator.context, live),

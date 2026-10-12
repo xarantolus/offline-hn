@@ -9,6 +9,8 @@ SyncProgress _at(
   int commentsTotal = 0,
   int pagesDone = 0,
   int pagesTotal = 0,
+  int linksDone = 0,
+  int linksTotal = 0,
 }) => SyncProgress(
   runId: 1,
   trigger: SyncTrigger.manual,
@@ -17,6 +19,8 @@ SyncProgress _at(
   commentsTotal: commentsTotal,
   pagesDone: pagesDone,
   pagesTotal: pagesTotal,
+  linksDone: linksDone,
+  linksTotal: linksTotal,
   heartbeatAt: DateTime(2026),
 );
 
@@ -36,12 +40,31 @@ void main() {
             pagesDone: i,
             pagesTotal: 100,
           ),
+        for (var i = 0; i <= 40; i += 10)
+          _at(
+            SyncPhase.links,
+            pagesDone: 100,
+            pagesTotal: 100,
+            linksDone: i,
+            linksTotal: 40,
+          ),
         _at(SyncPhase.done),
       ];
       final percents = [for (final s in steps) runPercent(s)];
       expect(percents, [...percents]..sort());
       expect(percents.first, 0);
       expect(percents.last, 100);
+    });
+
+    test('linked pages take the last fifth, after every article', () {
+      final articlesDone = runPercent(
+        _at(SyncPhase.pages, pagesDone: 100, pagesTotal: 100),
+      );
+      final linksHalf = runPercent(
+        _at(SyncPhase.links, linksDone: 20, linksTotal: 40),
+      );
+      expect(articlesDone, 80);
+      expect(linksHalf, 90);
     });
 
     test('pages take most of the bar', () {
@@ -63,7 +86,7 @@ void main() {
         pagesDone: 80,
         pagesTotal: 100,
       );
-      expect(runPercent(resumed), greaterThan(80));
+      expect(runPercent(resumed), greaterThan(60));
     });
 
     test('an empty queue does not divide by zero', () {

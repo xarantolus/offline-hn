@@ -2398,6 +2398,787 @@ class PageCopiesCompanion extends UpdateCompanion<PageCopyRow> {
   }
 }
 
+class $LinkCopiesTable extends LinkCopies
+    with TableInfo<$LinkCopiesTable, LinkCopyRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LinkCopiesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _urlMeta = const VerificationMeta('url');
+  @override
+  late final GeneratedColumn<String> url = GeneratedColumn<String>(
+    'url',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<PageKind, String> kind =
+      GeneratedColumn<String>(
+        'kind',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: Constant(PageKind.mhtml.name),
+      ).withConverter<PageKind>($LinkCopiesTable.$converterkind);
+  static const VerificationMeta _relativePathMeta = const VerificationMeta(
+    'relativePath',
+  );
+  @override
+  late final GeneratedColumn<String> relativePath = GeneratedColumn<String>(
+    'relative_path',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _bytesMeta = const VerificationMeta('bytes');
+  @override
+  late final GeneratedColumn<int> bytes = GeneratedColumn<int>(
+    'bytes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _capturedAtMeta = const VerificationMeta(
+    'capturedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> capturedAt = GeneratedColumn<DateTime>(
+    'captured_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<LinkStatus, String> status =
+      GeneratedColumn<String>(
+        'status',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: Constant(LinkStatus.pending.name),
+      ).withConverter<LinkStatus>($LinkCopiesTable.$converterstatus);
+  static const VerificationMeta _errorMeta = const VerificationMeta('error');
+  @override
+  late final GeneratedColumn<String> error = GeneratedColumn<String>(
+    'error',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lastOpenedAtMeta = const VerificationMeta(
+    'lastOpenedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastOpenedAt = GeneratedColumn<DateTime>(
+    'last_opened_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    url,
+    kind,
+    relativePath,
+    bytes,
+    capturedAt,
+    status,
+    error,
+    lastOpenedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'link_copies';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<LinkCopyRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('url')) {
+      context.handle(
+        _urlMeta,
+        url.isAcceptableOrUnknown(data['url']!, _urlMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_urlMeta);
+    }
+    if (data.containsKey('relative_path')) {
+      context.handle(
+        _relativePathMeta,
+        relativePath.isAcceptableOrUnknown(
+          data['relative_path']!,
+          _relativePathMeta,
+        ),
+      );
+    }
+    if (data.containsKey('bytes')) {
+      context.handle(
+        _bytesMeta,
+        bytes.isAcceptableOrUnknown(data['bytes']!, _bytesMeta),
+      );
+    }
+    if (data.containsKey('captured_at')) {
+      context.handle(
+        _capturedAtMeta,
+        capturedAt.isAcceptableOrUnknown(data['captured_at']!, _capturedAtMeta),
+      );
+    }
+    if (data.containsKey('error')) {
+      context.handle(
+        _errorMeta,
+        error.isAcceptableOrUnknown(data['error']!, _errorMeta),
+      );
+    }
+    if (data.containsKey('last_opened_at')) {
+      context.handle(
+        _lastOpenedAtMeta,
+        lastOpenedAt.isAcceptableOrUnknown(
+          data['last_opened_at']!,
+          _lastOpenedAtMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  LinkCopyRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LinkCopyRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      url: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}url'],
+      )!,
+      kind: $LinkCopiesTable.$converterkind.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}kind'],
+        )!,
+      ),
+      relativePath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}relative_path'],
+      ),
+      bytes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}bytes'],
+      )!,
+      capturedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}captured_at'],
+      )!,
+      status: $LinkCopiesTable.$converterstatus.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}status'],
+        )!,
+      ),
+      error: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}error'],
+      ),
+      lastOpenedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_opened_at'],
+      ),
+    );
+  }
+
+  @override
+  $LinkCopiesTable createAlias(String alias) {
+    return $LinkCopiesTable(attachedDatabase, alias);
+  }
+
+  static JsonTypeConverter2<PageKind, String, String> $converterkind =
+      const EnumNameConverter<PageKind>(PageKind.values);
+  static JsonTypeConverter2<LinkStatus, String, String> $converterstatus =
+      const EnumNameConverter<LinkStatus>(LinkStatus.values);
+}
+
+class LinkCopyRow extends DataClass implements Insertable<LinkCopyRow> {
+  final int id;
+  final String url;
+  final PageKind kind;
+  final String? relativePath;
+  final int bytes;
+  final DateTime capturedAt;
+  final LinkStatus status;
+  final String? error;
+  final DateTime? lastOpenedAt;
+  const LinkCopyRow({
+    required this.id,
+    required this.url,
+    required this.kind,
+    this.relativePath,
+    required this.bytes,
+    required this.capturedAt,
+    required this.status,
+    this.error,
+    this.lastOpenedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['url'] = Variable<String>(url);
+    {
+      map['kind'] = Variable<String>(
+        $LinkCopiesTable.$converterkind.toSql(kind),
+      );
+    }
+    if (!nullToAbsent || relativePath != null) {
+      map['relative_path'] = Variable<String>(relativePath);
+    }
+    map['bytes'] = Variable<int>(bytes);
+    map['captured_at'] = Variable<DateTime>(capturedAt);
+    {
+      map['status'] = Variable<String>(
+        $LinkCopiesTable.$converterstatus.toSql(status),
+      );
+    }
+    if (!nullToAbsent || error != null) {
+      map['error'] = Variable<String>(error);
+    }
+    if (!nullToAbsent || lastOpenedAt != null) {
+      map['last_opened_at'] = Variable<DateTime>(lastOpenedAt);
+    }
+    return map;
+  }
+
+  LinkCopiesCompanion toCompanion(bool nullToAbsent) {
+    return LinkCopiesCompanion(
+      id: Value(id),
+      url: Value(url),
+      kind: Value(kind),
+      relativePath: relativePath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(relativePath),
+      bytes: Value(bytes),
+      capturedAt: Value(capturedAt),
+      status: Value(status),
+      error: error == null && nullToAbsent
+          ? const Value.absent()
+          : Value(error),
+      lastOpenedAt: lastOpenedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastOpenedAt),
+    );
+  }
+
+  factory LinkCopyRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LinkCopyRow(
+      id: serializer.fromJson<int>(json['id']),
+      url: serializer.fromJson<String>(json['url']),
+      kind: $LinkCopiesTable.$converterkind.fromJson(
+        serializer.fromJson<String>(json['kind']),
+      ),
+      relativePath: serializer.fromJson<String?>(json['relativePath']),
+      bytes: serializer.fromJson<int>(json['bytes']),
+      capturedAt: serializer.fromJson<DateTime>(json['capturedAt']),
+      status: $LinkCopiesTable.$converterstatus.fromJson(
+        serializer.fromJson<String>(json['status']),
+      ),
+      error: serializer.fromJson<String?>(json['error']),
+      lastOpenedAt: serializer.fromJson<DateTime?>(json['lastOpenedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'url': serializer.toJson<String>(url),
+      'kind': serializer.toJson<String>(
+        $LinkCopiesTable.$converterkind.toJson(kind),
+      ),
+      'relativePath': serializer.toJson<String?>(relativePath),
+      'bytes': serializer.toJson<int>(bytes),
+      'capturedAt': serializer.toJson<DateTime>(capturedAt),
+      'status': serializer.toJson<String>(
+        $LinkCopiesTable.$converterstatus.toJson(status),
+      ),
+      'error': serializer.toJson<String?>(error),
+      'lastOpenedAt': serializer.toJson<DateTime?>(lastOpenedAt),
+    };
+  }
+
+  LinkCopyRow copyWith({
+    int? id,
+    String? url,
+    PageKind? kind,
+    Value<String?> relativePath = const Value.absent(),
+    int? bytes,
+    DateTime? capturedAt,
+    LinkStatus? status,
+    Value<String?> error = const Value.absent(),
+    Value<DateTime?> lastOpenedAt = const Value.absent(),
+  }) => LinkCopyRow(
+    id: id ?? this.id,
+    url: url ?? this.url,
+    kind: kind ?? this.kind,
+    relativePath: relativePath.present ? relativePath.value : this.relativePath,
+    bytes: bytes ?? this.bytes,
+    capturedAt: capturedAt ?? this.capturedAt,
+    status: status ?? this.status,
+    error: error.present ? error.value : this.error,
+    lastOpenedAt: lastOpenedAt.present ? lastOpenedAt.value : this.lastOpenedAt,
+  );
+  LinkCopyRow copyWithCompanion(LinkCopiesCompanion data) {
+    return LinkCopyRow(
+      id: data.id.present ? data.id.value : this.id,
+      url: data.url.present ? data.url.value : this.url,
+      kind: data.kind.present ? data.kind.value : this.kind,
+      relativePath: data.relativePath.present
+          ? data.relativePath.value
+          : this.relativePath,
+      bytes: data.bytes.present ? data.bytes.value : this.bytes,
+      capturedAt: data.capturedAt.present
+          ? data.capturedAt.value
+          : this.capturedAt,
+      status: data.status.present ? data.status.value : this.status,
+      error: data.error.present ? data.error.value : this.error,
+      lastOpenedAt: data.lastOpenedAt.present
+          ? data.lastOpenedAt.value
+          : this.lastOpenedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LinkCopyRow(')
+          ..write('id: $id, ')
+          ..write('url: $url, ')
+          ..write('kind: $kind, ')
+          ..write('relativePath: $relativePath, ')
+          ..write('bytes: $bytes, ')
+          ..write('capturedAt: $capturedAt, ')
+          ..write('status: $status, ')
+          ..write('error: $error, ')
+          ..write('lastOpenedAt: $lastOpenedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    url,
+    kind,
+    relativePath,
+    bytes,
+    capturedAt,
+    status,
+    error,
+    lastOpenedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LinkCopyRow &&
+          other.id == this.id &&
+          other.url == this.url &&
+          other.kind == this.kind &&
+          other.relativePath == this.relativePath &&
+          other.bytes == this.bytes &&
+          other.capturedAt == this.capturedAt &&
+          other.status == this.status &&
+          other.error == this.error &&
+          other.lastOpenedAt == this.lastOpenedAt);
+}
+
+class LinkCopiesCompanion extends UpdateCompanion<LinkCopyRow> {
+  final Value<int> id;
+  final Value<String> url;
+  final Value<PageKind> kind;
+  final Value<String?> relativePath;
+  final Value<int> bytes;
+  final Value<DateTime> capturedAt;
+  final Value<LinkStatus> status;
+  final Value<String?> error;
+  final Value<DateTime?> lastOpenedAt;
+  const LinkCopiesCompanion({
+    this.id = const Value.absent(),
+    this.url = const Value.absent(),
+    this.kind = const Value.absent(),
+    this.relativePath = const Value.absent(),
+    this.bytes = const Value.absent(),
+    this.capturedAt = const Value.absent(),
+    this.status = const Value.absent(),
+    this.error = const Value.absent(),
+    this.lastOpenedAt = const Value.absent(),
+  });
+  LinkCopiesCompanion.insert({
+    this.id = const Value.absent(),
+    required String url,
+    this.kind = const Value.absent(),
+    this.relativePath = const Value.absent(),
+    this.bytes = const Value.absent(),
+    this.capturedAt = const Value.absent(),
+    this.status = const Value.absent(),
+    this.error = const Value.absent(),
+    this.lastOpenedAt = const Value.absent(),
+  }) : url = Value(url);
+  static Insertable<LinkCopyRow> custom({
+    Expression<int>? id,
+    Expression<String>? url,
+    Expression<String>? kind,
+    Expression<String>? relativePath,
+    Expression<int>? bytes,
+    Expression<DateTime>? capturedAt,
+    Expression<String>? status,
+    Expression<String>? error,
+    Expression<DateTime>? lastOpenedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (url != null) 'url': url,
+      if (kind != null) 'kind': kind,
+      if (relativePath != null) 'relative_path': relativePath,
+      if (bytes != null) 'bytes': bytes,
+      if (capturedAt != null) 'captured_at': capturedAt,
+      if (status != null) 'status': status,
+      if (error != null) 'error': error,
+      if (lastOpenedAt != null) 'last_opened_at': lastOpenedAt,
+    });
+  }
+
+  LinkCopiesCompanion copyWith({
+    Value<int>? id,
+    Value<String>? url,
+    Value<PageKind>? kind,
+    Value<String?>? relativePath,
+    Value<int>? bytes,
+    Value<DateTime>? capturedAt,
+    Value<LinkStatus>? status,
+    Value<String?>? error,
+    Value<DateTime?>? lastOpenedAt,
+  }) {
+    return LinkCopiesCompanion(
+      id: id ?? this.id,
+      url: url ?? this.url,
+      kind: kind ?? this.kind,
+      relativePath: relativePath ?? this.relativePath,
+      bytes: bytes ?? this.bytes,
+      capturedAt: capturedAt ?? this.capturedAt,
+      status: status ?? this.status,
+      error: error ?? this.error,
+      lastOpenedAt: lastOpenedAt ?? this.lastOpenedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (url.present) {
+      map['url'] = Variable<String>(url.value);
+    }
+    if (kind.present) {
+      map['kind'] = Variable<String>(
+        $LinkCopiesTable.$converterkind.toSql(kind.value),
+      );
+    }
+    if (relativePath.present) {
+      map['relative_path'] = Variable<String>(relativePath.value);
+    }
+    if (bytes.present) {
+      map['bytes'] = Variable<int>(bytes.value);
+    }
+    if (capturedAt.present) {
+      map['captured_at'] = Variable<DateTime>(capturedAt.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(
+        $LinkCopiesTable.$converterstatus.toSql(status.value),
+      );
+    }
+    if (error.present) {
+      map['error'] = Variable<String>(error.value);
+    }
+    if (lastOpenedAt.present) {
+      map['last_opened_at'] = Variable<DateTime>(lastOpenedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LinkCopiesCompanion(')
+          ..write('id: $id, ')
+          ..write('url: $url, ')
+          ..write('kind: $kind, ')
+          ..write('relativePath: $relativePath, ')
+          ..write('bytes: $bytes, ')
+          ..write('capturedAt: $capturedAt, ')
+          ..write('status: $status, ')
+          ..write('error: $error, ')
+          ..write('lastOpenedAt: $lastOpenedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $LinkReferencesTable extends LinkReferences
+    with TableInfo<$LinkReferencesTable, LinkReferenceRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LinkReferencesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _storyIdMeta = const VerificationMeta(
+    'storyId',
+  );
+  @override
+  late final GeneratedColumn<int> storyId = GeneratedColumn<int>(
+    'story_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _linkIdMeta = const VerificationMeta('linkId');
+  @override
+  late final GeneratedColumn<int> linkId = GeneratedColumn<int>(
+    'link_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [storyId, linkId];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'link_references';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<LinkReferenceRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('story_id')) {
+      context.handle(
+        _storyIdMeta,
+        storyId.isAcceptableOrUnknown(data['story_id']!, _storyIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_storyIdMeta);
+    }
+    if (data.containsKey('link_id')) {
+      context.handle(
+        _linkIdMeta,
+        linkId.isAcceptableOrUnknown(data['link_id']!, _linkIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_linkIdMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {storyId, linkId};
+  @override
+  LinkReferenceRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LinkReferenceRow(
+      storyId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}story_id'],
+      )!,
+      linkId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}link_id'],
+      )!,
+    );
+  }
+
+  @override
+  $LinkReferencesTable createAlias(String alias) {
+    return $LinkReferencesTable(attachedDatabase, alias);
+  }
+}
+
+class LinkReferenceRow extends DataClass
+    implements Insertable<LinkReferenceRow> {
+  final int storyId;
+  final int linkId;
+  const LinkReferenceRow({required this.storyId, required this.linkId});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['story_id'] = Variable<int>(storyId);
+    map['link_id'] = Variable<int>(linkId);
+    return map;
+  }
+
+  LinkReferencesCompanion toCompanion(bool nullToAbsent) {
+    return LinkReferencesCompanion(
+      storyId: Value(storyId),
+      linkId: Value(linkId),
+    );
+  }
+
+  factory LinkReferenceRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LinkReferenceRow(
+      storyId: serializer.fromJson<int>(json['storyId']),
+      linkId: serializer.fromJson<int>(json['linkId']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'storyId': serializer.toJson<int>(storyId),
+      'linkId': serializer.toJson<int>(linkId),
+    };
+  }
+
+  LinkReferenceRow copyWith({int? storyId, int? linkId}) => LinkReferenceRow(
+    storyId: storyId ?? this.storyId,
+    linkId: linkId ?? this.linkId,
+  );
+  LinkReferenceRow copyWithCompanion(LinkReferencesCompanion data) {
+    return LinkReferenceRow(
+      storyId: data.storyId.present ? data.storyId.value : this.storyId,
+      linkId: data.linkId.present ? data.linkId.value : this.linkId,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LinkReferenceRow(')
+          ..write('storyId: $storyId, ')
+          ..write('linkId: $linkId')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(storyId, linkId);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LinkReferenceRow &&
+          other.storyId == this.storyId &&
+          other.linkId == this.linkId);
+}
+
+class LinkReferencesCompanion extends UpdateCompanion<LinkReferenceRow> {
+  final Value<int> storyId;
+  final Value<int> linkId;
+  final Value<int> rowid;
+  const LinkReferencesCompanion({
+    this.storyId = const Value.absent(),
+    this.linkId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LinkReferencesCompanion.insert({
+    required int storyId,
+    required int linkId,
+    this.rowid = const Value.absent(),
+  }) : storyId = Value(storyId),
+       linkId = Value(linkId);
+  static Insertable<LinkReferenceRow> custom({
+    Expression<int>? storyId,
+    Expression<int>? linkId,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (storyId != null) 'story_id': storyId,
+      if (linkId != null) 'link_id': linkId,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LinkReferencesCompanion copyWith({
+    Value<int>? storyId,
+    Value<int>? linkId,
+    Value<int>? rowid,
+  }) {
+    return LinkReferencesCompanion(
+      storyId: storyId ?? this.storyId,
+      linkId: linkId ?? this.linkId,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (storyId.present) {
+      map['story_id'] = Variable<int>(storyId.value);
+    }
+    if (linkId.present) {
+      map['link_id'] = Variable<int>(linkId.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LinkReferencesCompanion(')
+          ..write('storyId: $storyId, ')
+          ..write('linkId: $linkId, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $ThreadStatesTable extends ThreadStates
     with TableInfo<$ThreadStatesTable, ThreadStateRow> {
   @override
@@ -3886,6 +4667,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $CommentsTable comments = $CommentsTable(this);
   late final $FeedSnapshotsTable feedSnapshots = $FeedSnapshotsTable(this);
   late final $PageCopiesTable pageCopies = $PageCopiesTable(this);
+  late final $LinkCopiesTable linkCopies = $LinkCopiesTable(this);
+  late final $LinkReferencesTable linkReferences = $LinkReferencesTable(this);
   late final $ThreadStatesTable threadStates = $ThreadStatesTable(this);
   late final $SyncRunsTable syncRuns = $SyncRunsTable(this);
   late final $SyncItemsTable syncItems = $SyncItemsTable(this);
@@ -3907,6 +4690,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     comments,
     feedSnapshots,
     pageCopies,
+    linkCopies,
+    linkReferences,
     threadStates,
     syncRuns,
     syncItems,
@@ -5112,6 +5897,449 @@ typedef $$PageCopiesTableProcessedTableManager =
       PageCopyRow,
       PrefetchHooks Function()
     >;
+typedef $$LinkCopiesTableCreateCompanionBuilder = LinkCopiesCompanion Function({
+  Value<int> id,
+  required String url,
+  Value<PageKind> kind,
+  Value<String?> relativePath,
+  Value<int> bytes,
+  Value<DateTime> capturedAt,
+  Value<LinkStatus> status,
+  Value<String?> error,
+  Value<DateTime?> lastOpenedAt,
+});
+typedef $$LinkCopiesTableUpdateCompanionBuilder = LinkCopiesCompanion Function({
+  Value<int> id,
+  Value<String> url,
+  Value<PageKind> kind,
+  Value<String?> relativePath,
+  Value<int> bytes,
+  Value<DateTime> capturedAt,
+  Value<LinkStatus> status,
+  Value<String?> error,
+  Value<DateTime?> lastOpenedAt,
+});
+
+class $$LinkCopiesTableFilterComposer
+    extends Composer<_$AppDatabase, $LinkCopiesTable> {
+  $$LinkCopiesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get url => $composableBuilder(
+    column: $table.url,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<PageKind, PageKind, String> get kind =>
+      $composableBuilder(
+        column: $table.kind,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnFilters<String> get relativePath => $composableBuilder(
+    column: $table.relativePath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get bytes => $composableBuilder(
+    column: $table.bytes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get capturedAt => $composableBuilder(
+    column: $table.capturedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<LinkStatus, LinkStatus, String> get status =>
+      $composableBuilder(
+        column: $table.status,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnFilters<String> get error => $composableBuilder(
+    column: $table.error,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastOpenedAt => $composableBuilder(
+    column: $table.lastOpenedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$LinkCopiesTableOrderingComposer
+    extends Composer<_$AppDatabase, $LinkCopiesTable> {
+  $$LinkCopiesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get url => $composableBuilder(
+    column: $table.url,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get relativePath => $composableBuilder(
+    column: $table.relativePath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get bytes => $composableBuilder(
+    column: $table.bytes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get capturedAt => $composableBuilder(
+    column: $table.capturedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get error => $composableBuilder(
+    column: $table.error,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastOpenedAt => $composableBuilder(
+    column: $table.lastOpenedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LinkCopiesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LinkCopiesTable> {
+  $$LinkCopiesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get url =>
+      $composableBuilder(column: $table.url, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<PageKind, String> get kind =>
+      $composableBuilder(column: $table.kind, builder: (column) => column);
+
+  GeneratedColumn<String> get relativePath => $composableBuilder(
+    column: $table.relativePath,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get bytes =>
+      $composableBuilder(column: $table.bytes, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get capturedAt => $composableBuilder(
+    column: $table.capturedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumnWithTypeConverter<LinkStatus, String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get error =>
+      $composableBuilder(column: $table.error, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastOpenedAt => $composableBuilder(
+    column: $table.lastOpenedAt,
+    builder: (column) => column,
+  );
+}
+
+class $$LinkCopiesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LinkCopiesTable,
+          LinkCopyRow,
+          $$LinkCopiesTableFilterComposer,
+          $$LinkCopiesTableOrderingComposer,
+          $$LinkCopiesTableAnnotationComposer,
+          $$LinkCopiesTableCreateCompanionBuilder,
+          $$LinkCopiesTableUpdateCompanionBuilder,
+          (
+            LinkCopyRow,
+            BaseReferences<_$AppDatabase, $LinkCopiesTable, LinkCopyRow>,
+          ),
+          LinkCopyRow,
+          PrefetchHooks Function()
+        > {
+  $$LinkCopiesTableTableManager(_$AppDatabase db, $LinkCopiesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LinkCopiesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LinkCopiesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$LinkCopiesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> url = const Value.absent(),
+                Value<PageKind> kind = const Value.absent(),
+                Value<String?> relativePath = const Value.absent(),
+                Value<int> bytes = const Value.absent(),
+                Value<DateTime> capturedAt = const Value.absent(),
+                Value<LinkStatus> status = const Value.absent(),
+                Value<String?> error = const Value.absent(),
+                Value<DateTime?> lastOpenedAt = const Value.absent(),
+              }) => LinkCopiesCompanion(
+                id: id,
+                url: url,
+                kind: kind,
+                relativePath: relativePath,
+                bytes: bytes,
+                capturedAt: capturedAt,
+                status: status,
+                error: error,
+                lastOpenedAt: lastOpenedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String url,
+                Value<PageKind> kind = const Value.absent(),
+                Value<String?> relativePath = const Value.absent(),
+                Value<int> bytes = const Value.absent(),
+                Value<DateTime> capturedAt = const Value.absent(),
+                Value<LinkStatus> status = const Value.absent(),
+                Value<String?> error = const Value.absent(),
+                Value<DateTime?> lastOpenedAt = const Value.absent(),
+              }) => LinkCopiesCompanion.insert(
+                id: id,
+                url: url,
+                kind: kind,
+                relativePath: relativePath,
+                bytes: bytes,
+                capturedAt: capturedAt,
+                status: status,
+                error: error,
+                lastOpenedAt: lastOpenedAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$LinkCopiesTable, LinkCopyRow>(table),
+                  BaseReferences<_$AppDatabase, $LinkCopiesTable, LinkCopyRow>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$LinkCopiesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LinkCopiesTable,
+      LinkCopyRow,
+      $$LinkCopiesTableFilterComposer,
+      $$LinkCopiesTableOrderingComposer,
+      $$LinkCopiesTableAnnotationComposer,
+      $$LinkCopiesTableCreateCompanionBuilder,
+      $$LinkCopiesTableUpdateCompanionBuilder,
+      (
+        LinkCopyRow,
+        BaseReferences<_$AppDatabase, $LinkCopiesTable, LinkCopyRow>,
+      ),
+      LinkCopyRow,
+      PrefetchHooks Function()
+    >;
+typedef $$LinkReferencesTableCreateCompanionBuilder =
+    LinkReferencesCompanion Function({
+      required int storyId,
+      required int linkId,
+      Value<int> rowid,
+    });
+typedef $$LinkReferencesTableUpdateCompanionBuilder =
+    LinkReferencesCompanion Function({
+      Value<int> storyId,
+      Value<int> linkId,
+      Value<int> rowid,
+    });
+
+class $$LinkReferencesTableFilterComposer
+    extends Composer<_$AppDatabase, $LinkReferencesTable> {
+  $$LinkReferencesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get storyId => $composableBuilder(
+    column: $table.storyId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get linkId => $composableBuilder(
+    column: $table.linkId,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$LinkReferencesTableOrderingComposer
+    extends Composer<_$AppDatabase, $LinkReferencesTable> {
+  $$LinkReferencesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get storyId => $composableBuilder(
+    column: $table.storyId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get linkId => $composableBuilder(
+    column: $table.linkId,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LinkReferencesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LinkReferencesTable> {
+  $$LinkReferencesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get storyId =>
+      $composableBuilder(column: $table.storyId, builder: (column) => column);
+
+  GeneratedColumn<int> get linkId =>
+      $composableBuilder(column: $table.linkId, builder: (column) => column);
+}
+
+class $$LinkReferencesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LinkReferencesTable,
+          LinkReferenceRow,
+          $$LinkReferencesTableFilterComposer,
+          $$LinkReferencesTableOrderingComposer,
+          $$LinkReferencesTableAnnotationComposer,
+          $$LinkReferencesTableCreateCompanionBuilder,
+          $$LinkReferencesTableUpdateCompanionBuilder,
+          (
+            LinkReferenceRow,
+            BaseReferences<
+              _$AppDatabase,
+              $LinkReferencesTable,
+              LinkReferenceRow
+            >,
+          ),
+          LinkReferenceRow,
+          PrefetchHooks Function()
+        > {
+  $$LinkReferencesTableTableManager(
+    _$AppDatabase db,
+    $LinkReferencesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LinkReferencesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LinkReferencesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$LinkReferencesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> storyId = const Value.absent(),
+                Value<int> linkId = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LinkReferencesCompanion(
+                storyId: storyId,
+                linkId: linkId,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required int storyId,
+                required int linkId,
+                Value<int> rowid = const Value.absent(),
+              }) => LinkReferencesCompanion.insert(
+                storyId: storyId,
+                linkId: linkId,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$LinkReferencesTable, LinkReferenceRow>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $LinkReferencesTable,
+                    LinkReferenceRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$LinkReferencesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LinkReferencesTable,
+      LinkReferenceRow,
+      $$LinkReferencesTableFilterComposer,
+      $$LinkReferencesTableOrderingComposer,
+      $$LinkReferencesTableAnnotationComposer,
+      $$LinkReferencesTableCreateCompanionBuilder,
+      $$LinkReferencesTableUpdateCompanionBuilder,
+      (
+        LinkReferenceRow,
+        BaseReferences<_$AppDatabase, $LinkReferencesTable, LinkReferenceRow>,
+      ),
+      LinkReferenceRow,
+      PrefetchHooks Function()
+    >;
 typedef $$ThreadStatesTableCreateCompanionBuilder =
     ThreadStatesCompanion Function({
       Value<int> storyId,
@@ -5953,6 +7181,10 @@ class $AppDatabaseManager {
       $$FeedSnapshotsTableTableManager(_db, _db.feedSnapshots);
   $$PageCopiesTableTableManager get pageCopies =>
       $$PageCopiesTableTableManager(_db, _db.pageCopies);
+  $$LinkCopiesTableTableManager get linkCopies =>
+      $$LinkCopiesTableTableManager(_db, _db.linkCopies);
+  $$LinkReferencesTableTableManager get linkReferences =>
+      $$LinkReferencesTableTableManager(_db, _db.linkReferences);
   $$ThreadStatesTableTableManager get threadStates =>
       $$ThreadStatesTableTableManager(_db, _db.threadStates);
   $$SyncRunsTableTableManager get syncRuns =>

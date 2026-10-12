@@ -76,6 +76,7 @@ class AlgoliaNode {
     this.createdAtI,
     this.text,
     this.parentId,
+    this.storyId,
     this.children = const [],
   });
 
@@ -100,6 +101,8 @@ class AlgoliaNode {
   final String? text;
   @JsonKey(fromJson: lenientInt)
   final int? parentId;
+  @JsonKey(fromJson: lenientInt)
+  final int? storyId;
   @JsonKey(fromJson: _readChildren)
   final List<AlgoliaNode> children;
 
@@ -134,6 +137,7 @@ class AlgoliaNode {
         text: text,
       ),
       comments: comments,
+      containingStoryId: storyId,
     );
   }
 }

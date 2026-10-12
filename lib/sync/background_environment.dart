@@ -3,6 +3,7 @@ import 'package:offline_hn/capture/filter_lists.dart';
 import 'package:offline_hn/data/api/hn_source.dart';
 import 'package:offline_hn/data/db/database.dart';
 import 'package:offline_hn/data/prune_service.dart';
+import 'package:offline_hn/data/repository/link_repository.dart';
 import 'package:offline_hn/data/repository/page_repository.dart';
 import 'package:offline_hn/data/repository/retention_repository.dart';
 import 'package:offline_hn/data/repository/settings_store.dart';
@@ -51,6 +52,7 @@ class BackgroundEnvironment {
     );
     await notifier.initialize();
     final pages = PageRepository(db);
+    final links = LinkRepository(db);
     const queue = WorkmanagerQueue();
     final probe = PluginConnectionProbe();
 
@@ -63,12 +65,14 @@ class BackgroundEnvironment {
         syncs: syncs,
         stories: StoryRepository(db),
         pages: pages,
+        links: links,
         settings: settings,
         source: HnSource.create(),
         probe: probe,
         saver: PageSaver(
           files: files,
           pages: pages,
+          links: links,
           capture: captureWithPlugin,
           pdf: PdfDownloader(),
           probe: probe,

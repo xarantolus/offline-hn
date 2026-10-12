@@ -1,4 +1,5 @@
 import 'package:offline_hn/data/model/feed_kind.dart';
+import 'package:offline_hn/data/model/page_enums.dart';
 
 const recentlyOpenedGrace = Duration(hours: 1);
 const threadStateKeep = Duration(days: 30);
@@ -26,8 +27,9 @@ List<int> pagesToPrune(
   List<PageCandidate> pages, {
   required int budgetBytes,
   required DateTime now,
+  int otherBytes = 0,
 }) {
-  var total = pages.fold(0, (sum, page) => sum + page.bytes);
+  var total = otherBytes + pages.fold(0, (sum, page) => sum + page.bytes);
   if (total <= budgetBytes) return const [];
 
   final evictable =
@@ -43,10 +45,69 @@ List<int> pagesToPrune(
   return chosen;
 }
 
-bool _openedRecently(PageCandidate page, DateTime now) {
-  final opened = page.lastOpenedAt;
-  return opened != null && now.difference(opened) < recentlyOpenedGrace;
+class LinkCandidate {
+  const LinkCandidate({
+    required this.id,
+    required this.kind,
+    required this.bytes,
+    required this.capturedAt,
+    required this.saved,
+    this.lastOpenedAt,
+  });
+
+  final int id;
+  final PageKind kind;
+  final int bytes;
+  final DateTime capturedAt;
+
+  /// Linked from a bookmarked story.
+  final bool saved;
+  final DateTime? lastOpenedAt;
 }
+
+/// Linked pages go before any article copy, whatever the budget says about
+/// the rest. Oldest first until the pages and links together fit; copies of
+/// bookmarked stories' links and ones opened within the last hour are never
+/// chosen. A linked discussion lives in the text store, so it goes with the
+/// text retention rather than with the size.
+List<int> linksToPrune(
+  List<LinkCandidate> links, {
+  required int pageBytes,
+  required int budgetBytes,
+  required int textRetentionDays,
+  required DateTime now,
+}) {
+  final cutoff = now.subtract(Duration(days: textRetentionDays));
+  bool kept(LinkCandidate link) =>
+      link.saved || _recently(link.lastOpenedAt, now);
+  final chosen = [
+    for (final link in links)
+      if (link.kind == PageKind.thread &&
+          !link.saved &&
+          link.capturedAt.isBefore(cutoff))
+        link.id,
+  ];
+  var total =
+      pageBytes +
+      links
+          .where((link) => !chosen.contains(link.id))
+          .fold(0, (sum, link) => sum + link.bytes);
+  final evictable =
+      links.where((link) => !chosen.contains(link.id) && !kept(link)).toList()
+        ..sort((a, b) => a.capturedAt.compareTo(b.capturedAt));
+  for (final link in evictable) {
+    if (total <= budgetBytes) break;
+    chosen.add(link.id);
+    total -= link.bytes;
+  }
+  return chosen;
+}
+
+bool _recently(DateTime? opened, DateTime now) =>
+    opened != null && now.difference(opened) < recentlyOpenedGrace;
+
+bool _openedRecently(PageCandidate page, DateTime now) =>
+    _recently(page.lastOpenedAt, now);
 
 class TextCandidate {
   const TextCandidate({

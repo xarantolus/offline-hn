@@ -7,6 +7,7 @@ import 'package:offline_hn/comments/comment_block.dart';
 import 'package:offline_hn/comments/comment_parser.dart';
 import 'package:offline_hn/data/db/database.dart';
 import 'package:offline_hn/data/model/open_thread.dart';
+import 'package:offline_hn/data/model/page_enums.dart';
 import 'package:offline_hn/data/model/settings.dart';
 import 'package:offline_hn/data/model/thread_view.dart';
 import 'package:offline_hn/data/policy/comment_arrangement.dart';
@@ -17,6 +18,7 @@ import 'package:offline_hn/pages/thread/thread_header_view.dart';
 import 'package:offline_hn/pages/thread/thread_pager.dart';
 import 'package:offline_hn/ui/comment_tile.dart';
 import 'package:offline_hn/ui/reveal.dart';
+import 'package:offline_hn/ui/saved_links.dart';
 import 'package:offline_hn/ui/selection_guard.dart';
 import 'package:offline_hn/ui/tokens.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
@@ -60,6 +62,7 @@ class _ThreadPageState extends State<ThreadPage> {
 
   late final AppServices _services = AppServicesScope.of(context);
   late final StoryOpener _opener = StoryOpener(_services);
+  late final Stream<Set<String>> _savedLinks = _services.links.watchSavedUrls();
 
   AppSettings _settings = AppSettings.defaults();
   Set<int> _collapsed = {};
@@ -266,6 +269,14 @@ class _ThreadPageState extends State<ThreadPage> {
   }
 
   Future<void> _openLink(LinkRun link) async {
+    final copy = await _services.links.copyFor(link.uri);
+    if (!mounted) return;
+    if (copy != null &&
+        copy.status == LinkStatus.ok &&
+        await _opener.openLinkCopy(context, link.uri, copy)) {
+      return;
+    }
+    if (!mounted) return;
     final itemId = link.itemId;
     if (itemId != null) {
       final found = await _services.stories.locateItem(itemId);
@@ -370,6 +381,23 @@ class _ThreadPageState extends State<ThreadPage> {
     final newCount = countNewComments(_open.shown.map((c) => c.time), seen);
     final now = DateTime.now();
     final bottom = MediaQuery.viewPaddingOf(context).bottom + 88;
+    return StreamBuilder<Set<String>>(
+      stream: _savedLinks,
+      initialData: const {},
+      builder: (context, saved) => SavedLinks(
+        urls: saved.data ?? const {},
+        child: _commentList(textSize, seen, newCount, now, bottom),
+      ),
+    );
+  }
+
+  Widget _commentList(
+    double textSize,
+    DateTime? seen,
+    int newCount,
+    DateTime now,
+    double bottom,
+  ) {
     return ScrollablePositionedList.builder(
       itemScrollController: _scroll,
       itemPositionsListener: _positions,

@@ -48,6 +48,8 @@ const storySearchIndexStatements = [
     Comments,
     FeedSnapshots,
     PageCopies,
+    LinkCopies,
+    LinkReferences,
     ThreadStates,
     SyncRuns,
     SyncItems,
@@ -80,7 +82,7 @@ class AppDatabase extends _$AppDatabase {
   );
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -93,6 +95,10 @@ class AppDatabase extends _$AppDatabase {
       if (from < 3) await m.addColumn(syncRuns, syncRuns.executing);
       if (from < 4) await m.addColumn(stories, stories.savedAt);
       if (from < 5) await _createSearchIndex();
+      if (from < 6) {
+        await m.createTable(linkCopies);
+        await m.createTable(linkReferences);
+      }
     },
   );
 

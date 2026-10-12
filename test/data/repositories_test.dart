@@ -13,6 +13,7 @@ import 'package:offline_hn/data/model/settings.dart';
 import 'package:offline_hn/data/model/sync_enums.dart';
 import 'package:offline_hn/data/model/viewer_kind.dart';
 import 'package:offline_hn/data/policy/day_grouping.dart';
+import 'package:offline_hn/data/repository/link_repository.dart';
 import 'package:offline_hn/data/repository/page_repository.dart';
 import 'package:offline_hn/data/prune_service.dart';
 import 'package:offline_hn/data/repository/retention_repository.dart';
@@ -683,6 +684,84 @@ void main() {
         expect((progress.commentsDone, progress.commentsTotal), (3, 3));
       },
     );
+  });
+
+  group('linked pages', () {
+    test('live as long as any story links to them, and go first', () async {
+      final links = LinkRepository(db);
+      final now = DateTime.utc(2026, 10, 20, 12);
+      await stories.upsertStories([_story(1), _story(2)], now);
+      await stories.setSaved(2, value: true);
+      final ids = await links.prepare([
+        Uri.parse('https://a.example/shared'),
+        Uri.parse('https://a.example/only-one'),
+      ]);
+      final shared = ids['https://a.example/shared']!;
+      final onlyOne = ids['https://a.example/only-one']!;
+      for (final (id, name) in [(shared, 'shared'), (onlyOne, 'one')]) {
+        await links.recordCaptured(
+          id: id,
+          kind: PageKind.mhtml,
+          relativePath: 'pages/links/$name.mhtml',
+          bytes: 300,
+          now: now,
+        );
+      }
+      await links.replaceReferences({
+        1: {shared, onlyOne},
+        2: {shared},
+      });
+      await pages.recordCaptured(
+        storyId: 1,
+        kind: PageKind.mhtml,
+        relativePath: 'one.mhtml',
+        bytes: 600,
+        now: now,
+      );
+
+      final deleted = <String>[];
+      final result = await PruneService(RetentionRepository(db)).run(
+        settings: AppSettings.fromRaw({Settings.pageBudgetBytes.key: '900'}),
+        now: now,
+        deleteFile: (path) async => deleted.add(path),
+      );
+
+      expect(deleted, ['pages/links/one.mhtml']);
+      expect(result.links, 1);
+      expect(
+        await links.copyFor(Uri.parse('https://a.example/shared')),
+        isNotNull,
+      );
+      expect((await pages.forStories([1])).keys, [1]);
+
+      await stories.setSaved(2, value: false);
+      await RetentionRepository(db).deleteStories([1, 2]);
+      expect(await RetentionRepository(db).deleteUnreferencedLinks(), [
+        'pages/links/shared.mhtml',
+      ]);
+    });
+
+    test('the top comments are the first three live ones in order', () async {
+      final links = LinkRepository(db);
+      await stories.upsertStories([_story(1)], t0);
+      await stories.replaceThread(
+        RemoteThread(
+          story: _story(1),
+          comments: [
+            const RemoteComment(id: 10, text: 'gone', deleted: true),
+            const RemoteComment(id: 11, text: 'dead', dead: true),
+            for (var i = 12; i < 17; i++)
+              RemoteComment(
+                id: i,
+                text: 'c$i',
+                children: [RemoteComment(id: i * 10, text: 'reply')],
+              ),
+          ],
+        ),
+        t0,
+      );
+      expect((await links.topComments([1]))[1], ['c12', 'c13', 'c14']);
+    });
   });
 
   group('pruning end to end', () {

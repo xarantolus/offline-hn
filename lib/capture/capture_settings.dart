@@ -5,12 +5,13 @@ import 'package:page_capture/page_capture.dart';
 CaptureOptions captureOptionsFor(
   AppSettings settings, {
   String? filterListsDirectory,
+  int maxBytes = maxPageBytes,
 }) => CaptureOptions(
   cleanup: CaptureCleanup(
     blockRequests: settings.adBlocking,
     hideElements: settings.adBlocking,
     rejectConsent: settings.rejectCookiePopups,
   ),
-  maxBytes: maxPageBytes,
+  maxBytes: maxBytes,
   filterListsDirectory: filterListsDirectory,
 );

@@ -18,18 +18,30 @@ class PageRepository {
     _db.pageCopies,
   )..where((p) => p.storyId.equals(storyId))).watchSingleOrNull();
 
-  Stream<PageUsage> watchUsage() {
-    final pages = _db.pageCopies;
-    final bytes = pages.bytes.sum();
-    final count = pages.storyId.count();
-    final query = _db.selectOnly(pages)
-      ..addColumns([bytes, count])
-      ..where(pages.status.equalsValue(PageStatus.ok));
-    return query.watchSingle().map(
-      (row) =>
-          PageUsage(bytes: row.read(bytes) ?? 0, count: row.read(count) ?? 0),
-    );
-  }
+  /// Articles and linked pages together: both count against the budget.
+  Stream<PageUsage> watchUsage() => _db
+      .customSelect(
+        'SELECT '
+        '(SELECT COALESCE(SUM(bytes), 0) FROM page_copies WHERE status = ?1) '
+        '+ (SELECT COALESCE(SUM(bytes), 0) FROM link_copies WHERE status = ?2) '
+        'AS bytes, '
+        '(SELECT COUNT(*) FROM page_copies WHERE status = ?1) '
+        '+ (SELECT COUNT(*) FROM link_copies WHERE status = ?2 '
+        'AND kind <> ?3) AS count',
+        variables: [
+          Variable.withString(PageStatus.ok.name),
+          Variable.withString(LinkStatus.ok.name),
+          Variable.withString(PageKind.thread.name),
+        ],
+        readsFrom: {_db.pageCopies, _db.linkCopies},
+      )
+      .watchSingle()
+      .map(
+        (row) => PageUsage(
+          bytes: row.read<int>('bytes'),
+          count: row.read<int>('count'),
+        ),
+      );
 
   Future<void> recordCaptured({
     required int storyId,

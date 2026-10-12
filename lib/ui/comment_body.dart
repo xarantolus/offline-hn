@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:offline_hn/comments/comment_block.dart';
+import 'package:offline_hn/ui/saved_links.dart';
 import 'package:offline_hn/ui/tokens.dart';
 
 typedef LinkHandler = void Function(LinkRun link);
@@ -125,6 +126,22 @@ class _InlineTextState extends State<InlineText> {
           spans.add(
             TextSpan(text: inline.label, style: link, recognizer: recognizer),
           );
+          if (SavedLinks.has(context, inline.uri)) {
+            spans.add(
+              WidgetSpan(
+                alignment: PlaceholderAlignment.middle,
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 3),
+                  child: Icon(
+                    Icons.offline_pin_outlined,
+                    size: (widget.style.fontSize ?? 14) * 0.9,
+                    color: context.tokens.muted,
+                    semanticLabel: 'Saved copy',
+                  ),
+                ),
+              ),
+            );
+          }
       }
     }
     return Text.rich(TextSpan(children: spans), style: widget.style);

@@ -2,6 +2,9 @@ import 'package:offline_hn/data/model/feed_kind.dart';
 import 'package:offline_hn/data/model/page_enums.dart';
 
 const maxPageBytes = 25 * 1024 * 1024;
+const maxLinkPageBytes = 8 * 1024 * 1024;
+bool exceedsPageLimit(int bytes, {int limit = maxPageBytes}) => bytes > limit;
+
 const failedCaptureRetryAfter = Duration(hours: 6);
 
 const _captureDepth = {
@@ -10,8 +13,6 @@ const _captureDepth = {
   FeedKind.ask: 30,
   FeedKind.show: 30,
 };
-
-bool exceedsPageLimit(int bytes) => bytes > maxPageBytes;
 
 class RankedStory {
   const RankedStory(this.id, this.url);

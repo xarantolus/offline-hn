@@ -7,6 +7,7 @@ import 'package:offline_hn/data/model/feed_kind.dart';
 import 'package:offline_hn/data/model/page_enums.dart';
 import 'package:offline_hn/data/model/settings.dart';
 import 'package:offline_hn/data/model/sync_enums.dart';
+import 'package:offline_hn/data/repository/link_repository.dart';
 import 'package:offline_hn/data/repository/page_repository.dart';
 import 'package:offline_hn/sync/connection_probe.dart';
 import 'package:offline_hn/sync/filter_list_sync.dart';
@@ -22,6 +23,9 @@ class FakeHn implements HnReader {
   final failingThreads = <int>{};
   final unindexedThreads = <int>{};
   final kids = <int, List<int>>{};
+
+  /// Replaces the text of the story's first comment in HN order.
+  final firstCommentHtml = <int, String>{};
   var failStories = false;
   var rankingCalls = 0;
   final threadCalls = <int>[];
@@ -76,7 +80,11 @@ class FakeHn implements HnReader {
       story: story,
       comments: [
         RemoteComment(id: id * 100 + 1, parentId: id, text: 'older'),
-        RemoteComment(id: id * 100 + 2, parentId: id, text: 'newer'),
+        RemoteComment(
+          id: id * 100 + 2,
+          parentId: id,
+          text: firstCommentHtml[id] ?? 'newer',
+        ),
       ],
     );
   }
@@ -129,9 +137,12 @@ class FakeLists implements FilterListSync {
 
 /// Records pages the way the real saver does, without a WebView.
 class FakeSaver implements StoryPageSaver {
-  FakeSaver(this.pages, this.clock);
+  FakeSaver(this.pages, this.clock, this.links);
 
   final PageRepository pages;
+  final LinkRepository links;
+  final savedLinks = <String>[];
+  final failingLinks = <String>{};
   final DateTime Function() clock;
   final saved = <int>[];
   final failing = <int>{};
@@ -171,6 +182,28 @@ class FakeSaver implements StoryPageSaver {
       storyId: story.id,
       kind: PageKind.mhtml,
       relativePath: 'pages/${story.id}.mhtml',
+      bytes: 1000,
+      now: clock(),
+    );
+    return PageStatus.ok;
+  }
+
+  @override
+  Future<PageStatus?> saveLink(LinkCopyRow link, AppSettings settings) async {
+    savedLinks.add(link.url);
+    if (failingLinks.contains(link.url)) {
+      await links.recordFailed(
+        id: link.id,
+        kind: PageKind.mhtml,
+        error: 'boom',
+        now: clock(),
+      );
+      return PageStatus.failed;
+    }
+    await links.recordCaptured(
+      id: link.id,
+      kind: PageKind.mhtml,
+      relativePath: 'pages/links/${link.id}.mhtml',
       bytes: 1000,
       now: clock(),
     );

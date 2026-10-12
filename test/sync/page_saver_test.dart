@@ -9,6 +9,7 @@ import 'package:offline_hn/data/db/database.dart';
 import 'package:offline_hn/data/model/page_enums.dart';
 import 'package:offline_hn/data/model/settings.dart';
 import 'package:offline_hn/data/model/sync_enums.dart';
+import 'package:offline_hn/data/repository/link_repository.dart';
 import 'package:offline_hn/data/repository/page_repository.dart';
 import 'package:offline_hn/sync/page_files.dart';
 import 'package:offline_hn/sync/page_saver.dart';
@@ -45,6 +46,7 @@ void main() {
       PageSaver(
         files: files,
         pages: pages,
+        links: LinkRepository(db),
         capture: capture,
         pdf: PdfDownloader(client: client),
         probe: probe,

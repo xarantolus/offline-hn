@@ -28,6 +28,53 @@ class RetentionRepository {
     ];
   }
 
+  Future<List<LinkCandidate>> linkCandidates() async {
+    final saved = {
+      for (final row in await (_db.select(_db.linkReferences).join([
+        innerJoin(
+          _db.stories,
+          _db.stories.id.equalsExp(_db.linkReferences.storyId),
+        ),
+      ])..where(_db.stories.saved.equals(true))).get())
+        row.readTable(_db.linkReferences).linkId,
+    };
+    return [
+      for (final row in await (_db.select(
+        _db.linkCopies,
+      )..where((l) => l.status.equalsValue(LinkStatus.ok))).get())
+        LinkCandidate(
+          id: row.id,
+          kind: row.kind,
+          bytes: row.bytes,
+          capturedAt: row.capturedAt,
+          lastOpenedAt: row.lastOpenedAt,
+          saved: saved.contains(row.id),
+        ),
+    ];
+  }
+
+  /// Removes the rows and returns the relative paths of the files they named.
+  Future<List<String>> deleteLinks(List<int> ids) => _db.transaction(() async {
+    final rows = await (_db.select(
+      _db.linkCopies,
+    )..where((l) => l.id.isIn(ids))).get();
+    await (_db.delete(
+      _db.linkReferences,
+    )..where((r) => r.linkId.isIn(ids))).go();
+    await (_db.delete(_db.linkCopies)..where((l) => l.id.isIn(ids))).go();
+    return [for (final row in rows) ?row.relativePath];
+  });
+
+  /// Copies no remaining story links to.
+  Future<List<String>> deleteUnreferencedLinks() async {
+    final referenced = _db.selectOnly(_db.linkReferences, distinct: true)
+      ..addColumns([_db.linkReferences.linkId]);
+    final orphans = await (_db.select(
+      _db.linkCopies,
+    )..where((l) => l.id.isNotInQuery(referenced))).get();
+    return deleteLinks([for (final row in orphans) row.id]);
+  }
+
   Future<List<TextCandidate>> textCandidates() async {
     final onFeed = await _latestSnapshotStoryIds();
     final withPage = {
@@ -108,6 +155,9 @@ class RetentionRepository {
     await (_db.delete(
       _db.pageCopies,
     )..where((p) => p.storyId.isIn(storyIds))).go();
+    await (_db.delete(
+      _db.linkReferences,
+    )..where((r) => r.storyId.isIn(storyIds))).go();
     await (_db.delete(
       _db.feedSnapshots,
     )..where((s) => s.storyId.isIn(storyIds))).go();

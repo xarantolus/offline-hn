@@ -12,11 +12,12 @@ enum SyncTrigger {
   bool get textOnly => this == refresh;
 }
 
-enum SyncPhase { ranking, metadata, comments, pages, done }
+enum SyncPhase { ranking, metadata, comments, pages, links, done }
 
 enum SyncOutcome { succeeded, failed, abandoned }
 
-enum SyncItemKind { comments, page }
+/// For [link] the item's id is a `link_copies` id, not a story's.
+enum SyncItemKind { comments, page, link }
 
 enum SyncItemStatus { pending, done, failed }
 

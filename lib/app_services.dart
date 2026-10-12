@@ -4,6 +4,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:offline_hn/capture/filter_lists.dart';
 import 'package:offline_hn/data/db/database.dart';
 import 'package:offline_hn/data/model/daily_time.dart';
+import 'package:offline_hn/data/repository/link_repository.dart';
 import 'package:offline_hn/data/repository/page_repository.dart';
 import 'package:offline_hn/data/repository/settings_store.dart';
 import 'package:offline_hn/data/repository/story_repository.dart';
@@ -35,6 +36,7 @@ class AppServices {
     required this.settings,
     required this.stories,
     required this.pages,
+    required this.links,
     required this.threadStates,
     required this.sync,
     required this.scheduler,
@@ -47,6 +49,7 @@ class AppServices {
   final SettingsStore settings;
   final StoryRepository stories;
   final PageRepository pages;
+  final LinkRepository links;
   final ThreadStateRepository threadStates;
   final SyncController sync;
   final Scheduler scheduler;
@@ -73,6 +76,7 @@ class AppServices {
       settings: settings,
       stories: StoryRepository(db),
       pages: PageRepository(db),
+      links: LinkRepository(db),
       threadStates: ThreadStateRepository(db),
       scheduler: Scheduler(queue),
       notifier: notifier,
