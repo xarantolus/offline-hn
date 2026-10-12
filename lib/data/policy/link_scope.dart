@@ -10,6 +10,7 @@ import 'package:offline_hn/data/policy/sync_scope.dart';
 const linkedStoryDepth = 30;
 const linkedComments = 3;
 const linksPerComment = 3;
+const linksPerBody = 5;
 
 /// Pages that are a player and little else.
 const _videoHosts = ['youtube.com', 'youtu.be', 'vimeo.com'];
@@ -25,6 +26,25 @@ bool isLinkable(Uri uri) {
   return !_videoHosts.any((video) => host == video || host.endsWith('.$video'));
 }
 
+List<Uri> _linksIn(
+  String html, {
+  required int limit,
+  required int storyId,
+  Uri? own,
+}) {
+  final found = <Uri>[];
+  final seen = <String>{};
+  for (final anchor in html_parser.parseFragment(html).querySelectorAll('a')) {
+    if (seen.length >= limit) break;
+    final uri = Uri.tryParse(anchor.attributes['href'] ?? '');
+    if (uri == null || !isLinkable(uri)) continue;
+    if (hnItemId(uri) == storyId) continue;
+    if (own != null && linkKey(own) == linkKey(uri)) continue;
+    if (seen.add(linkKey(uri))) found.add(uri.removeFragment());
+  }
+  return found;
+}
+
 /// The links of the first [linkedComments] comments, in order, at most
 /// [linksPerComment] distinct ones from each. Links back to the story itself
 /// are left out: its own page is already saved.
@@ -34,47 +54,57 @@ List<Uri> linksInComments(
   String? storyUrl,
 }) {
   final own = storyUrl == null ? null : Uri.tryParse(storyUrl);
-  final found = <Uri>[];
-  for (final html in commentHtml.take(linkedComments)) {
-    if (html == null) continue;
-    final seen = <String>{};
-    for (final anchor
-        in html_parser.parseFragment(html).querySelectorAll('a')) {
-      if (seen.length >= linksPerComment) break;
-      final uri = Uri.tryParse(anchor.attributes['href'] ?? '');
-      if (uri == null || !isLinkable(uri)) continue;
-      if (hnItemId(uri) == storyId) continue;
-      if (own != null && linkKey(own) == linkKey(uri)) continue;
-      if (seen.add(linkKey(uri))) found.add(uri.removeFragment());
-    }
-  }
-  return found;
+  return [
+    for (final html in commentHtml.take(linkedComments))
+      if (html != null)
+        ..._linksIn(html, limit: linksPerComment, storyId: storyId, own: own),
+  ];
 }
 
+/// Up to [linksPerBody] distinct links of the story's own text.
+List<Uri> linksInBody(String? html, {required int storyId, String? storyUrl}) =>
+    html == null
+    ? const []
+    : _linksIn(
+        html,
+        limit: linksPerBody,
+        storyId: storyId,
+        own: storyUrl == null ? null : Uri.tryParse(storyUrl),
+      );
+
 class LinkPlan {
-  const LinkPlan(this.byStory);
+  const LinkPlan({required this.bodyLinks, required this.commentLinks});
 
-  /// Each selected story with the links of its top comments.
-  final Map<int, List<Uri>> byStory;
+  final Map<int, List<Uri>> bodyLinks;
+  final Map<int, List<Uri>> commentLinks;
 
-  /// Every address once, in the order the stories were chosen.
+  /// Everything each selected story links to.
+  Map<int, List<Uri>> get byStory => {
+    for (final id in {...bodyLinks.keys, ...commentLinks.keys})
+      id: [...?bodyLinks[id], ...?commentLinks[id]],
+  };
+
+  /// Every address once: story texts first, then top comments, each in the
+  /// order the stories were chosen.
   List<Uri> get addresses {
     final seen = <String>{};
     return [
-      for (final links in byStory.values)
+      for (final links in [...bodyLinks.values, ...commentLinks.values])
         for (final uri in links)
           if (seen.add(linkKey(uri))) uri,
     ];
   }
 }
 
-/// Front-of-feed stories first, interleaved so every feed's best come before
-/// the rest of any one, then bookmarked ones.
+/// Every story with a text gives links from it. Comment links come from the
+/// front-of-feed stories, interleaved so every feed's best come before the
+/// rest of any one, then bookmarked ones.
 LinkPlan planLinks({
   required Map<FeedKind, List<int>> ranked,
   required Iterable<int> bookmarked,
   required Map<int, List<String?>> topComments,
   required Map<int, String?> storyUrls,
+  Map<int, String> storyTexts = const {},
 }) {
   final order = {
     ...interleavedByRank({
@@ -83,14 +113,24 @@ LinkPlan planLinks({
     }),
     ...bookmarked,
   };
-  return LinkPlan({
-    for (final id in order)
-      id: linksInComments(
-        topComments[id] ?? const [],
-        storyId: id,
-        storyUrl: storyUrls[id],
-      ),
-  });
+  return LinkPlan(
+    bodyLinks: {
+      for (final entry in storyTexts.entries)
+        entry.key: linksInBody(
+          entry.value,
+          storyId: entry.key,
+          storyUrl: storyUrls[entry.key],
+        ),
+    },
+    commentLinks: {
+      for (final id in order)
+        id: linksInComments(
+          topComments[id] ?? const [],
+          storyId: id,
+          storyUrl: storyUrls[id],
+        ),
+    },
+  );
 }
 
 class ExistingLink {

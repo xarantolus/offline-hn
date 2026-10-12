@@ -84,7 +84,87 @@ void main() {
     });
   });
 
+  group('links in a story text', () {
+    List<String> body(String? html, {String? storyUrl}) => [
+      for (final uri in linksInBody(html, storyId: 1, storyUrl: storyUrl))
+        uri.toString(),
+    ];
+
+    test('at most five distinct links', () {
+      final html = [
+        for (var i = 1; i <= 7; i++) _a('https://a.example/${i == 2 ? 1 : i}'),
+      ].join(' ');
+      expect(body(html), [
+        for (final i in [1, 3, 4, 5, 6]) 'https://a.example/$i',
+      ]);
+    });
+
+    test('video hosts, other schemes and the story itself are skipped', () {
+      expect(
+        body(
+          [
+            _a('https://youtu.be/1'),
+            _a('mailto:me@example.com'),
+            _a('https://a.example/story'),
+            _a('https://news.ycombinator.com/item?id=1'),
+            _a('https://b.example/ok#x'),
+          ].join(),
+          storyUrl: 'https://a.example/story',
+        ),
+        ['https://b.example/ok'],
+      );
+    });
+
+    test('no text, no links', () {
+      expect(body(null), isEmpty);
+    });
+  });
+
   group('plan', () {
+    test('every story with a text gives links, ranked or not', () {
+      final plan = planLinks(
+        ranked: {
+          FeedKind.top: [1],
+        },
+        bookmarked: const [],
+        topComments: const {},
+        storyUrls: const {},
+        storyTexts: {
+          1: _a('https://a.example/1'),
+          99: _a('https://a.example/99'),
+        },
+      );
+      expect(plan.byStory[99]?.single.toString(), 'https://a.example/99');
+      expect(plan.byStory[1]?.single.toString(), 'https://a.example/1');
+    });
+
+    test('text links come before comment links and are not repeated', () {
+      final plan = planLinks(
+        ranked: {
+          FeedKind.top: [1, 2],
+        },
+        bookmarked: const [],
+        topComments: {
+          1: [_a('https://a.example/c1'), _a('https://a.example/t2')],
+          2: [_a('https://a.example/c2')],
+        },
+        storyUrls: const {},
+        storyTexts: {
+          2: '${_a('https://a.example/t2')}${_a('https://a.example/t3')}',
+        },
+      );
+      expect(
+        [for (final u in plan.addresses) u.toString()],
+        [
+          'https://a.example/t2',
+          'https://a.example/t3',
+          'https://a.example/c1',
+          'https://a.example/c2',
+        ],
+      );
+      expect(plan.byStory[1], hasLength(2));
+    });
+
     test('takes the front of each feed and every bookmark', () {
       final plan = planLinks(
         ranked: {

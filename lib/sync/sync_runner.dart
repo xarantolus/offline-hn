@@ -508,8 +508,8 @@ class SyncRunner {
     return result == SyncResult.completed ? null : result;
   }
 
-  /// Pages linked from the top comments of the stories at the front of the
-  /// feeds and of bookmarked ones. They come after every article, so they
+  /// Pages linked from the text of every story and from the top comments of
+  /// the stories at the front of the feeds and of bookmarked ones. They come after every article, so they
   /// never hold one up.
   Future<SyncResult?> _saveLinks(_Context context) async {
     final gate = await _pagesGate(context);
@@ -518,10 +518,12 @@ class SyncRunner {
 
     final rankings = await _rankings(context.settings);
     final bookmarked = await _links.bookmarkedStoryIds();
+    final texts = await _links.storyTexts();
     final ids = {
       for (final list in rankings.values)
         for (final story in list.take(linkedStoryDepth)) story.id,
       ...bookmarked,
+      ...texts.keys,
     };
     final plan = planLinks(
       ranked: {
@@ -531,6 +533,7 @@ class SyncRunner {
       bookmarked: bookmarked,
       topComments: await _links.topComments(ids),
       storyUrls: await _links.storyUrls(ids),
+      storyTexts: texts,
     );
     final needed = linksNeedingCopy(
       plan.addresses,

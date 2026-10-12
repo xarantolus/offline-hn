@@ -128,6 +128,13 @@ class LinkRepository {
       row.id,
   };
 
+  Future<Map<int, String>> storyTexts() async => {
+    for (final row in await (_db.select(
+      _db.stories,
+    )..where((s) => s.body.isNotNull() & s.body.equals('').not())).get())
+      row.id: row.body!,
+  };
+
   Future<Map<int, String?>> storyUrls(Iterable<int> ids) async => {
     for (final row in await (_db.select(
       _db.stories,
