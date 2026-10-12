@@ -112,8 +112,40 @@ void main() {
       expect(summary.total, 3);
       expect(summary.newest, DateTime.utc(2026, 10, 11));
       expect(
-        filterListsLine(summary, (_) => 'Today'),
+        filterListsLine(
+          summary,
+          (_) => 'Today',
+          resources: FilterListStatus(updatedAt: DateTime.utc(2026, 10, 9)),
+        ),
         '2 of 3 lists ready · refreshed Today',
+      );
+    });
+  });
+
+  group('filterListsLine scriptlets', () {
+    const summary = (ready: 2, total: 2, newest: null);
+    String line(FilterListStatus? resources) =>
+        filterListsLine(summary, (_) => 'Today', resources: resources);
+
+    test('says so when the scriptlet resources never arrived', () {
+      expect(line(null), '2 of 2 lists ready · scriptlets missing');
+      expect(
+        line(const FilterListStatus(error: 'down')),
+        '2 of 2 lists ready · scriptlets missing',
+      );
+    });
+
+    test('says nothing once they are there', () {
+      expect(
+        line(FilterListStatus(updatedAt: DateTime.utc(2026, 10, 12))),
+        '2 of 2 lists ready',
+      );
+    });
+
+    test('says nothing when there are no lists to use them', () {
+      expect(
+        filterListsLine((ready: 0, total: 0, newest: null), (_) => ''),
+        '0 of 0 lists ready',
       );
     });
   });

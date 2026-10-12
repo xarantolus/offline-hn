@@ -90,11 +90,14 @@ String connectionNote(ConnectionKind connection, AppSettings settings) {
 /// "5 of 5 ready", and when the newest copy was stored if [when] formats it.
 String filterListsLine(
   ({int ready, int total, DateTime? newest}) summary,
-  String Function(DateTime) when,
-) {
+  String Function(DateTime) when, {
+  FilterListStatus? resources,
+}) {
   final newest = summary.newest;
   final ready = '${summary.ready} of ${summary.total} lists ready';
-  return newest == null ? ready : '$ready · refreshed ${when(newest)}';
+  final line = newest == null ? ready : '$ready · refreshed ${when(newest)}';
+  if (summary.total == 0 || resources?.updatedAt != null) return line;
+  return '$line · scriptlets missing';
 }
 
 /// When the daily update is next due, as [when] writes it.

@@ -72,6 +72,13 @@ class _FilterListsPageState extends State<FilterListsPage> {
                       status: settings.filterListStatus[url],
                       onRemove: () => _remove(urls, url),
                     ),
+                  if (urls.isNotEmpty)
+                    _ListTile(
+                      url: FilterSources.resourcesUrl,
+                      title: 'Scriptlets',
+                      status:
+                          settings.filterListStatus[FilterSources.resourcesUrl],
+                    ),
                 ],
               ),
               const SizedBox(height: Spacing.xl),
@@ -106,20 +113,23 @@ class _ListTile extends StatelessWidget {
   const _ListTile({
     required this.url,
     required this.status,
-    required this.onRemove,
+    this.title,
+    this.onRemove,
   });
 
   final String url;
+  final String? title;
   final FilterListStatus? status;
-  final VoidCallback onRemove;
+  final VoidCallback? onRemove;
 
   String _summary(BuildContext context) {
     final updated = status?.updatedAt;
     if (updated == null) return 'Not downloaded yet';
     final l10n = MaterialLocalizations.of(context);
+    final date = 'Updated ${l10n.formatMediumDate(updated.toLocal())}';
+    if (onRemove == null) return date;
     final rules = status!.networkRules + status!.cosmeticRules;
-    return 'Updated ${l10n.formatMediumDate(updated.toLocal())} · '
-        '${pluralize(rules, 'rule')}';
+    return '$date · ${pluralize(rules, 'rule')}';
   }
 
   @override
@@ -128,7 +138,7 @@ class _ListTile extends StatelessWidget {
     final error = status?.error;
     return ListTile(
       title: Text(
-        FilterSources.defaultNames[url] ?? url,
+        title ?? FilterSources.defaultNames[url] ?? url,
         style: t.label.copyWith(fontSize: 14),
         maxLines: 2,
       ),
@@ -145,11 +155,13 @@ class _ListTile extends StatelessWidget {
             ),
         ],
       ),
-      trailing: IconButton(
-        tooltip: 'Remove',
-        icon: const Icon(Icons.delete_outline),
-        onPressed: onRemove,
-      ),
+      trailing: onRemove == null
+          ? null
+          : IconButton(
+              tooltip: 'Remove',
+              icon: const Icon(Icons.delete_outline),
+              onPressed: onRemove,
+            ),
     );
   }
 }

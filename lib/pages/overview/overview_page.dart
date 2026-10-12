@@ -14,6 +14,7 @@ import 'package:offline_hn/ui/format.dart';
 import 'package:offline_hn/ui/settings_section.dart';
 import 'package:offline_hn/ui/time_text.dart';
 import 'package:offline_hn/ui/tokens.dart';
+import 'package:page_capture/filters.dart';
 
 void openOverview(BuildContext context) {
   Navigator.of(context)
@@ -196,7 +197,11 @@ class _UpdatesSection extends StatelessWidget {
         ),
         _Fact(
           'Filter lists',
-          filterListsLine(lists, (at) => whenText(context, at)),
+          filterListsLine(
+            lists,
+            (at) => whenText(context, at),
+            resources: settings.filterListStatus[FilterSources.resourcesUrl],
+          ),
         ),
       ],
     );
