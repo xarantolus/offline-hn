@@ -38,12 +38,13 @@ void main() {
     });
   }
 
-  test('pages rise from the bottom', () {
+  test('pages slide in from the right and fill with the page colour', () {
     for (final theme in [lightTheme, darkTheme]) {
-      expect(
-        theme.pageTransitionsTheme.builders[TargetPlatform.android],
-        isA<FadeThroughPageTransitionsBuilder>(),
-      );
+      final builder =
+          theme.pageTransitionsTheme.builders[TargetPlatform.android]!
+              as SharedAxisPageTransitionsBuilder;
+      expect(builder.transitionType, SharedAxisTransitionType.horizontal);
+      expect(builder.fillColor, theme.colorScheme.surface);
     }
   });
 }

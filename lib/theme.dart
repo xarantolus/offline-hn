@@ -19,10 +19,13 @@ extension SurfaceAccent on ColorScheme {
       : AppTokens.light.accent;
 }
 
-// Fade-through, not the Android default side slide: pages are pushed from a
-// vertically scrolled list and nothing about them is sideways.
-const _pageTransitions = PageTransitionsTheme(
-  builders: {TargetPlatform.android: FadeThroughPageTransitionsBuilder()},
+PageTransitionsTheme _pageTransitions(Color page) => PageTransitionsTheme(
+  builders: {
+    TargetPlatform.android: SharedAxisPageTransitionsBuilder(
+      transitionType: SharedAxisTransitionType.horizontal,
+      fillColor: page,
+    ),
+  },
 );
 
 ThemeData _withComponents(ThemeData base, AppTokens tokens) {
@@ -112,7 +115,7 @@ ThemeData get _lightBase =>
         bodyMedium: const TextStyle(fontSize: 14),
       ),
     ).copyWith(
-      pageTransitionsTheme: _pageTransitions,
+      pageTransitionsTheme: _pageTransitions(AppTokens.light.page),
       appBarTheme: const AppBarTheme(
         backgroundColor: _themeColor,
         foregroundColor: Colors.white,
@@ -154,7 +157,7 @@ ThemeData get _darkBase =>
         bodyMedium: TextStyle(color: Colors.grey[200], fontSize: 14),
       ),
     ).copyWith(
-      pageTransitionsTheme: _pageTransitions,
+      pageTransitionsTheme: _pageTransitions(AppTokens.dark.page),
       appBarTheme: const AppBarTheme(
         backgroundColor: _themeColorDark,
         foregroundColor: Colors.white,

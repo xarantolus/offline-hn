@@ -36,17 +36,19 @@ void openThread(
 
 /// The article opens on top of the comments straight away, so the comments
 /// arrive without a transition and only the article's own animation plays.
-/// Going back still fades.
+/// Going back still slides.
 Route<void> _threadRoute(Widget page, {required bool instant}) {
   if (!instant) return MaterialPageRoute<void>(builder: (_) => page);
   return PageRouteBuilder<void>(
     transitionDuration: Duration.zero,
     reverseTransitionDuration: const Duration(milliseconds: 300),
     pageBuilder: (_, _, _) => page,
-    transitionsBuilder: (_, animation, secondary, child) =>
-        FadeThroughTransition(
+    transitionsBuilder: (context, animation, secondary, child) =>
+        SharedAxisTransition(
           animation: animation,
           secondaryAnimation: secondary,
+          transitionType: SharedAxisTransitionType.horizontal,
+          fillColor: Theme.of(context).colorScheme.surface,
           child: child,
         ),
   );
