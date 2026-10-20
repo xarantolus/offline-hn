@@ -3,6 +3,7 @@ import 'package:html/parser.dart' show parseFragment;
 import 'package:offline_hn/data/api/models.dart';
 import 'package:offline_hn/data/db/database.dart';
 import 'package:offline_hn/data/db/throttled_watch.dart';
+import 'package:offline_hn/data/db/waiting_stories.dart';
 import 'package:offline_hn/data/model/comment_tree.dart';
 import 'package:offline_hn/data/model/domain.dart';
 import 'package:offline_hn/data/model/feed_kind.dart';
@@ -79,6 +80,7 @@ class StoryRepository {
           ..addColumns([bestRank])
           ..where(
             snapshots.feedKind.equalsValue(kind) &
+                snapshots.published.equals(true) &
                 snapshots.fetchedAt.isBiggerOrEqualValue(day.startUtc) &
                 snapshots.fetchedAt.isSmallerThanValue(day.endUtc) &
                 _db.stories.hidden.equals(false),
@@ -142,26 +144,35 @@ class StoryRepository {
     final match = ftsQueryFor(words);
     final select = match == null
         ? _db.customSelect(
-            '''SELECT * FROM stories WHERE hidden = 0 AND (
+            '''SELECT * FROM stories WHERE hidden = 0
+              AND id NOT IN $waitingStoryIds AND (
               title LIKE ?1 ESCAPE '\\' OR domain LIKE ?1 ESCAPE '\\'
               OR "by" LIKE ?1 ESCAPE '\\') LIMIT $_candidateLimit''',
             variables: [Variable<String>('%${_likeEscape(words.first)}%')],
-            readsFrom: {_db.stories},
+            readsFrom: {_db.stories, _db.feedSnapshots},
           )
         : _db.customSelect(
             '''SELECT s.* FROM story_search f JOIN stories s ON s.id = f.rowid
             WHERE story_search MATCH ?1 AND s.hidden = 0
+              AND s.id NOT IN $waitingStoryIds
             ORDER BY bm25(story_search, 10, 3, 2) LIMIT $_candidateLimit''',
             variables: [Variable<String>(match)],
-            readsFrom: {_db.stories},
+            readsFrom: {_db.stories, _db.feedSnapshots},
           );
     return select.watch().asyncMap((rows) async {
       final stories = <int, StoryRow>{
         for (final row in rows) row.read<int>('id'): _db.stories.map(row.data),
       };
-      final posts = await (_db.select(
-        _db.stories,
-      )..where((s) => s.body.isNotNull() & s.hidden.equals(false))).get();
+      final posts =
+          await (_db.select(_db.stories)..where(
+                (s) =>
+                    s.body.isNotNull() &
+                    s.hidden.equals(false) &
+                    const CustomExpression<bool>(
+                      'stories.id NOT IN $waitingStoryIds',
+                    ),
+              ))
+              .get();
       for (final post in posts) {
         stories.putIfAbsent(post.id, () => post);
       }
@@ -208,7 +219,9 @@ class StoryRepository {
     final fetchedAt = snapshots.fetchedAt.min();
     final query = _db.selectOnly(snapshots)
       ..addColumns([fetchedAt])
-      ..where(snapshots.feedKind.equalsValue(kind))
+      ..where(
+        snapshots.feedKind.equalsValue(kind) & snapshots.published.equals(true),
+      )
       ..groupBy([snapshots.fetchId]);
     return query.watch().map(
       (rows) => daysWithData([
@@ -217,10 +230,12 @@ class StoryRepository {
     );
   }
 
-  /// When the newest rankings were fetched, finished run or not.
+  /// When the newest published rankings were fetched, finished run or not.
   Stream<DateTime?> watchNewestFetch() {
     final newest = _db.feedSnapshots.fetchedAt.max();
-    final query = _db.selectOnly(_db.feedSnapshots)..addColumns([newest]);
+    final query = _db.selectOnly(_db.feedSnapshots)
+      ..addColumns([newest])
+      ..where(_db.feedSnapshots.published.equals(true));
     return query.watchSingle().map((row) => row.read(newest));
   }
 
@@ -228,11 +243,13 @@ class StoryRepository {
     _db.stories,
   )..where((s) => s.id.equals(id))).getSingleOrNull();
 
-  /// Each feed's newest snapshot in rank order. A story with no metadata yet,
-  /// or hidden by the user, has no url to capture.
+  /// Each feed's newest snapshot in rank order, the published one unless
+  /// [staged] asks for a ranking still waiting for its comments. A story with
+  /// no metadata yet, or hidden by the user, has no url to capture.
   Future<Map<FeedKind, List<RankedStory>>> latestRankings(
-    Iterable<FeedKind> kinds,
-  ) async {
+    Iterable<FeedKind> kinds, {
+    bool staged = false,
+  }) async {
     final snapshots = _db.feedSnapshots;
     final highest = snapshots.fetchId.max();
     final result = <FeedKind, List<RankedStory>>{};
@@ -240,7 +257,12 @@ class StoryRepository {
       final newest =
           await (_db.selectOnly(snapshots)
                 ..addColumns([highest])
-                ..where(snapshots.feedKind.equalsValue(kind)))
+                ..where(
+                  snapshots.feedKind.equalsValue(kind) &
+                      (staged
+                          ? const Constant(true)
+                          : snapshots.published.equals(true)),
+                ))
               .map((row) => row.read(highest))
               .getSingle();
       if (newest == null) continue;
@@ -350,12 +372,14 @@ class StoryRepository {
         }
       });
 
-  /// Ranks are 1-based. Returns the new fetch id.
+  /// Ranks are 1-based. A [staged] ranking stays out of every list until
+  /// [publishRanking]. Returns the new fetch id.
   Future<int> recordSnapshot(
     FeedKind kind,
     List<int> rankedIds,
-    DateTime fetchedAt,
-  ) => _db.transaction(() async {
+    DateTime fetchedAt, {
+    bool staged = false,
+  }) => _db.transaction(() async {
     final highest = _db.feedSnapshots.fetchId.max();
     final current = await (_db.selectOnly(
       _db.feedSnapshots,
@@ -370,11 +394,25 @@ class StoryRepository {
             storyId: rankedIds[i],
             rank: i + 1,
             fetchedAt: fetchedAt,
+            published: Value(!staged),
           ),
       ], mode: InsertMode.insertOrIgnore);
     });
     return fetchId;
   });
+
+  /// Makes [kind]'s staged ranking visible, all of it in one write.
+  Future<void> publishRanking(FeedKind kind) =>
+      (_db.update(_db.feedSnapshots)..where(
+            (s) => s.feedKind.equalsValue(kind) & s.published.equals(false),
+          ))
+          .write(const FeedSnapshotsCompanion(published: Value(true)));
+
+  /// Drops every ranking that never got published, left by a run that did not
+  /// finish.
+  Future<void> discardStaged() => (_db.delete(
+    _db.feedSnapshots,
+  )..where((s) => s.published.equals(false))).go();
 
   /// The old tree is replaced in one transaction, so a reader never sees a
   /// half-written thread.

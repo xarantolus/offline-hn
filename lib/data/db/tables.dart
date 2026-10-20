@@ -47,12 +47,16 @@ class Comments extends Table {
 
 @DataClassName('SnapshotRow')
 @TableIndex(name: 'snapshots_by_time', columns: {#feedKind, #fetchedAt})
+@TableIndex(name: 'snapshots_by_story', columns: {#published, #storyId})
 class FeedSnapshots extends Table {
   IntColumn get fetchId => integer()();
   TextColumn get feedKind => textEnum<FeedKind>()();
   IntColumn get storyId => integer()();
   IntColumn get rank => integer()();
   DateTimeColumn get fetchedAt => dateTime()();
+
+  /// False while the ranking waits for its comments; no list shows it yet.
+  BoolColumn get published => boolean().withDefault(const Constant(true))();
 
   @override
   Set<Column<Object>> get primaryKey => {fetchId, storyId};

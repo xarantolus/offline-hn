@@ -1564,6 +1564,21 @@ class $FeedSnapshotsTable extends FeedSnapshots
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _publishedMeta = const VerificationMeta(
+    'published',
+  );
+  @override
+  late final GeneratedColumn<bool> published = GeneratedColumn<bool>(
+    'published',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("published" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     fetchId,
@@ -1571,6 +1586,7 @@ class $FeedSnapshotsTable extends FeedSnapshots
     storyId,
     rank,
     fetchedAt,
+    published,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1616,6 +1632,12 @@ class $FeedSnapshotsTable extends FeedSnapshots
     } else if (isInserting) {
       context.missing(_fetchedAtMeta);
     }
+    if (data.containsKey('published')) {
+      context.handle(
+        _publishedMeta,
+        published.isAcceptableOrUnknown(data['published']!, _publishedMeta),
+      );
+    }
     return context;
   }
 
@@ -1647,6 +1669,10 @@ class $FeedSnapshotsTable extends FeedSnapshots
         DriftSqlType.dateTime,
         data['${effectivePrefix}fetched_at'],
       )!,
+      published: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}published'],
+      )!,
     );
   }
 
@@ -1665,12 +1691,16 @@ class SnapshotRow extends DataClass implements Insertable<SnapshotRow> {
   final int storyId;
   final int rank;
   final DateTime fetchedAt;
+
+  /// False while the ranking waits for its comments; no list shows it yet.
+  final bool published;
   const SnapshotRow({
     required this.fetchId,
     required this.feedKind,
     required this.storyId,
     required this.rank,
     required this.fetchedAt,
+    required this.published,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1684,6 +1714,7 @@ class SnapshotRow extends DataClass implements Insertable<SnapshotRow> {
     map['story_id'] = Variable<int>(storyId);
     map['rank'] = Variable<int>(rank);
     map['fetched_at'] = Variable<DateTime>(fetchedAt);
+    map['published'] = Variable<bool>(published);
     return map;
   }
 
@@ -1694,6 +1725,7 @@ class SnapshotRow extends DataClass implements Insertable<SnapshotRow> {
       storyId: Value(storyId),
       rank: Value(rank),
       fetchedAt: Value(fetchedAt),
+      published: Value(published),
     );
   }
 
@@ -1710,6 +1742,7 @@ class SnapshotRow extends DataClass implements Insertable<SnapshotRow> {
       storyId: serializer.fromJson<int>(json['storyId']),
       rank: serializer.fromJson<int>(json['rank']),
       fetchedAt: serializer.fromJson<DateTime>(json['fetchedAt']),
+      published: serializer.fromJson<bool>(json['published']),
     );
   }
   @override
@@ -1723,6 +1756,7 @@ class SnapshotRow extends DataClass implements Insertable<SnapshotRow> {
       'storyId': serializer.toJson<int>(storyId),
       'rank': serializer.toJson<int>(rank),
       'fetchedAt': serializer.toJson<DateTime>(fetchedAt),
+      'published': serializer.toJson<bool>(published),
     };
   }
 
@@ -1732,12 +1766,14 @@ class SnapshotRow extends DataClass implements Insertable<SnapshotRow> {
     int? storyId,
     int? rank,
     DateTime? fetchedAt,
+    bool? published,
   }) => SnapshotRow(
     fetchId: fetchId ?? this.fetchId,
     feedKind: feedKind ?? this.feedKind,
     storyId: storyId ?? this.storyId,
     rank: rank ?? this.rank,
     fetchedAt: fetchedAt ?? this.fetchedAt,
+    published: published ?? this.published,
   );
   SnapshotRow copyWithCompanion(FeedSnapshotsCompanion data) {
     return SnapshotRow(
@@ -1746,6 +1782,7 @@ class SnapshotRow extends DataClass implements Insertable<SnapshotRow> {
       storyId: data.storyId.present ? data.storyId.value : this.storyId,
       rank: data.rank.present ? data.rank.value : this.rank,
       fetchedAt: data.fetchedAt.present ? data.fetchedAt.value : this.fetchedAt,
+      published: data.published.present ? data.published.value : this.published,
     );
   }
 
@@ -1756,13 +1793,15 @@ class SnapshotRow extends DataClass implements Insertable<SnapshotRow> {
           ..write('feedKind: $feedKind, ')
           ..write('storyId: $storyId, ')
           ..write('rank: $rank, ')
-          ..write('fetchedAt: $fetchedAt')
+          ..write('fetchedAt: $fetchedAt, ')
+          ..write('published: $published')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(fetchId, feedKind, storyId, rank, fetchedAt);
+  int get hashCode =>
+      Object.hash(fetchId, feedKind, storyId, rank, fetchedAt, published);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1771,7 +1810,8 @@ class SnapshotRow extends DataClass implements Insertable<SnapshotRow> {
           other.feedKind == this.feedKind &&
           other.storyId == this.storyId &&
           other.rank == this.rank &&
-          other.fetchedAt == this.fetchedAt);
+          other.fetchedAt == this.fetchedAt &&
+          other.published == this.published);
 }
 
 class FeedSnapshotsCompanion extends UpdateCompanion<SnapshotRow> {
@@ -1780,6 +1820,7 @@ class FeedSnapshotsCompanion extends UpdateCompanion<SnapshotRow> {
   final Value<int> storyId;
   final Value<int> rank;
   final Value<DateTime> fetchedAt;
+  final Value<bool> published;
   final Value<int> rowid;
   const FeedSnapshotsCompanion({
     this.fetchId = const Value.absent(),
@@ -1787,6 +1828,7 @@ class FeedSnapshotsCompanion extends UpdateCompanion<SnapshotRow> {
     this.storyId = const Value.absent(),
     this.rank = const Value.absent(),
     this.fetchedAt = const Value.absent(),
+    this.published = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   FeedSnapshotsCompanion.insert({
@@ -1795,6 +1837,7 @@ class FeedSnapshotsCompanion extends UpdateCompanion<SnapshotRow> {
     required int storyId,
     required int rank,
     required DateTime fetchedAt,
+    this.published = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : fetchId = Value(fetchId),
        feedKind = Value(feedKind),
@@ -1807,6 +1850,7 @@ class FeedSnapshotsCompanion extends UpdateCompanion<SnapshotRow> {
     Expression<int>? storyId,
     Expression<int>? rank,
     Expression<DateTime>? fetchedAt,
+    Expression<bool>? published,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1815,6 +1859,7 @@ class FeedSnapshotsCompanion extends UpdateCompanion<SnapshotRow> {
       if (storyId != null) 'story_id': storyId,
       if (rank != null) 'rank': rank,
       if (fetchedAt != null) 'fetched_at': fetchedAt,
+      if (published != null) 'published': published,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1825,6 +1870,7 @@ class FeedSnapshotsCompanion extends UpdateCompanion<SnapshotRow> {
     Value<int>? storyId,
     Value<int>? rank,
     Value<DateTime>? fetchedAt,
+    Value<bool>? published,
     Value<int>? rowid,
   }) {
     return FeedSnapshotsCompanion(
@@ -1833,6 +1879,7 @@ class FeedSnapshotsCompanion extends UpdateCompanion<SnapshotRow> {
       storyId: storyId ?? this.storyId,
       rank: rank ?? this.rank,
       fetchedAt: fetchedAt ?? this.fetchedAt,
+      published: published ?? this.published,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1857,6 +1904,9 @@ class FeedSnapshotsCompanion extends UpdateCompanion<SnapshotRow> {
     if (fetchedAt.present) {
       map['fetched_at'] = Variable<DateTime>(fetchedAt.value);
     }
+    if (published.present) {
+      map['published'] = Variable<bool>(published.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1871,6 +1921,7 @@ class FeedSnapshotsCompanion extends UpdateCompanion<SnapshotRow> {
           ..write('storyId: $storyId, ')
           ..write('rank: $rank, ')
           ..write('fetchedAt: $fetchedAt, ')
+          ..write('published: $published, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -5098,6 +5149,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     'snapshots_by_time',
     'CREATE INDEX snapshots_by_time ON feed_snapshots (feed_kind, fetched_at)',
   );
+  late final Index snapshotsByStory = Index(
+    'snapshots_by_story',
+    'CREATE INDEX snapshots_by_story ON feed_snapshots (published, story_id)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -5115,6 +5170,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     settingEntries,
     commentsByStory,
     snapshotsByTime,
+    snapshotsByStory,
   ];
 }
 
@@ -5845,6 +5901,7 @@ typedef $$FeedSnapshotsTableCreateCompanionBuilder =
       required int storyId,
       required int rank,
       required DateTime fetchedAt,
+      Value<bool> published,
       Value<int> rowid,
     });
 typedef $$FeedSnapshotsTableUpdateCompanionBuilder =
@@ -5854,6 +5911,7 @@ typedef $$FeedSnapshotsTableUpdateCompanionBuilder =
       Value<int> storyId,
       Value<int> rank,
       Value<DateTime> fetchedAt,
+      Value<bool> published,
       Value<int> rowid,
     });
 
@@ -5891,6 +5949,11 @@ class $$FeedSnapshotsTableFilterComposer
     column: $table.fetchedAt,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnFilters<bool> get published => $composableBuilder(
+    column: $table.published,
+    builder: (column) => ColumnFilters(column),
+  );
 }
 
 class $$FeedSnapshotsTableOrderingComposer
@@ -5926,6 +5989,11 @@ class $$FeedSnapshotsTableOrderingComposer
     column: $table.fetchedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get published => $composableBuilder(
+    column: $table.published,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$FeedSnapshotsTableAnnotationComposer
@@ -5951,6 +6019,9 @@ class $$FeedSnapshotsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get fetchedAt =>
       $composableBuilder(column: $table.fetchedAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get published =>
+      $composableBuilder(column: $table.published, builder: (column) => column);
 }
 
 class $$FeedSnapshotsTableTableManager
@@ -5989,6 +6060,7 @@ class $$FeedSnapshotsTableTableManager
                 Value<int> storyId = const Value.absent(),
                 Value<int> rank = const Value.absent(),
                 Value<DateTime> fetchedAt = const Value.absent(),
+                Value<bool> published = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => FeedSnapshotsCompanion(
                 fetchId: fetchId,
@@ -5996,6 +6068,7 @@ class $$FeedSnapshotsTableTableManager
                 storyId: storyId,
                 rank: rank,
                 fetchedAt: fetchedAt,
+                published: published,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -6005,6 +6078,7 @@ class $$FeedSnapshotsTableTableManager
                 required int storyId,
                 required int rank,
                 required DateTime fetchedAt,
+                Value<bool> published = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => FeedSnapshotsCompanion.insert(
                 fetchId: fetchId,
@@ -6012,6 +6086,7 @@ class $$FeedSnapshotsTableTableManager
                 storyId: storyId,
                 rank: rank,
                 fetchedAt: fetchedAt,
+                published: published,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

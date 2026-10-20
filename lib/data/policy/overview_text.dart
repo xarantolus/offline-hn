@@ -37,6 +37,12 @@ String threadsLine(StoreOverview store) =>
     '${pluralize(store.threads, 'thread')} · '
     '${pluralize(store.comments, 'comment')}';
 
+/// "3 new stories waiting for comments", or nothing when none are.
+String waitingLine(StoreOverview store) => store.waitingStories == 0
+    ? ''
+    : '${pluralize(store.waitingStories, 'new story', 'new stories')} '
+          'waiting for comments';
+
 String articlesLine(StoreOverview store) =>
     '${pluralize(store.articles, 'article')} · ${formatSize(store.articleBytes)}';
 

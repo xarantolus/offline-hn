@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:offline_hn/data/db/database.dart';
 import 'package:offline_hn/data/db/throttled_watch.dart';
+import 'package:offline_hn/data/db/waiting_stories.dart';
 import 'package:offline_hn/data/model/feed_kind.dart';
 import 'package:offline_hn/data/model/page_enums.dart';
 import 'package:offline_hn/data/model/store_overview.dart';
@@ -127,7 +128,9 @@ class OverviewRepository {
           'SELECT COUNT(*) AS stories, MIN(time) AS oldest, MAX(time) AS newest, '
           'COUNT(comments_fetched_at) AS threads, '
           'SUM(saved) AS bookmarked, '
-          '(SELECT COUNT(*) FROM comments) AS comments, '
+          '(SELECT COUNT(*) FROM comments '
+          'WHERE story_id NOT IN $waitingStoryIds) AS comments, '
+          '(SELECT COUNT(*) FROM $waitingStoryIds) AS waiting, '
           '(SELECT COUNT(*) FROM page_copies WHERE status = ?1) AS articles, '
           '(SELECT COALESCE(SUM(bytes), 0) FROM page_copies WHERE status = ?1) '
           'AS article_bytes, '
@@ -136,7 +139,7 @@ class OverviewRepository {
           '(SELECT COALESCE(SUM(bytes), 0) FROM link_copies WHERE status = ?2) '
           'AS linked_bytes, '
           '(SELECT COUNT(*) FROM link_copies WHERE status = ?2 AND kind = ?3) '
-          'AS linked_threads FROM stories',
+          'AS linked_threads FROM stories WHERE id NOT IN $waitingStoryIds',
           variables: [
             Variable.withString(PageStatus.ok.name),
             Variable.withString(LinkStatus.ok.name),
@@ -145,6 +148,7 @@ class OverviewRepository {
           readsFrom: {
             _db.stories,
             _db.comments,
+            _db.feedSnapshots,
             _db.pageCopies,
             _db.linkCopies,
           },
@@ -153,7 +157,7 @@ class OverviewRepository {
     final feeds = await _db
         .customSelect(
           'SELECT feed_kind, COUNT(DISTINCT story_id) AS n '
-          'FROM feed_snapshots GROUP BY feed_kind',
+          'FROM feed_snapshots WHERE published = 1 GROUP BY feed_kind',
           readsFrom: {_db.feedSnapshots},
         )
         .get();
@@ -168,6 +172,7 @@ class OverviewRepository {
       },
       threads: row.read<int>('threads'),
       comments: row.read<int>('comments'),
+      waitingStories: row.read<int>('waiting'),
       articles: row.read<int>('articles'),
       articleBytes: row.read<int>('article_bytes'),
       linkedPages: row.read<int>('linked'),

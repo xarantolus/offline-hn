@@ -14,6 +14,7 @@ import 'package:offline_hn/data/model/sync_enums.dart';
 import 'package:offline_hn/data/model/viewer_kind.dart';
 import 'package:offline_hn/data/policy/day_grouping.dart';
 import 'package:offline_hn/data/repository/link_repository.dart';
+import 'package:offline_hn/data/repository/overview_repository.dart';
 import 'package:offline_hn/data/repository/page_repository.dart';
 import 'package:offline_hn/data/prune_service.dart';
 import 'package:offline_hn/data/repository/retention_repository.dart';
@@ -250,6 +251,105 @@ void main() {
             .first,
         [const LocalDay(2026, 10, 11), const LocalDay(2026, 10, 8)],
       );
+    });
+  });
+
+  group('a ranking waiting for its comments', () {
+    final day = dayBoundsUtc(const LocalDay(2026, 10, 10), offsetAt: _utc);
+
+    Future<List<int>> shown(FeedKind kind) async => [
+      for (final e in await stories.watchFeed(kind, day).first) e.story.id,
+    ];
+
+    setUp(() async {
+      await stories.upsertStories([_story(1), _story(2), _story(3)], t0);
+      await stories.recordSnapshot(FeedKind.top, [1], t0);
+    });
+
+    test('is not in the feed, the days or the newest fetch', () async {
+      await stories.recordSnapshot(
+        FeedKind.top,
+        [2, 3],
+        t0.add(const Duration(days: 1)),
+        staged: true,
+      );
+
+      expect(await shown(FeedKind.top), [1]);
+      expect(
+        await stories.watchStoredDays(FeedKind.top, offsetAt: _utc).first,
+        [const LocalDay(2026, 10, 10)],
+      );
+      expect((await stories.watchNewestFetch().first)!.toUtc(), t0);
+    });
+
+    test('publishing shows all of it at once, for that feed only', () async {
+      await stories.recordSnapshot(FeedKind.top, [2, 3], t0, staged: true);
+      await stories.recordSnapshot(FeedKind.ask, [3], t0, staged: true);
+
+      await stories.publishRanking(FeedKind.top);
+
+      expect(await shown(FeedKind.top), [1, 2, 3]);
+      expect(await shown(FeedKind.ask), isEmpty);
+    });
+
+    test('a run reads it back only when asked for the staged one', () async {
+      await stories.recordSnapshot(FeedKind.top, [3, 2], t0, staged: true);
+
+      Future<List<int>> ids({required bool staged}) async => [
+        for (final s in (await stories.latestRankings([
+          FeedKind.top,
+        ], staged: staged))[FeedKind.top]!)
+          s.id,
+      ];
+      expect(await ids(staged: false), [1]);
+      expect(await ids(staged: true), [3, 2]);
+    });
+
+    test('discarding removes staged rankings and keeps published', () async {
+      await stories.recordSnapshot(FeedKind.top, [2], t0, staged: true);
+      await stories.discardStaged();
+      await stories.publishRanking(FeedKind.top);
+
+      expect(await shown(FeedKind.top), [1]);
+    });
+
+    test('its stories stay out of search until published', () async {
+      await stories.upsertStories([
+        _story(4, title: 'Zebra crossing'),
+        _story(5, title: 'Zebra herd'),
+      ], t0);
+      await stories.recordSnapshot(FeedKind.top, [4, 5], t0, staged: true);
+      await stories.setSaved(5, value: true);
+
+      Future<List<int>> found() async => [
+        for (final e in await stories.watchSearch('zebra').first) e.story.id,
+      ];
+      expect(await found(), [5], reason: 'a bookmark is never hidden');
+
+      await stories.publishRanking(FeedKind.top);
+      expect((await found())..sort(), [4, 5]);
+    });
+
+    test('a story that was already published stays searchable', () async {
+      await stories.recordSnapshot(FeedKind.top, [1], t0, staged: true);
+      final found = await stories.watchSearch('Story 1').first;
+      expect([for (final e in found) e.story.id], contains(1));
+    });
+
+    test('the overview counts only what is published', () async {
+      await stories.recordSnapshot(FeedKind.top, [2, 3], t0, staged: true);
+      final overview = OverviewRepository(db);
+
+      var store = await overview.watchStore().first;
+      expect(store.stories, 1);
+      expect(store.waitingStories, 2);
+      expect(store.perFeed[FeedKind.top], 1);
+
+      await stories.publishRanking(FeedKind.top);
+      store = await overview.watchStore().first;
+      expect(store.stories, 3);
+      expect(store.waitingStories, 0);
+      expect(store.perFeed[FeedKind.top], 3);
     });
   });
 

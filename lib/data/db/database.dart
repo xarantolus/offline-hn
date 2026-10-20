@@ -82,7 +82,7 @@ class AppDatabase extends _$AppDatabase {
   );
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -108,6 +108,10 @@ class AppDatabase extends _$AppDatabase {
         await m.addColumn(syncRuns, syncRuns.prunedBytes);
         await m.addColumn(syncItems, syncItems.bytes);
         await m.addColumn(syncItems, syncItems.asThread);
+      }
+      if (from < 8) {
+        await m.addColumn(feedSnapshots, feedSnapshots.published);
+        await m.createIndex(snapshotsByStory);
       }
     },
   );

@@ -134,6 +134,7 @@ class RetentionRepository {
     final rows =
         await (_db.selectOnly(_db.feedSnapshots)
               ..addColumns([fetchId, kind, at])
+              ..where(_db.feedSnapshots.published.equals(true))
               ..groupBy([fetchId]))
             .get();
     return [

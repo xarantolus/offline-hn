@@ -1,11 +1,14 @@
 import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:offline_hn/data/api/models.dart';
 import 'package:offline_hn/data/db/database.dart';
 import 'package:offline_hn/data/model/feed_kind.dart';
+import 'package:offline_hn/data/model/local_day.dart';
 import 'package:offline_hn/data/model/page_enums.dart';
 import 'package:offline_hn/data/model/settings.dart';
 import 'package:offline_hn/data/model/sync_enums.dart';
+import 'package:offline_hn/data/policy/day_grouping.dart';
 import 'package:offline_hn/data/prune_service.dart';
 import 'package:offline_hn/data/repository/link_repository.dart';
 import 'package:offline_hn/data/repository/page_repository.dart';
@@ -200,6 +203,144 @@ void main() {
       expect(all, hasLength(2));
       expect(all.first.outcome, SyncOutcome.abandoned);
       expect(saver.saved, isEmpty);
+    });
+  });
+
+  group('a new ranking appears only with its comments', () {
+    final oldAt = DateTime.utc(2026, 10, 10, 4);
+
+    Future<List<int>> shown(FeedKind kind, [DateTime? at]) async {
+      final day = DateTime.utc(2026, 10, 10);
+      final bounds = dayBoundsUtc(
+        LocalDay(day.year, day.month, day.day),
+        offsetAt: (_) => Duration.zero,
+      );
+      final entries = await stories.watchFeed(kind, bounds).first;
+      return [for (final e in entries) e.story.id]..sort();
+    }
+
+    Future<int> unpublishedRows() async => (await (db.select(
+      db.feedSnapshots,
+    )..where((s) => s.published.equals(false))).get()).length;
+
+    setUp(() async {
+      await stories.upsertStories([
+        const RemoteStory(id: 90, title: 'Old 90'),
+        const RemoteStory(id: 91, title: 'Old 91'),
+      ], oldAt);
+      await stories.recordSnapshot(FeedKind.top, [90, 91], oldAt);
+      await stories.recordSnapshot(FeedKind.ask, [91], oldAt);
+      hn.rankings[FeedKind.top] = [for (var i = 1; i <= 40; i++) i];
+      hn.rankings[FeedKind.best] = [];
+      hn.rankings[FeedKind.ask] = [50];
+      hn.latency = const Duration(milliseconds: 5);
+    });
+
+    test('a cut-off run leaves the old feed alone and resumes', () async {
+      hn.onThread = (id) {
+        if (id == 3) runner.requestStop();
+      };
+      expect(await runner.run(SyncTrigger.manual), SyncResult.stopped);
+
+      expect(await shown(FeedKind.top), [90, 91]);
+      expect(await unpublishedRows(), greaterThan(0));
+      expect(
+        (await stories.watchSearch('Story 4').first).map((e) => e.story.id),
+        isEmpty,
+        reason: 'search sees published rankings only',
+      );
+
+      hn.onThread = null;
+      expect(await runner.run(SyncTrigger.manual), SyncResult.completed);
+      expect(
+        await shown(FeedKind.top),
+        [for (var i = 1; i <= 40; i++) i, 90, 91]..sort(),
+      );
+      expect(await unpublishedRows(), 0);
+      expect(
+        hn.threadCalls.toSet(),
+        hn.threadCalls.toList().toSet(),
+        reason: 'resuming does not fetch a thread twice',
+      );
+    });
+
+    test('each feed appears when its own threads are in', () async {
+      hn.onThread = (id) {
+        if (id == 3) runner.requestStop();
+      };
+      await runner.run(SyncTrigger.manual);
+
+      expect(await shown(FeedKind.ask), [50, 91], reason: 'ask was complete');
+      expect(await shown(FeedKind.top), [90, 91], reason: 'top was not');
+    });
+
+    test('a thread that fails does not keep the feed back', () async {
+      hn.failingThreads.add(2);
+      expect(await runner.run(SyncTrigger.manual), SyncResult.completed);
+
+      expect(await shown(FeedKind.top), contains(2));
+      expect(await shown(FeedKind.top), contains(40));
+    });
+
+    test('every thread failing keeps the old feed', () async {
+      hn.failingThreads.addAll([for (var i = 1; i <= 40; i++) i]);
+      expect(await runner.run(SyncTrigger.manual), SyncResult.completed);
+
+      expect(await shown(FeedKind.top), [90, 91]);
+      expect(await shown(FeedKind.ask), [50, 91]);
+      expect(await unpublishedRows(), 0, reason: 'nothing is left behind');
+    });
+
+    test('the light refresh publishes after its threads', () async {
+      hn.onThread = (id) {
+        if (id == 3) runner.requestStop();
+      };
+      expect(await runner.run(SyncTrigger.refresh), SyncResult.stopped);
+      expect(await shown(FeedKind.top), [90, 91]);
+
+      hn.onThread = null;
+      expect(await runner.run(SyncTrigger.refresh), SyncResult.completed);
+      expect(await shown(FeedKind.top), contains(40));
+      expect(await unpublishedRows(), 0);
+    });
+
+    test('a light refresh with nothing to fetch publishes at once', () async {
+      await runner.run(SyncTrigger.manual);
+      hn.rankings[FeedKind.top] = [3, 1];
+      hn.threadCalls.clear();
+      now = now.add(const Duration(minutes: 10));
+
+      expect(await runner.run(SyncTrigger.refresh), SyncResult.completed);
+
+      expect(hn.threadCalls, isEmpty);
+      expect(await unpublishedRows(), 0);
+    });
+
+    test('a staged ranking from an abandoned run is dropped', () async {
+      hn.onThread = (id) {
+        if (id == 3) runner.requestStop();
+      };
+      await runner.run(SyncTrigger.manual);
+      expect(await unpublishedRows(), greaterThan(0));
+
+      hn.onThread = null;
+      hn.rankings[FeedKind.top] = [7, 8];
+      hn.rankings[FeedKind.ask] = [];
+      now = now.add(const Duration(days: 1));
+      expect(await runner.run(SyncTrigger.manual), SyncResult.completed);
+
+      final next = dayBoundsUtc(
+        const LocalDay(2026, 10, 11),
+        offsetAt: (_) => Duration.zero,
+      );
+      expect(
+        [
+          for (final e in await stories.watchFeed(FeedKind.top, next).first)
+            e.story.id,
+        ],
+        [7, 8],
+      );
+      expect(await unpublishedRows(), 0);
     });
   });
 

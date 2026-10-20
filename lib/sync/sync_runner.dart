@@ -13,6 +13,7 @@ import 'package:offline_hn/data/model/sync_enums.dart';
 import 'package:offline_hn/data/policy/capture_scope.dart';
 import 'package:offline_hn/data/policy/link_scope.dart';
 import 'package:offline_hn/data/policy/network_policy.dart';
+import 'package:offline_hn/data/policy/publish_policy.dart';
 import 'package:offline_hn/data/policy/sync_scope.dart';
 import 'package:offline_hn/data/prune_service.dart';
 import 'package:offline_hn/data/repository/link_repository.dart';
@@ -70,6 +71,7 @@ class _Context {
   final SyncTrigger trigger;
   final AppSettings settings;
   final RunBudget budget;
+  final published = <FeedKind>{};
 }
 
 class _PageOutcome {
@@ -219,6 +221,7 @@ class SyncRunner {
       final stop = await _comments(context);
       if (stop != null) return stop;
       if (context.trigger.textOnly) {
+        await _stories.discardStaged();
         await _syncs.finish(run.id, SyncOutcome.succeeded, _clock());
         return SyncResult.completed;
       }
@@ -233,6 +236,7 @@ class SyncRunner {
     final stop = await _saveLinks(context);
     if (stop != null) return stop;
 
+    await _stories.discardStaged();
     await _pruneStore(context);
     await _syncs.finish(run.id, SyncOutcome.succeeded, _clock());
     return SyncResult.completed;
@@ -286,6 +290,7 @@ class SyncRunner {
 
   Future<void> _rank(_Context context) async {
     final feeds = context.settings.enabledFeeds.toList();
+    await _stories.discardStaged();
     final read = await Future.wait([
       for (final kind in feeds) _recordRanking(kind),
     ]);
@@ -301,6 +306,7 @@ class SyncRunner {
         kind,
         ids.take(feedDepth).toList(),
         _clock(),
+        staged: true,
       );
       return true;
     } on Exception catch (e) {
@@ -309,8 +315,29 @@ class SyncRunner {
     }
   }
 
-  Future<Map<FeedKind, List<RankedStory>>> _rankings(AppSettings settings) =>
-      _stories.latestRankings(settings.enabledFeeds);
+  Future<Map<FeedKind, List<RankedStory>>> _rankings(
+    AppSettings settings, {
+    bool staged = false,
+  }) => _stories.latestRankings(settings.enabledFeeds, staged: staged);
+
+  Future<void> _publishReady(_Context context) async {
+    final waiting = context.settings.enabledFeeds.where(
+      (kind) => !context.published.contains(kind),
+    );
+    if (waiting.isEmpty) return;
+    final rankings = await _stories.latestRankings(waiting, staged: true);
+    final ready = feedsReadyToPublish(
+      rankings: {
+        for (final entry in rankings.entries)
+          entry.key: [for (final story in entry.value) story.id],
+      },
+      threads: await _syncs.itemStatuses(context.run.id, SyncItemKind.comments),
+    );
+    for (final kind in ready) {
+      await _stories.publishRanking(kind);
+      context.published.add(kind);
+    }
+  }
 
   List<int> _idsByRank(Map<FeedKind, List<RankedStory>> rankings) =>
       interleavedByRank({
@@ -319,7 +346,7 @@ class SyncRunner {
       });
 
   Future<SyncResult?> _metadata(_Context context) async {
-    final ids = _idsByRank(await _rankings(context.settings));
+    final ids = _idsByRank(await _rankings(context.settings, staged: true));
     final batches = [
       for (var i = 0; i < ids.length; i += _searchBatch)
         ids.sublist(i, (i + _searchBatch).clamp(0, ids.length)),
@@ -358,7 +385,9 @@ class SyncRunner {
     _Context context,
     List<ThreadCandidate> before,
   ) async {
-    final feedOrder = _idsByRank(await _rankings(context.settings));
+    final feedOrder = _idsByRank(
+      await _rankings(context.settings, staged: true),
+    );
     final stored = await _stories.threadCandidates();
     final targets = context.trigger.textOnly
         ? selectChangedThreads(
@@ -380,6 +409,7 @@ class SyncRunner {
       context.run.id,
       SyncItemKind.comments,
     );
+    await _publishReady(context);
     return _each(
       context,
       pending,
@@ -397,6 +427,7 @@ class SyncRunner {
           _clock(),
           error: error,
         );
+        await _publishReady(context);
         return null;
       },
     );

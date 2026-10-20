@@ -187,6 +187,16 @@ class SyncRepository {
     return [for (final row in rows) row.storyId];
   }
 
+  Future<Map<int, SyncItemStatus>> itemStatuses(
+    int runId,
+    SyncItemKind kind,
+  ) async {
+    final rows = await (_db.select(
+      _db.syncItems,
+    )..where((i) => i.runId.equals(runId) & i.kind.equalsValue(kind))).get();
+    return {for (final row in rows) row.storyId: row.status};
+  }
+
   Future<void> markItem(
     int runId,
     SyncItemKind kind,

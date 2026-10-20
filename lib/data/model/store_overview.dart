@@ -9,6 +9,7 @@ class StoreOverview {
     required this.perFeed,
     required this.threads,
     required this.comments,
+    this.waitingStories = 0,
     required this.articles,
     required this.articleBytes,
     required this.linkedPages,
@@ -27,6 +28,9 @@ class StoreOverview {
   /// Stories whose comments are stored.
   final int threads;
   final int comments;
+
+  /// Stories of a new ranking whose comments are still being fetched.
+  final int waitingStories;
   final int articles;
   final int articleBytes;
   final int linkedPages;

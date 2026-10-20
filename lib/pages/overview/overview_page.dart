@@ -126,7 +126,7 @@ class _StoredSection extends StatelessWidget {
                     storiesLine(data, (d) => dateText(context, d)),
                     more: feedsLine(data.perFeed),
                   ),
-                  _Fact('Comments', threadsLine(data)),
+                  _Fact('Comments', threadsLine(data), more: waitingLine(data)),
                   _Fact('Article pages', articlesLine(data)),
                   _Fact('Linked pages', linkedLine(data)),
                   _Fact(
