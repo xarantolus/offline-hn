@@ -14,6 +14,7 @@ import 'package:offline_hn/data/policy/capture_scope.dart';
 import 'package:offline_hn/data/policy/link_scope.dart';
 import 'package:offline_hn/data/policy/network_policy.dart';
 import 'package:offline_hn/data/policy/publish_policy.dart';
+import 'package:offline_hn/data/policy/keep_window.dart';
 import 'package:offline_hn/data/policy/sync_scope.dart';
 import 'package:offline_hn/data/prune_service.dart';
 import 'package:offline_hn/data/repository/link_repository.dart';
@@ -222,6 +223,7 @@ class SyncRunner {
       if (stop != null) return stop;
       if (context.trigger.textOnly) {
         await _stories.discardStaged();
+        await _pruneStore(context);
         await _syncs.finish(run.id, SyncOutcome.succeeded, _clock());
         return SyncResult.completed;
       }
@@ -400,6 +402,7 @@ class SyncRunner {
             feedOrder: feedOrder,
             stored: stored,
             now: _clock(),
+            keepFrom: keepWindowStart(_clock(), context.settings.keepDays),
           );
     await _syncs.enqueue(context.run.id, SyncItemKind.comments, targets);
   }

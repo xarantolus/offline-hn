@@ -23,14 +23,16 @@ TextCandidate _text(
   int id, {
   int ageDays = 10,
   bool saved = false,
-  bool hasPage = false,
+  int? pageOpenedDaysAgo,
   bool onSnapshot = false,
   int? threadOpenedDaysAgo,
 }) => TextCandidate(
   storyId: id,
   lastSeen: _now.subtract(Duration(days: ageDays)),
   saved: saved,
-  hasPage: hasPage,
+  pageOpenedAt: pageOpenedDaysAgo == null
+      ? null
+      : _now.subtract(Duration(days: pageOpenedDaysAgo)),
   onLatestSnapshot: onSnapshot,
   threadOpenedAt: threadOpenedDaysAgo == null
       ? null
@@ -63,7 +65,7 @@ void main() {
       links,
       pageBytes: pageBytes,
       budgetBytes: budget,
-      textRetentionDays: 30,
+      keepFrom: _now.subtract(const Duration(days: 30)),
       now: _now,
     );
 
@@ -193,29 +195,30 @@ void main() {
 
   group('text', () {
     List<int> prune(List<TextCandidate> c, {int days = 3}) =>
-        storiesToPrune(c, retentionDays: days, now: _now);
+        storiesToPrune(c, keepFrom: _now.subtract(Duration(days: days)));
 
     test('old and unprotected goes, recent stays', () {
       expect(prune([_text(1, ageDays: 10), _text(2, ageDays: 2)]), [1]);
     });
 
-    test('retention is the setting, not a constant', () {
+    test('the window start decides, not a fixed age', () {
       expect(prune([_text(1, ageDays: 5)], days: 7), isEmpty);
       expect(prune([_text(1, ageDays: 5)], days: 3), [1]);
     });
 
-    test(
-      'saved, paged, on a latest snapshot, or recently read are each enough',
-      () {
-        expect(prune([_text(1, saved: true)]), isEmpty);
-        expect(prune([_text(2, hasPage: true)]), isEmpty);
-        expect(prune([_text(3, onSnapshot: true)]), isEmpty);
-        expect(prune([_text(4, threadOpenedDaysAgo: 1)]), isEmpty);
-      },
-    );
+    test('saved, on a latest snapshot, or recently read are each enough', () {
+      expect(prune([_text(1, saved: true)]), isEmpty);
+      expect(prune([_text(2, pageOpenedDaysAgo: 1)]), isEmpty);
+      expect(prune([_text(3, onSnapshot: true)]), isEmpty);
+      expect(prune([_text(4, threadOpenedDaysAgo: 1)]), isEmpty);
+    });
 
     test('a thread opened long ago does not protect', () {
       expect(prune([_text(1, threadOpenedDaysAgo: 20)]), [1]);
+    });
+
+    test('a story with a saved copy goes with it once it has expired', () {
+      expect(prune([_text(1, ageDays: 5)]), [1]);
     });
   });
 
@@ -250,16 +253,12 @@ void main() {
     );
 
     test('old fetches go but each feed keeps its newest', () {
-      final chosen = snapshotFetchesToPrune(
-        [
-          fetch(1, FeedKind.top, 9),
-          fetch(2, FeedKind.top, 8),
-          fetch(3, FeedKind.top, 1),
-          fetch(4, FeedKind.ask, 20),
-        ],
-        retentionDays: 3,
-        now: _now,
-      );
+      final chosen = snapshotFetchesToPrune([
+        fetch(1, FeedKind.top, 9),
+        fetch(2, FeedKind.top, 8),
+        fetch(3, FeedKind.top, 1),
+        fetch(4, FeedKind.ask, 20),
+      ], keepFrom: _now.subtract(const Duration(days: 3)));
       expect(chosen, [1, 2]);
     });
   });

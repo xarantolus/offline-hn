@@ -1,4 +1,6 @@
 import 'package:offline_hn/data/model/settings.dart';
+import 'package:offline_hn/data/policy/day_grouping.dart';
+import 'package:offline_hn/data/policy/keep_window.dart';
 import 'package:offline_hn/data/policy/prune_policy.dart';
 import 'package:offline_hn/data/repository/retention_repository.dart';
 
@@ -28,20 +30,26 @@ class PruneService {
   final RetentionRepository _retention;
 
   /// Rows go before files, so a crash in between leaves an orphan file rather
-  /// than a row pointing at nothing. Linked pages go before article copies, and pages are pruned before text because a story
-  /// with a page is exempt from text pruning.
+  /// than a row pointing at nothing. Linked pages go before article copies,
+  /// and the copies of an expired story go with its text.
   Future<PruneResult> run({
     required AppSettings settings,
     required DateTime now,
     required Future<void> Function(String relativePath) deleteFile,
+    UtcOffsetAt offsetAt = deviceOffsetAt,
   }) async {
+    final keepFrom = keepWindowStart(
+      now,
+      settings.keepDays,
+      offsetAt: offsetAt,
+    );
     final pageCandidates = await _retention.pageCandidates();
     final linkCandidates = await _retention.linkCandidates();
     final links = linksToPrune(
       linkCandidates,
       pageBytes: pageCandidates.fold(0, (sum, page) => sum + page.bytes),
       budgetBytes: settings.pageBudgetBytes,
-      textRetentionDays: settings.textRetentionDays,
+      keepFrom: keepFrom,
       now: now,
     );
     final linkFiles = await _retention.deleteLinks(links);
@@ -60,12 +68,12 @@ class PruneService {
 
     final stories = storiesToPrune(
       await _retention.textCandidates(),
-      retentionDays: settings.textRetentionDays,
-      now: now,
+      keepFrom: keepFrom,
     );
+    final expiredPages = await _retention.deletePages(stories);
     await _retention.deleteStories(stories);
     final orphaned = await _retention.deleteUnreferencedLinks();
-    for (final path in orphaned.paths) {
+    for (final path in [...expiredPages.paths, ...orphaned.paths]) {
       await deleteFile(path);
     }
 
@@ -77,18 +85,21 @@ class PruneService {
 
     final fetches = snapshotFetchesToPrune(
       await _retention.snapshotFetches(),
-      retentionDays: settings.textRetentionDays,
-      now: now,
+      keepFrom: keepFrom,
     );
     await _retention.deleteSnapshotFetches(fetches);
 
     return PruneResult(
-      pages: pages.length,
+      pages: pages.length + expiredPages.paths.length,
       links: links.length + orphaned.paths.length,
       stories: stories.length,
       threadStates: states.length,
       snapshotFetches: fetches.length,
-      bytes: linkFiles.bytes + pageFiles.bytes + orphaned.bytes,
+      bytes:
+          linkFiles.bytes +
+          pageFiles.bytes +
+          expiredPages.bytes +
+          orphaned.bytes,
     );
   }
 }

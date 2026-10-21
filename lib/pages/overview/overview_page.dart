@@ -129,6 +129,7 @@ class _StoredSection extends StatelessWidget {
                   _Fact('Comments', threadsLine(data), more: waitingLine(data)),
                   _Fact('Article pages', articlesLine(data)),
                   _Fact('Linked pages', linkedLine(data)),
+                  _Fact('Keeping', keepWindowText(settings.keepDays)),
                   _Fact(
                     'Bookmarked',
                     pluralize(data.bookmarked, 'story', 'stories'),

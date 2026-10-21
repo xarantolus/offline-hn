@@ -69,22 +69,21 @@ class LinkCandidate {
 /// the rest. Oldest first until the pages and links together fit; copies of
 /// bookmarked stories' links and ones opened within the last hour are never
 /// chosen. A linked discussion lives in the text store, so it goes with the
-/// text retention rather than with the size.
+/// keep window rather than with the size.
 List<int> linksToPrune(
   List<LinkCandidate> links, {
   required int pageBytes,
   required int budgetBytes,
-  required int textRetentionDays,
+  required DateTime keepFrom,
   required DateTime now,
 }) {
-  final cutoff = now.subtract(Duration(days: textRetentionDays));
   bool kept(LinkCandidate link) =>
       link.saved || _recently(link.lastOpenedAt, now);
   final chosen = [
     for (final link in links)
       if (link.kind == PageKind.thread &&
           !link.saved &&
-          link.capturedAt.isBefore(cutoff))
+          link.capturedAt.isBefore(keepFrom))
         link.id,
   ];
   var total =
@@ -114,7 +113,7 @@ class TextCandidate {
     required this.storyId,
     required this.lastSeen,
     required this.saved,
-    required this.hasPage,
+    this.pageOpenedAt,
     required this.onLatestSnapshot,
     this.threadOpenedAt,
   });
@@ -122,24 +121,25 @@ class TextCandidate {
   final int storyId;
   final DateTime lastSeen;
   final bool saved;
-  final bool hasPage;
+  final DateTime? pageOpenedAt;
   final bool onLatestSnapshot;
   final DateTime? threadOpenedAt;
 }
 
+/// Stories last seen before the window start go, with their comments and
+/// saved copies, unless bookmarked, still on a feed's newest ranking or opened
+/// since the window start.
 List<int> storiesToPrune(
   List<TextCandidate> stories, {
-  required int retentionDays,
-  required DateTime now,
+  required DateTime keepFrom,
 }) {
-  final cutoff = now.subtract(Duration(days: retentionDays));
   return [
     for (final story in stories)
       if (!story.saved &&
-          !story.hasPage &&
           !story.onLatestSnapshot &&
-          !_within(story.lastSeen, cutoff) &&
-          !_within(story.threadOpenedAt, cutoff))
+          !_within(story.lastSeen, keepFrom) &&
+          !_within(story.threadOpenedAt, keepFrom) &&
+          !_within(story.pageOpenedAt, keepFrom))
         story.storyId,
   ];
 }
@@ -195,14 +195,12 @@ Map<FeedKind, SnapshotFetch> newestFetchPerFeed(List<SnapshotFetch> fetches) {
 /// still has a front page to show.
 List<int> snapshotFetchesToPrune(
   List<SnapshotFetch> fetches, {
-  required int retentionDays,
-  required DateTime now,
+  required DateTime keepFrom,
 }) {
-  final cutoff = now.subtract(Duration(days: retentionDays));
   final keep = {for (final f in newestFetchPerFeed(fetches).values) f.fetchId};
   return [
     for (final fetch in fetches)
-      if (!keep.contains(fetch.fetchId) && fetch.fetchedAt.isBefore(cutoff))
+      if (!keep.contains(fetch.fetchId) && fetch.fetchedAt.isBefore(keepFrom))
         fetch.fetchId,
   ];
 }

@@ -5,6 +5,7 @@ import 'package:offline_hn/data/model/settings.dart';
 import 'package:offline_hn/pages/settings/about_section.dart';
 import 'package:offline_hn/pages/settings/cleanup_section.dart';
 import 'package:offline_hn/pages/settings/feeds_section.dart';
+import 'package:offline_hn/pages/settings/keep_section.dart';
 import 'package:offline_hn/pages/settings/reading_section.dart';
 import 'package:offline_hn/pages/settings/saved_copies_section.dart';
 import 'package:offline_hn/pages/settings/updates_section.dart';
@@ -55,6 +56,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   store: _services.settings,
                   enabled: settings.enabledFeeds,
                 ),
+                gap,
+                KeepSection(store: _services.settings, days: settings.keepDays),
                 gap,
                 SavedCopiesSection(
                   store: _services.settings,

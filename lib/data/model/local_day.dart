@@ -10,6 +10,11 @@ class LocalDay implements Comparable<LocalDay> {
     return LocalDay(d.year, d.month, d.day);
   }
 
+  LocalDay minus(int days) {
+    final d = DateTime.utc(year, month, day - days);
+    return LocalDay(d.year, d.month, d.day);
+  }
+
   DateTime get asUtcMidnight => DateTime.utc(year, month, day);
 
   @override

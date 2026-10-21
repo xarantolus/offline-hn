@@ -87,11 +87,9 @@ class RetentionRepository {
 
   Future<List<TextCandidate>> textCandidates() async {
     final onFeed = await _latestSnapshotStoryIds();
-    final withPage = {
-      for (final row in await (_db.select(
-        _db.pageCopies,
-      )..where((p) => p.status.equalsValue(PageStatus.ok))).get())
-        row.storyId,
+    final pageOpened = {
+      for (final row in await _db.select(_db.pageCopies).get())
+        row.storyId: ?row.lastOpenedAt,
     };
     final opened = {
       for (final row in await _db.select(_db.threadStates).get())
@@ -103,7 +101,7 @@ class RetentionRepository {
           storyId: story.id,
           lastSeen: story.lastSeen,
           saved: story.saved,
-          hasPage: withPage.contains(story.id),
+          pageOpenedAt: pageOpened[story.id],
           onLatestSnapshot: onFeed.contains(story.id),
           threadOpenedAt: opened[story.id],
         ),

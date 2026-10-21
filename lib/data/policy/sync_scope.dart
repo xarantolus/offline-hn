@@ -47,17 +47,19 @@ List<int> interleavedByRank(Map<FeedKind, List<int>> rankings) {
   return chosen.toList();
 }
 
-/// Threads the user opened come first, newest first, then saved ones, then
+/// Threads the user opened since [keepFrom] come first, newest first, then saved ones, then
 /// the feeds in rank order. Stored threads that are on no feed and were
 /// neither opened nor saved are not refreshed.
 List<int> selectCommentTargets({
   required List<int> feedOrder,
   required List<ThreadCandidate> stored,
   required DateTime now,
+  required DateTime keepFrom,
 }) {
   final known = {for (final t in stored) t.storyId: t};
-  final opened = stored.where((t) => t.lastOpenedAt != null).toList()
-    ..sort((a, b) => b.lastOpenedAt!.compareTo(a.lastOpenedAt!));
+  final opened =
+      stored.where((t) => t.lastOpenedAt?.isBefore(keepFrom) == false).toList()
+        ..sort((a, b) => b.lastOpenedAt!.compareTo(a.lastOpenedAt!));
   final saved = stored.where(
     (t) => t.saved && t.commentsFetchedAt != null && _stillMoving(t, now),
   );

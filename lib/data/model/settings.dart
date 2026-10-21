@@ -5,6 +5,7 @@ import 'package:offline_hn/data/model/daily_time.dart';
 import 'package:offline_hn/data/model/feed_kind.dart';
 import 'package:offline_hn/data/model/filter_list_status.dart';
 import 'package:offline_hn/data/model/viewer_kind.dart';
+import 'package:offline_hn/data/policy/keep_window.dart';
 import 'package:page_capture/filters.dart';
 
 class Setting<T> {
@@ -120,9 +121,9 @@ abstract final class Settings {
     FilterListStatus.encodeAll,
   );
 
-  static const textRetentionDays = Setting<int>(
-    'textRetentionDays',
-    3,
+  static const keepDays = Setting<int>(
+    keepDaysKey,
+    defaultKeepDays,
     int.parse,
     _encodeInt,
   );
@@ -200,7 +201,7 @@ class AppSettings {
     required this.rejectCookiePopups,
     required this.filterListUrls,
     required this.filterListStatus,
-    required this.textRetentionDays,
+    required this.keepDays,
   });
 
   factory AppSettings.defaults() => AppSettings.fromRaw(const {});
@@ -219,7 +220,7 @@ class AppSettings {
     rejectCookiePopups: Settings.rejectCookiePopups.read(raw),
     filterListUrls: Settings.filterListUrls.read(raw),
     filterListStatus: Settings.filterListStatus.read(raw),
-    textRetentionDays: Settings.textRetentionDays.read(raw),
+    keepDays: readKeepDays(raw),
   );
 
   final DailyTime dailyTime;
@@ -235,5 +236,5 @@ class AppSettings {
   final bool rejectCookiePopups;
   final List<String> filterListUrls;
   final Map<String, FilterListStatus> filterListStatus;
-  final int textRetentionDays;
+  final int keepDays;
 }

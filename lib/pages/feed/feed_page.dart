@@ -7,6 +7,8 @@ import 'package:offline_hn/app_services_scope.dart';
 import 'package:offline_hn/data/model/feed_kind.dart';
 import 'package:offline_hn/data/model/feed_tab.dart';
 import 'package:offline_hn/data/model/local_day.dart';
+import 'package:offline_hn/data/model/settings.dart';
+import 'package:offline_hn/data/policy/keep_window.dart';
 import 'package:offline_hn/data/model/sync_enums.dart';
 import 'package:offline_hn/data/policy/day_grouping.dart';
 import 'package:offline_hn/data/repository/sync_repository.dart';
@@ -45,13 +47,20 @@ class _FeedPageState extends State<FeedPage> {
   FeedTab _tab = FeedTab.top;
   LocalDay? _picked;
   bool _askedForNotifications = false;
+  int _keepDays = defaultKeepDays;
 
   @override
   void initState() {
     super.initState();
     _subscriptions
+      ..add(_services.settings.watch().listen(_onSettings))
       ..add(_services.sync.progress.listen(_askForNotificationsOnce))
       ..add(_services.sync.connection.skip(1).listen(_onConnection));
+  }
+
+  void _onSettings(AppSettings settings) {
+    if (settings.keepDays == _keepDays) return;
+    setState(() => _keepDays = settings.keepDays);
   }
 
   @override
@@ -154,8 +163,9 @@ class _FeedPageState extends State<FeedPage> {
     );
   }
 
-  Widget _scaffold(List<FeedTab> tabs, List<LocalDay> days) {
+  Widget _scaffold(List<FeedTab> tabs, List<LocalDay> stored) {
     final today = localDayOf(DateTime.now());
+    final days = daysInWindow(stored, today, _keepDays);
     final day = shownDay(days, _picked, today);
     return Scaffold(
       appBar: AppBar(
@@ -222,6 +232,7 @@ class _FeedPageState extends State<FeedPage> {
                 kind: tabs[index].kind,
                 days: _days[tabs[index].kind],
                 picked: _picked,
+                keepDays: _keepDays,
                 onRefresh: _refresh,
               ),
             ),
@@ -248,6 +259,7 @@ class _FeedPane extends StatelessWidget {
     required this.kind,
     required this.days,
     required this.picked,
+    required this.keepDays,
     required this.onRefresh,
   });
 
@@ -255,6 +267,7 @@ class _FeedPane extends StatelessWidget {
   final FeedKind? kind;
   final Stream<List<LocalDay>>? days;
   final LocalDay? picked;
+  final int keepDays;
   final Future<void> Function() onRefresh;
 
   @override
@@ -273,10 +286,11 @@ class _FeedPane extends StatelessWidget {
       stream: days,
       builder: (context, snapshot) {
         final stored = snapshot.data ?? const <LocalDay>[];
+        final today = localDayOf(DateTime.now());
         return FeedList(
           services: services,
           kind: kind,
-          day: shownDay(stored, picked, localDayOf(DateTime.now())),
+          day: shownDay(daysInWindow(stored, today, keepDays), picked, today),
           storeEmpty: stored.isEmpty,
           onRefresh: onRefresh,
         );

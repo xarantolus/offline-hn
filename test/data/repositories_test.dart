@@ -494,7 +494,7 @@ void main() {
       expect(settings.rejectCookiePopups, isTrue);
       expect(settings.filterListUrls, FilterSources.defaultLists);
       expect(settings.filterListStatus, isEmpty);
-      expect(settings.textRetentionDays, 3);
+      expect(settings.keepDays, 2);
     });
 
     test(
@@ -821,7 +821,10 @@ void main() {
 
       final deleted = <String>[];
       final result = await PruneService(RetentionRepository(db)).run(
-        settings: AppSettings.fromRaw({Settings.pageBudgetBytes.key: '900'}),
+        settings: AppSettings.fromRaw({
+          Settings.pageBudgetBytes.key: '900',
+          Settings.keepDays.key: '7',
+        }),
         now: now,
         deleteFile: (path) async => deleted.add(path),
       );
@@ -867,12 +870,10 @@ void main() {
     test('applies the policies and reports the files to delete', () async {
       final now = DateTime.utc(2026, 10, 20, 12);
       final old = now.subtract(const Duration(days: 10));
+      await stories.upsertStories([_story(1), _story(3), _story(4)], old);
       await stories.upsertStories([
-        _story(1),
         _story(2),
-        _story(3),
-        _story(4),
-      ], old);
+      ], now.subtract(const Duration(hours: 3)));
       await stories.setSaved(3, value: true);
       await stories.recordSnapshot(FeedKind.top, [4], old);
       await pages.recordCaptured(
@@ -891,9 +892,7 @@ void main() {
       );
       await ThreadStateRepository(db).markOpened(2, old);
 
-      final settings = AppSettings.fromRaw({
-        Settings.pageBudgetBytes.key: '700',
-      });
+      final settings = AppSettings.fromRaw({Settings.keepDays.key: '2'});
       final deleted = <String>[];
       final result = await PruneService(RetentionRepository(db)).run(
         settings: settings,

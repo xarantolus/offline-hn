@@ -19,6 +19,8 @@ ThreadCandidate _thread(
   storyTime: posted,
 );
 
+final _longAgo = _now.subtract(const Duration(days: 500));
+
 void main() {
   test('feeds are merged by rank without repeats', () {
     expect(
@@ -48,10 +50,25 @@ void main() {
           ),
         ],
         now: _now,
+        keepFrom: _longAgo,
       );
       expect(order, [21, 20, 30, 10, 11, 12]);
     },
   );
+
+  test('a thread opened before the keep window is not refreshed for that', () {
+    final order = selectCommentTargets(
+      feedOrder: [1],
+      stored: [
+        _thread(1),
+        _thread(2, opened: _now.subtract(const Duration(days: 3))),
+        _thread(3, opened: _now.subtract(const Duration(hours: 5))),
+      ],
+      now: _now,
+      keepFrom: _now.subtract(const Duration(days: 1)),
+    );
+    expect(order, [3, 1]);
+  });
 
   test('a stored thread on no feed that nobody opened is left alone', () {
     final order = selectCommentTargets(
@@ -61,6 +78,7 @@ void main() {
         _thread(2, fetched: _now.subtract(const Duration(days: 1))),
       ],
       now: _now,
+      keepFrom: _longAgo,
     );
     expect(order, [1]);
   });
@@ -73,6 +91,7 @@ void main() {
         _thread(2, fetched: _now.subtract(const Duration(hours: 1))),
       ],
       now: _now,
+      keepFrom: _longAgo,
     );
     expect(order, [2]);
   });
@@ -82,6 +101,7 @@ void main() {
       feedOrder: [1],
       stored: [_thread(1, fetched: _now.add(const Duration(hours: 1)))],
       now: _now,
+      keepFrom: _longAgo,
     );
     expect(order, [1]);
   });
@@ -106,8 +126,12 @@ void main() {
   });
 
   group('saved threads', () {
-    List<int> targets(List<ThreadCandidate> stored) =>
-        selectCommentTargets(feedOrder: const [], stored: stored, now: _now);
+    List<int> targets(List<ThreadCandidate> stored) => selectCommentTargets(
+      feedOrder: const [],
+      stored: stored,
+      now: _now,
+      keepFrom: _longAgo,
+    );
     final old = _now.subtract(const Duration(days: 400));
     final fetched = _now.subtract(const Duration(hours: 5));
 

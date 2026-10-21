@@ -130,3 +130,10 @@ String nextUpdateText({
   final hours = settings.intervalHours;
   return hours == null ? daily : '$daily · and every $hours h';
 }
+
+/// "today and yesterday", "the last 4 days".
+String keepWindowText(int days) => switch (days) {
+  1 => 'today',
+  2 => 'today and yesterday',
+  _ => 'the last $days days',
+};
