@@ -181,14 +181,31 @@ class _Byline extends StatelessWidget {
             ],
           ),
         ),
-        if (row.collapsed && row.hiddenCount > 0)
-          _Pill(label: '+${row.hiddenCount}', size: 11.5, radius: 8)
-        else
-          Icon(
-            row.collapsed ? Icons.expand_more : Icons.expand_less,
-            size: 16,
-            color: t.muted,
+        AnimatedSize(
+          duration: revealDuration,
+          curve: revealCurve,
+          alignment: Alignment.centerRight,
+          child: AnimatedSwitcher(
+            duration: revealDuration,
+            child: row.collapsed && row.hiddenCount > 0
+                ? Padding(
+                    key: const ValueKey('count'),
+                    padding: const EdgeInsets.only(right: 4),
+                    child: _Pill(
+                      label: '+${row.hiddenCount}',
+                      size: 11.5,
+                      radius: 8,
+                    ),
+                  )
+                : const SizedBox.shrink(key: ValueKey('none')),
           ),
+        ),
+        AnimatedRotation(
+          turns: row.collapsed ? 0.5 : 0,
+          duration: revealDuration,
+          curve: revealCurve,
+          child: Icon(Icons.expand_less, size: 16, color: t.muted),
+        ),
       ],
     );
   }
