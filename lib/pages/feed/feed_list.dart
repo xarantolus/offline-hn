@@ -11,6 +11,7 @@ import 'package:offline_hn/pages/feed/empty_feed.dart';
 import 'package:offline_hn/pages/feed/story_entry_tile.dart';
 import 'package:offline_hn/ui/reveal.dart';
 import 'package:offline_hn/ui/small_caps.dart';
+import 'package:offline_hn/ui/story_list_place.dart';
 import 'package:offline_hn/ui/tokens.dart';
 
 class FeedList extends StatefulWidget {
@@ -44,6 +45,7 @@ class FeedList extends StatefulWidget {
 class _FeedListState extends State<FeedList> {
   late Stream<List<FeedEntry>> _entries = _watch();
   late ReadHiding _hiding = ReadHiding(_hides);
+  final _place = StoryListPlace();
   final _closing = <int>{};
   final _opening = <int>{};
   Timer? _settle;
@@ -72,6 +74,7 @@ class _FeedListState extends State<FeedList> {
   @override
   void dispose() {
     _settle?.cancel();
+    _place.dispose();
     super.dispose();
   }
 
@@ -138,6 +141,7 @@ class _FeedListState extends State<FeedList> {
     return LayoutBuilder(
       builder: (context, box) => ListView.builder(
         key: PageStorageKey<(FeedKind?, LocalDay?)>((widget.kind, widget.day)),
+        controller: _place.controller,
         padding: EdgeInsets.only(
           bottom: MediaQuery.viewPaddingOf(context).bottom,
         ),
@@ -157,10 +161,10 @@ class _FeedListState extends State<FeedList> {
           final id = entry.story.id;
           final hidden = _hiding.isHidden(id);
           if (hidden && !_closing.contains(id)) {
-            return SizedBox.shrink(key: ValueKey(id));
+            return SizedBox.shrink(key: _place.keyFor(id));
           }
           return Reveal(
-            key: ValueKey(id),
+            key: _place.keyFor(id),
             open: !hidden,
             animateIn: _opening.contains(id),
             child: Column(
@@ -171,6 +175,12 @@ class _FeedListState extends State<FeedList> {
                   entry: entry,
                   entries: shown,
                   now: now,
+                  onOpen: () => _place.remember(id),
+                  onViewed: (viewed) => _place.show(
+                    viewed,
+                    index: entries.indexWhere((e) => e.story.id == viewed),
+                    count: entries.length,
+                  ),
                 ),
                 const Hairline(inset: 22),
               ],

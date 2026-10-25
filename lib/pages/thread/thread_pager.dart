@@ -18,6 +18,7 @@ void openThread(
   required int storyId,
   required List<int> storyIds,
   bool openArticle = false,
+  ValueChanged<int>? onStoryChanged,
 }) {
   unawaited(services.stories.setRead(storyId, value: true));
   unawaited(
@@ -27,6 +28,7 @@ void openThread(
           storyIds: storyIds,
           storyId: storyId,
           openArticle: openArticle,
+          onStoryChanged: onStoryChanged,
         ),
         instant: openArticle,
       ),
@@ -63,11 +65,15 @@ class ThreadPager extends StatefulWidget {
     required int storyId,
     this.openArticle = false,
     this.focusCommentId,
+    this.onStoryChanged,
   }) : _start = pagerFor(storyIds, storyId);
 
   final ({List<int> ids, int index}) _start;
   final bool openArticle;
   final int? focusCommentId;
+
+  /// Told the story the pager has settled on, each time it changes.
+  final ValueChanged<int>? onStoryChanged;
 
   @override
   State<ThreadPager> createState() => _ThreadPagerState();
@@ -90,7 +96,9 @@ class _ThreadPagerState extends State<ThreadPager> {
     final metrics = notification.metrics;
     if (notification.depth != 0 || metrics is! PageMetrics) return false;
     final page = metrics.page?.round();
-    if (page != null && page != _current) setState(() => _current = page);
+    if (page == null || page == _current) return false;
+    setState(() => _current = page);
+    widget.onStoryChanged?.call(widget._start.ids[page]);
     return false;
   }
 

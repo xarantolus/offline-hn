@@ -4,6 +4,7 @@ import 'package:offline_hn/data/repository/story_repository.dart';
 import 'package:offline_hn/pages/feed/empty_feed.dart';
 import 'package:offline_hn/pages/feed/story_entry_tile.dart';
 import 'package:offline_hn/ui/small_caps.dart';
+import 'package:offline_hn/ui/story_list_place.dart';
 import 'package:offline_hn/ui/tokens.dart';
 
 /// Searches every story on the phone. Nothing here asks the network.
@@ -19,12 +20,14 @@ class SearchPage extends StatefulWidget {
 class _SearchPageState extends State<SearchPage> {
   final _controller = TextEditingController();
   final _focus = FocusNode();
+  final _place = StoryListPlace();
   Stream<List<FeedEntry>>? _results;
 
   @override
   void dispose() {
     _controller.dispose();
     _focus.dispose();
+    _place.dispose();
     super.dispose();
   }
 
@@ -101,21 +104,38 @@ class _SearchPageState extends State<SearchPage> {
           );
         }
         final now = DateTime.now();
-        return ListView.separated(
+        return ListView.builder(
+          controller: _place.controller,
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: EdgeInsets.only(
             bottom: MediaQuery.viewPaddingOf(context).bottom,
           ),
           itemCount: entries.length,
-          separatorBuilder: (_, _) => const Hairline(inset: 22),
-          itemBuilder: (context, index) => StoryEntryTile(
-            key: ValueKey(entries[index].story.id),
-            services: widget.services,
-            entry: entries[index],
-            entries: entries,
-            now: now,
-            onOpen: _focus.unfocus,
-          ),
+          itemBuilder: (context, index) {
+            final id = entries[index].story.id;
+            return Column(
+              key: _place.keyFor(id),
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                StoryEntryTile(
+                  services: widget.services,
+                  entry: entries[index],
+                  entries: entries,
+                  now: now,
+                  onOpen: () {
+                    _focus.unfocus();
+                    _place.remember(id);
+                  },
+                  onViewed: (viewed) => _place.show(
+                    viewed,
+                    index: entries.indexWhere((e) => e.story.id == viewed),
+                    count: entries.length,
+                  ),
+                ),
+                const Hairline(inset: 22),
+              ],
+            );
+          },
         );
       },
     );

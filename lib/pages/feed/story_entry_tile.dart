@@ -19,6 +19,7 @@ class StoryEntryTile extends StatelessWidget {
     required this.entries,
     required this.now,
     this.onOpen,
+    this.onViewed,
   });
 
   final AppServices services;
@@ -28,6 +29,9 @@ class StoryEntryTile extends StatelessWidget {
 
   /// Runs before a thread opens.
   final VoidCallback? onOpen;
+
+  /// Told each story the opened thread is swiped to.
+  final ValueChanged<int>? onViewed;
 
   @override
   Widget build(BuildContext context) {
@@ -57,6 +61,7 @@ class StoryEntryTile extends StatelessWidget {
       storyId: entry.story.id,
       storyIds: [for (final e in entries) e.story.id],
       openArticle: openArticle,
+      onStoryChanged: onViewed,
     );
   }
 
