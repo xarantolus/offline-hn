@@ -6,19 +6,25 @@ import 'package:workmanager/workmanager.dart';
 /// registers only ever enqueue [syncWork]; fetching happens there and nowhere
 /// else.
 abstract interface class WorkQueue {
-  /// Joins a sync that is already waiting or running.
-  Future<void> enqueueSync(SyncTrigger trigger, NetworkRequirement network);
+  /// Joins a sync that is already waiting or running. With [replaceWaiting] a
+  /// sync that is only waiting for its conditions (a charger, Wi-Fi) is
+  /// replaced by this one, which has its own.
+  Future<void> enqueueSync(
+    SyncTrigger trigger,
+    WorkRequirements requirements, {
+    bool replaceWaiting = false,
+  });
 
   /// Replaces the pending daily trigger, or with [afterRun] queues the next
   /// one behind the daily task that is running: replacing a running task
   /// cancels it.
   Future<void> scheduleDaily(
     Duration delay,
-    NetworkRequirement network, {
+    WorkRequirements requirements, {
     bool afterRun = false,
   });
 
-  Future<void> schedulePeriodic(Duration every, NetworkRequirement network);
+  Future<void> schedulePeriodic(Duration every, WorkRequirements requirements);
 
   /// Cancels the sync waiting or running; what is running is told to stop.
   Future<void> cancelSync();
@@ -49,41 +55,48 @@ class WorkmanagerQueue implements WorkQueue {
   static const _backoff = Duration(seconds: 10);
 
   @override
-  Future<void> enqueueSync(SyncTrigger trigger, NetworkRequirement network) =>
-      Workmanager().registerOneOffTask(
-        SyncTasks.syncWork,
-        SyncTasks.sync,
-        inputData: {SyncTasks.triggerKey: trigger.name},
-        constraints: _constraints(network),
-        existingWorkPolicy: ExistingWorkPolicy.keep,
-        backoffPolicy: BackoffPolicy.linear,
-        backoffPolicyDelay: _backoff,
-      );
+  Future<void> enqueueSync(
+    SyncTrigger trigger,
+    WorkRequirements requirements, {
+    bool replaceWaiting = false,
+  }) => Workmanager().registerOneOffTask(
+    SyncTasks.syncWork,
+    SyncTasks.sync,
+    inputData: {SyncTasks.triggerKey: trigger.name},
+    constraints: _constraints(requirements),
+    existingWorkPolicy: replaceWaiting
+        ? ExistingWorkPolicy.replace
+        : ExistingWorkPolicy.keep,
+    backoffPolicy: BackoffPolicy.linear,
+    backoffPolicyDelay: _backoff,
+  );
 
   @override
   Future<void> scheduleDaily(
     Duration delay,
-    NetworkRequirement network, {
+    WorkRequirements requirements, {
     bool afterRun = false,
   }) => Workmanager().registerOneOffTask(
     SyncTasks.dailyWork,
     SyncTasks.daily,
     initialDelay: delay,
-    constraints: _constraints(network),
+    constraints: _constraints(requirements),
     existingWorkPolicy: afterRun
         ? ExistingWorkPolicy.update
         : ExistingWorkPolicy.replace,
   );
 
   @override
-  Future<void> schedulePeriodic(Duration every, NetworkRequirement network) =>
-      Workmanager().registerPeriodicTask(
-        SyncTasks.periodicWork,
-        SyncTasks.periodic,
-        frequency: every,
-        constraints: _constraints(network),
-        existingWorkPolicy: ExistingPeriodicWorkPolicy.update,
-      );
+  Future<void> schedulePeriodic(
+    Duration every,
+    WorkRequirements requirements,
+  ) => Workmanager().registerPeriodicTask(
+    SyncTasks.periodicWork,
+    SyncTasks.periodic,
+    frequency: every,
+    constraints: _constraints(requirements),
+    existingWorkPolicy: ExistingPeriodicWorkPolicy.update,
+  );
 
   @override
   Future<void> cancelSync() =>
@@ -93,9 +106,10 @@ class WorkmanagerQueue implements WorkQueue {
   Future<void> cancelPeriodic() =>
       Workmanager().cancelByUniqueName(SyncTasks.periodicWork);
 
-  Constraints _constraints(NetworkRequirement network) => Constraints(
-    networkType: network == NetworkRequirement.unmetered
+  Constraints _constraints(WorkRequirements requirements) => Constraints(
+    networkType: requirements.network == NetworkRequirement.unmetered
         ? NetworkType.unmetered
         : NetworkType.connected,
+    requiresCharging: requirements.charging,
   );
 }

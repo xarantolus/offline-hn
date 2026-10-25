@@ -163,7 +163,7 @@ void main() {
           when: when,
           offsetAt: utc,
         ),
-        '5:0 · and every 4 h',
+        '5:0 · and every 4 h, when charging',
       );
       expect(
         nextUpdateText(
@@ -172,7 +172,19 @@ void main() {
           when: when,
           offsetAt: utc,
         ),
-        '5:0',
+        '5:0, when charging',
+      );
+    });
+
+    test('says when charging is not needed', () {
+      expect(
+        nextUpdateText(
+          settings: settings({'intervalHours': '4', 'chargingOnly': 'false'}),
+          now: DateTime.utc(2026, 10, 10, 6),
+          when: when,
+          offsetAt: utc,
+        ),
+        '5:0 · and every 4 h',
       );
     });
   });

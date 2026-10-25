@@ -107,6 +107,16 @@ class UpdatesSection extends StatelessWidget {
           value: settings.wifiOnly,
           onChanged: (v) => store.set(Settings.wifiOnly, v),
         ),
+        SwitchListTile(
+          title: Text('Only update while charging', style: t.label),
+          subtitle: Text(
+            'Automatic updates wait for a charger. The refresh button and '
+            '"Update everything now" always work',
+            style: t.hint,
+          ),
+          value: settings.chargingOnly,
+          onChanged: (v) => store.set(Settings.chargingOnly, v),
+        ),
         if (!settings.wifiOnly)
           SwitchListTile(
             title: Text('Saved copies on mobile data', style: t.label),

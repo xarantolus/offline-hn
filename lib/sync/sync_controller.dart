@@ -74,7 +74,10 @@ class SyncController {
       ) !=
       SyncAllowance.nothing;
 
-  Future<SyncRequest> requestSync(SyncTrigger trigger) async {
+  Future<SyncRequest> requestSync(
+    SyncTrigger trigger, {
+    bool firstUpdate = false,
+  }) async {
     final settings = await _settings.load();
     final allowance = syncAllowance(
       trigger: trigger,
@@ -82,14 +85,19 @@ class SyncController {
       settings: settings,
     );
     if (allowance == SyncAllowance.nothing) return SyncRequest.noConnection;
-    await _queue.enqueueSync(trigger, networkFor(trigger, settings));
+    await _queue.enqueueSync(
+      trigger,
+      requirementsFor(trigger, settings, firstUpdate: firstUpdate),
+      replaceWaiting: trigger.userInitiated && !await _syncs.isExecuting(),
+    );
     return SyncRequest.queued;
   }
 
   /// An empty store counts as stale.
   Future<void> catchUpIfStale() async {
-    if (isStale(await _syncs.lastSuccessfulSync(), _clock())) {
-      await requestSync(SyncTrigger.catchUp);
+    final last = await _syncs.lastSuccessfulSync();
+    if (isStale(last, _clock())) {
+      await requestSync(SyncTrigger.catchUp, firstUpdate: last == null);
     }
   }
 

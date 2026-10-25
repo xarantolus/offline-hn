@@ -123,25 +123,55 @@ void main() {
     });
   });
 
-  group('network requirement', () {
-    final wifiOnly = AppSettings.defaults();
+  group('work requirements', () {
+    final defaults = AppSettings.defaults();
     final anyNetwork = AppSettings.fromRaw({Settings.wifiOnly.key: 'false'});
+    final unplugged = AppSettings.fromRaw({Settings.chargingOnly.key: 'false'});
+    const automatic = [
+      SyncTrigger.scheduled,
+      SyncTrigger.periodic,
+      SyncTrigger.catchUp,
+    ];
 
     test('automatic runs follow the Wi-Fi setting', () {
-      for (final trigger in [
-        SyncTrigger.scheduled,
-        SyncTrigger.periodic,
-        SyncTrigger.catchUp,
-      ]) {
-        expect(networkFor(trigger, wifiOnly), NetworkRequirement.unmetered);
-        expect(networkFor(trigger, anyNetwork), NetworkRequirement.connected);
+      for (final trigger in automatic) {
+        expect(
+          requirementsFor(trigger, defaults).network,
+          NetworkRequirement.unmetered,
+        );
+        expect(
+          requirementsFor(trigger, anyNetwork).network,
+          NetworkRequirement.connected,
+        );
       }
     });
 
-    test('a run the user asked for takes any connection', () {
+    test('automatic runs wait for a charger unless the setting is off', () {
+      for (final trigger in automatic) {
+        expect(requirementsFor(trigger, defaults).charging, isTrue);
+        expect(requirementsFor(trigger, unplugged).charging, isFalse);
+      }
+    });
+
+    test('a run the user asked for needs neither Wi-Fi nor a charger', () {
+      for (final trigger in [SyncTrigger.manual, SyncTrigger.refresh]) {
+        expect(
+          requirementsFor(trigger, defaults),
+          const WorkRequirements(
+            network: NetworkRequirement.connected,
+            charging: false,
+          ),
+        );
+      }
+    });
+
+    test('the first update ever does not wait for a charger', () {
       expect(
-        networkFor(SyncTrigger.manual, wifiOnly),
-        NetworkRequirement.connected,
+        requirementsFor(SyncTrigger.catchUp, defaults, firstUpdate: true),
+        const WorkRequirements(
+          network: NetworkRequirement.unmetered,
+          charging: false,
+        ),
       );
     });
   });
@@ -157,7 +187,7 @@ void main() {
         offsetAt: berlin,
       ).apply(AppSettings.defaults());
       expect(queue.daily.single.$1, const Duration(hours: 15));
-      expect(queue.daily.single.$2, NetworkRequirement.unmetered);
+      expect(queue.daily.single.$2.network, NetworkRequirement.unmetered);
     });
 
     test('the interval setting sets or cancels the periodic run', () async {
@@ -175,6 +205,17 @@ void main() {
       expect(queue.periodic, hasLength(1));
     });
 
+    test('the charging setting reaches both triggers', () async {
+      final queue = FakeQueue();
+      final scheduler = Scheduler(queue, clock: () => now, offsetAt: berlin);
+      await scheduler.apply(AppSettings.defaults());
+      await scheduler.apply(
+        AppSettings.fromRaw({Settings.chargingOnly.key: 'false'}),
+      );
+      expect(queue.daily.map((d) => d.$2.charging), [true, false]);
+      expect(queue.periodic.map((p) => p.$2.charging), [true, false]);
+    });
+
     test('the Wi-Fi setting reaches both triggers', () async {
       final queue = FakeQueue();
       await Scheduler(
@@ -182,8 +223,8 @@ void main() {
         clock: () => now,
         offsetAt: berlin,
       ).apply(AppSettings.fromRaw({Settings.wifiOnly.key: 'false'}));
-      expect(queue.daily.single.$2, NetworkRequirement.connected);
-      expect(queue.periodic.single.$2, NetworkRequirement.connected);
+      expect(queue.daily.single.$2.network, NetworkRequirement.connected);
+      expect(queue.periodic.single.$2.network, NetworkRequirement.connected);
     });
 
     test(

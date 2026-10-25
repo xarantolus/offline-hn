@@ -109,6 +109,10 @@ class SyncRepository {
         SyncRunsCompanion(phase: Value(phase), heartbeatAt: Value(now)),
       );
 
+  /// Whether a process is working on the open run right now, as opposed to a
+  /// run that is only waiting to be continued.
+  Future<bool> isExecuting() async => (await _openRun())?.executing ?? false;
+
   Future<void> setExecuting(int runId, {required bool value}) =>
       (_db.update(_db.syncRuns)..where((r) => r.id.equals(runId))).write(
         SyncRunsCompanion(executing: Value(value)),

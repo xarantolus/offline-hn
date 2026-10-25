@@ -22,10 +22,40 @@ DateTime nextDailyRun(
   }
 }
 
-/// Automatic runs follow the Wi-Fi setting. A run the user asked for takes
-/// whatever connection there is, and the runner decides what it may fetch.
-NetworkRequirement networkFor(SyncTrigger trigger, AppSettings settings) {
-  return settings.wifiOnly && !trigger.userInitiated
-      ? NetworkRequirement.unmetered
-      : NetworkRequirement.connected;
+/// What must hold before the system starts the work.
+class WorkRequirements {
+  const WorkRequirements({required this.network, required this.charging});
+
+  final NetworkRequirement network;
+  final bool charging;
+
+  @override
+  bool operator ==(Object other) =>
+      other is WorkRequirements &&
+      other.network == network &&
+      other.charging == charging;
+
+  @override
+  int get hashCode => Object.hash(network, charging);
+
+  @override
+  String toString() => 'WorkRequirements($network, charging: $charging)';
+}
+
+/// Automatic runs follow the Wi-Fi and charging settings. A run the user asked
+/// for takes whatever connection and battery state there is, and the runner
+/// decides what it may fetch. The very first update has nothing on screen to
+/// fall back on, so it does not wait for a charger either.
+WorkRequirements requirementsFor(
+  SyncTrigger trigger,
+  AppSettings settings, {
+  bool firstUpdate = false,
+}) {
+  final automatic = !trigger.userInitiated;
+  return WorkRequirements(
+    network: settings.wifiOnly && automatic
+        ? NetworkRequirement.unmetered
+        : NetworkRequirement.connected,
+    charging: settings.chargingOnly && automatic && !firstUpdate,
+  );
 }

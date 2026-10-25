@@ -77,7 +77,10 @@ abstract final class SyncTaskHandler {
     SyncTrigger trigger,
   ) async {
     final settings = await environment.settings.load();
-    await environment.queue.enqueueSync(trigger, networkFor(trigger, settings));
+    await environment.queue.enqueueSync(
+      trigger,
+      requirementsFor(trigger, settings),
+    );
     return true;
   }
 }

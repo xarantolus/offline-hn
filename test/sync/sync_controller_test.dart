@@ -64,10 +64,8 @@ void main() {
         await controller.requestSync(SyncTrigger.manual),
         SyncRequest.queued,
       );
-      expect(queue.syncs.single, (
-        SyncTrigger.manual,
-        NetworkRequirement.connected,
-      ));
+      expect(queue.syncs.single.$1, SyncTrigger.manual);
+      expect(queue.syncs.single.$2.network, NetworkRequirement.connected);
     });
 
     test(
@@ -109,8 +107,42 @@ void main() {
         await controller.requestSync(SyncTrigger.catchUp),
         SyncRequest.queued,
       );
-      expect(queue.syncs.single.$2, NetworkRequirement.connected);
+      expect(queue.syncs.single.$2.network, NetworkRequirement.connected);
     });
+  });
+
+  group('charging', () {
+    test(
+      'an automatic trigger waits for a charger, a manual one not',
+      () async {
+        await finishedSync(DateTime.utc(2000));
+        await controller.requestSync(SyncTrigger.catchUp);
+        await controller.requestSync(SyncTrigger.manual);
+        expect(queue.syncs.map((s) => s.$2.charging), [true, false]);
+      },
+    );
+
+    test('the first update on an empty store does not wait', () async {
+      await controller.catchUpIfStale();
+      expect(queue.syncs.single.$2.charging, isFalse);
+    });
+
+    test(
+      'a user request replaces a waiting job, but joins a running one',
+      () async {
+        await controller.requestSync(SyncTrigger.refresh);
+        await controller.requestSync(SyncTrigger.catchUp);
+        expect(queue.replaced, [true, false]);
+
+        final run = await syncs.beginOrResume(
+          SyncTrigger.catchUp,
+          DateTime.now(),
+        );
+        await syncs.setExecuting(run.id, value: true);
+        await controller.requestSync(SyncTrigger.refresh);
+        expect(queue.replaced.last, isFalse);
+      },
+    );
   });
 
   group('whether the empty screen must offer the fetch', () {

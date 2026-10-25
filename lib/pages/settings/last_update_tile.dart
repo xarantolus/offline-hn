@@ -55,7 +55,10 @@ class _LastUpdateTileState extends State<LastUpdateTile> {
                       : runTitle(context, run, now, progress.data),
                   style: t.hint,
                 ),
-                Text('Next daily update: $next', style: t.hint),
+                Text(
+                  'Next daily update: $next${chargingNote(widget.settings)}',
+                  style: t.hint,
+                ),
               ],
             ),
             trailing: const Icon(Icons.chevron_right),

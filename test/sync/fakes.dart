@@ -217,9 +217,10 @@ class FakeSaver implements StoryPageSaver {
 }
 
 class FakeQueue implements WorkQueue {
-  final syncs = <(SyncTrigger, NetworkRequirement)>[];
-  final daily = <(Duration, NetworkRequirement)>[];
-  final periodic = <(Duration, NetworkRequirement)>[];
+  final syncs = <(SyncTrigger, WorkRequirements)>[];
+  final daily = <(Duration, WorkRequirements)>[];
+  final periodic = <(Duration, WorkRequirements)>[];
+  final replaced = <bool>[];
   var periodicCancelled = 0;
   var syncCancelled = 0;
 
@@ -232,21 +233,25 @@ class FakeQueue implements WorkQueue {
   @override
   Future<void> enqueueSync(
     SyncTrigger trigger,
-    NetworkRequirement network,
-  ) async => syncs.add((trigger, network));
+    WorkRequirements requirements, {
+    bool replaceWaiting = false,
+  }) async {
+    syncs.add((trigger, requirements));
+    replaced.add(replaceWaiting);
+  }
 
   @override
   Future<void> scheduleDaily(
     Duration delay,
-    NetworkRequirement network, {
+    WorkRequirements requirements, {
     bool afterRun = false,
-  }) async => daily.add((delay, network));
+  }) async => daily.add((delay, requirements));
 
   @override
   Future<void> schedulePeriodic(
     Duration every,
-    NetworkRequirement network,
-  ) async => periodic.add((every, network));
+    WorkRequirements requirements,
+  ) async => periodic.add((every, requirements));
 }
 
 PageFiles tempPageFiles() =>

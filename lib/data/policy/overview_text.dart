@@ -114,6 +114,10 @@ String nextDailyText({
   UtcOffsetAt offsetAt = deviceOffsetAt,
 }) => when(nextDailyRun(settings.dailyTime, now, offsetAt: offsetAt));
 
+/// Appended to a time that an automatic update only keeps while charging.
+String chargingNote(AppSettings settings) =>
+    settings.chargingOnly ? ', when charging' : '';
+
 /// The next daily update, and the shorter interval when one is set.
 String nextUpdateText({
   required AppSettings settings,
@@ -128,7 +132,8 @@ String nextUpdateText({
     offsetAt: offsetAt,
   );
   final hours = settings.intervalHours;
-  return hours == null ? daily : '$daily · and every $hours h';
+  final times = hours == null ? daily : '$daily · and every $hours h';
+  return '$times${chargingNote(settings)}';
 }
 
 /// "today and yesterday", "the last 4 days".

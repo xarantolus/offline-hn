@@ -28,6 +28,7 @@ typedef ScheduleSettings = ({
   DailyTime dailyTime,
   int? intervalHours,
   bool wifiOnly,
+  bool chargingOnly,
 });
 
 /// What the UI reads and calls. Built once in `main`.
@@ -115,6 +116,7 @@ class AppServices {
             dailyTime: s.dailyTime,
             intervalHours: s.intervalHours,
             wifiOnly: s.wifiOnly,
+            chargingOnly: s.chargingOnly,
           ),
         )
         .distinct()

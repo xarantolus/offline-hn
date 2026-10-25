@@ -34,7 +34,7 @@ class Scheduler {
     } else {
       await _queue.schedulePeriodic(
         Duration(hours: hours),
-        networkFor(SyncTrigger.periodic, settings),
+        requirementsFor(SyncTrigger.periodic, settings),
       );
     }
   }
@@ -45,7 +45,7 @@ class Scheduler {
     final run = nextDailyRun(settings.dailyTime, from, offsetAt: _offsetAt);
     return _queue.scheduleDaily(
       run.difference(now),
-      networkFor(SyncTrigger.scheduled, settings),
+      requirementsFor(SyncTrigger.scheduled, settings),
       afterRun: afterRun,
     );
   }

@@ -50,6 +50,13 @@ abstract final class Settings {
     _encodeBool,
   );
 
+  static const chargingOnly = Setting<bool>(
+    'chargingOnly',
+    true,
+    _decodeBool,
+    _encodeBool,
+  );
+
   static const pagesOnMobile = Setting<bool>(
     'pagesOnMobile',
     false,
@@ -191,6 +198,7 @@ class AppSettings {
     required this.dailyTime,
     required this.intervalHours,
     required this.wifiOnly,
+    required this.chargingOnly,
     required this.pagesOnMobile,
     required this.pageBudgetBytes,
     required this.commentTextScale,
@@ -210,6 +218,7 @@ class AppSettings {
     dailyTime: Settings.dailyTime.read(raw),
     intervalHours: Settings.intervalHours.read(raw),
     wifiOnly: Settings.wifiOnly.read(raw),
+    chargingOnly: Settings.chargingOnly.read(raw),
     pagesOnMobile: Settings.pagesOnMobile.read(raw),
     pageBudgetBytes: Settings.pageBudgetBytes.read(raw),
     commentTextScale: Settings.commentTextScale.read(raw),
@@ -226,6 +235,7 @@ class AppSettings {
   final DailyTime dailyTime;
   final int? intervalHours;
   final bool wifiOnly;
+  final bool chargingOnly;
   final bool pagesOnMobile;
   final int pageBudgetBytes;
   final double commentTextScale;
