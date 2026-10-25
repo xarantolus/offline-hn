@@ -213,15 +213,24 @@ class _FeedPageState extends State<FeedPage> {
           ),
           PopupMenuButton<void>(
             itemBuilder: (_) => [
-              CheckedPopupMenuItem<void>(
-                checked: _hideRead ?? false,
+              PopupMenuItem<void>(
                 onTap: () => unawaited(
                   _services.settings.set(
                     Settings.hideReadStories,
                     !(_hideRead ?? false),
                   ),
                 ),
-                child: const Text('Hide read stories'),
+                child: Row(
+                  children: [
+                    const Expanded(child: Text('Hide read stories')),
+                    IgnorePointer(
+                      child: Checkbox(
+                        value: _hideRead ?? false,
+                        onChanged: (_) {},
+                      ),
+                    ),
+                  ],
+                ),
               ),
               PopupMenuItem<void>(
                 onTap: () => openOverview(context),
