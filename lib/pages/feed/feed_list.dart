@@ -5,9 +5,11 @@ import 'package:offline_hn/app_services.dart';
 import 'package:offline_hn/data/model/feed_kind.dart';
 import 'package:offline_hn/data/model/local_day.dart';
 import 'package:offline_hn/data/policy/day_grouping.dart';
+import 'package:offline_hn/data/policy/read_hiding.dart';
 import 'package:offline_hn/data/repository/story_repository.dart';
 import 'package:offline_hn/pages/feed/empty_feed.dart';
 import 'package:offline_hn/pages/feed/story_entry_tile.dart';
+import 'package:offline_hn/ui/reveal.dart';
 import 'package:offline_hn/ui/small_caps.dart';
 import 'package:offline_hn/ui/tokens.dart';
 
@@ -18,7 +20,9 @@ class FeedList extends StatefulWidget {
     required this.kind,
     required this.day,
     required this.storeEmpty,
+    required this.hideRead,
     required this.onRefresh,
+    required this.onShowRead,
   });
 
   final AppServices services;
@@ -27,7 +31,11 @@ class FeedList extends StatefulWidget {
   final FeedKind? kind;
   final LocalDay? day;
   final bool storeEmpty;
+
+  /// Leaves out the stories already read. The saved list ignores it.
+  final bool hideRead;
   final Future<void> Function() onRefresh;
+  final VoidCallback onShowRead;
 
   @override
   State<FeedList> createState() => _FeedListState();
@@ -35,6 +43,12 @@ class FeedList extends StatefulWidget {
 
 class _FeedListState extends State<FeedList> {
   late Stream<List<FeedEntry>> _entries = _watch();
+  late ReadHiding _hiding = ReadHiding(_hides);
+  final _closing = <int>{};
+  final _opening = <int>{};
+  Timer? _settle;
+
+  bool get _hides => widget.hideRead && widget.kind != null;
 
   Stream<List<FeedEntry>> _watch() {
     final kind = widget.kind;
@@ -49,7 +63,37 @@ class _FeedListState extends State<FeedList> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.kind != widget.kind || oldWidget.day != widget.day) {
       _entries = _watch();
+      _hiding = ReadHiding(_hides);
+      _closing.clear();
+      _opening.clear();
     }
+  }
+
+  @override
+  void dispose() {
+    _settle?.cancel();
+    super.dispose();
+  }
+
+  /// Applies the option to a list that is on screen, and keeps the tiles that
+  /// are changing in the tree until their animation has run.
+  void _applyHiding(List<FeedEntry> entries) {
+    final changed = _hiding.update(entries, enabled: _hides);
+    if (changed.hidden.isEmpty && changed.shown.isEmpty) return;
+    _closing
+      ..clear()
+      ..addAll(changed.hidden);
+    _opening
+      ..clear()
+      ..addAll(changed.shown);
+    _settle?.cancel();
+    _settle = Timer(revealDuration + const Duration(milliseconds: 60), () {
+      if (!mounted) return;
+      setState(() {
+        _closing.clear();
+        _opening.clear();
+      });
+    });
   }
 
   @override
@@ -59,6 +103,7 @@ class _FeedListState extends State<FeedList> {
       builder: (context, snapshot) {
         final entries = snapshot.data;
         if (entries == null) return const SizedBox.shrink();
+        _applyHiding(entries);
         return entries.isEmpty
             ? LayoutBuilder(
                 builder: (context, box) => SingleChildScrollView(
@@ -88,23 +133,61 @@ class _FeedListState extends State<FeedList> {
 
   Widget _stories(List<FeedEntry> entries) {
     final now = DateTime.now();
-    return ListView.separated(
-      key: PageStorageKey<(FeedKind?, LocalDay?)>((widget.kind, widget.day)),
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.viewPaddingOf(context).bottom,
+    final shown = _hiding.visible(entries);
+    final allRead = _hiding.hidesAll(entries);
+    return LayoutBuilder(
+      builder: (context, box) => ListView.builder(
+        key: PageStorageKey<(FeedKind?, LocalDay?)>((widget.kind, widget.day)),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewPaddingOf(context).bottom,
+        ),
+        itemCount: entries.length + 1,
+        itemBuilder: (context, index) {
+          if (index == entries.length) {
+            return Reveal(
+              key: const ValueKey('all-read'),
+              open: allRead,
+              animateIn: allRead && _closing.isNotEmpty,
+              child: allRead
+                  ? SizedBox(height: box.maxHeight, child: _allRead())
+                  : const SizedBox.shrink(),
+            );
+          }
+          final entry = entries[index];
+          final id = entry.story.id;
+          final hidden = _hiding.isHidden(id);
+          if (hidden && !_closing.contains(id)) {
+            return SizedBox.shrink(key: ValueKey(id));
+          }
+          return Reveal(
+            key: ValueKey(id),
+            open: !hidden,
+            animateIn: _opening.contains(id),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                StoryEntryTile(
+                  services: widget.services,
+                  entry: entry,
+                  entries: shown,
+                  now: now,
+                ),
+                const Hairline(inset: 22),
+              ],
+            ),
+          );
+        },
       ),
-      itemCount: entries.length,
-      separatorBuilder: (_, _) => const Hairline(inset: 22),
-      itemBuilder: (context, index) {
-        final entry = entries[index];
-        return StoryEntryTile(
-          key: ValueKey(entry.story.id),
-          services: widget.services,
-          entry: entry,
-          entries: entries,
-          now: now,
-        );
-      },
     );
   }
+
+  Widget _allRead() => EmptyMessage(
+    title: 'All stories here are read',
+    hint: 'Hide read stories is on.',
+    tokens: context.tokens,
+    action: FilledButton.tonal(
+      onPressed: widget.onShowRead,
+      child: const Text('Show read stories'),
+    ),
+  );
 }

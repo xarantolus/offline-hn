@@ -135,6 +135,13 @@ abstract final class Settings {
     _encodeInt,
   );
 
+  static const hideReadStories = Setting<bool>(
+    'hideReadStories',
+    false,
+    _decodeBool,
+    _encodeBool,
+  );
+
   static const askedForNotifications = Setting<bool>(
     'askedForNotifications',
     false,
@@ -210,6 +217,7 @@ class AppSettings {
     required this.filterListUrls,
     required this.filterListStatus,
     required this.keepDays,
+    required this.hideReadStories,
   });
 
   factory AppSettings.defaults() => AppSettings.fromRaw(const {});
@@ -230,6 +238,7 @@ class AppSettings {
     filterListUrls: Settings.filterListUrls.read(raw),
     filterListStatus: Settings.filterListStatus.read(raw),
     keepDays: readKeepDays(raw),
+    hideReadStories: Settings.hideReadStories.read(raw),
   );
 
   final DailyTime dailyTime;
@@ -247,4 +256,5 @@ class AppSettings {
   final List<String> filterListUrls;
   final Map<String, FilterListStatus> filterListStatus;
   final int keepDays;
+  final bool hideReadStories;
 }

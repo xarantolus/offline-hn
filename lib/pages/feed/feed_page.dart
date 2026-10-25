@@ -49,6 +49,10 @@ class _FeedPageState extends State<FeedPage> {
   bool _askedForNotifications = false;
   int _keepDays = defaultKeepDays;
 
+  /// Null until the settings have been read, so a list is never built with the
+  /// wrong answer and then animated into the right one.
+  bool? _hideRead;
+
   @override
   void initState() {
     super.initState();
@@ -59,8 +63,14 @@ class _FeedPageState extends State<FeedPage> {
   }
 
   void _onSettings(AppSettings settings) {
-    if (settings.keepDays == _keepDays) return;
-    setState(() => _keepDays = settings.keepDays);
+    if (settings.keepDays == _keepDays &&
+        settings.hideReadStories == _hideRead) {
+      return;
+    }
+    setState(() {
+      _keepDays = settings.keepDays;
+      _hideRead = settings.hideReadStories;
+    });
   }
 
   @override
@@ -127,6 +137,9 @@ class _FeedPageState extends State<FeedPage> {
         );
     }
   }
+
+  void _showRead() =>
+      unawaited(_services.settings.set(Settings.hideReadStories, false));
 
   void _openSearch() {
     unawaited(
@@ -200,6 +213,16 @@ class _FeedPageState extends State<FeedPage> {
           ),
           PopupMenuButton<void>(
             itemBuilder: (_) => [
+              CheckedPopupMenuItem<void>(
+                checked: _hideRead ?? false,
+                onTap: () => unawaited(
+                  _services.settings.set(
+                    Settings.hideReadStories,
+                    !(_hideRead ?? false),
+                  ),
+                ),
+                child: const Text('Hide read stories'),
+              ),
               PopupMenuItem<void>(
                 onTap: () => openOverview(context),
                 child: const Text('Overview'),
@@ -227,14 +250,18 @@ class _FeedPageState extends State<FeedPage> {
               physics: const BouncingScrollPhysics(),
               itemCount: tabs.length,
               onPageChanged: _pageChanged,
-              itemBuilder: (context, index) => _FeedPane(
-                services: _services,
-                kind: tabs[index].kind,
-                days: _days[tabs[index].kind],
-                picked: _picked,
-                keepDays: _keepDays,
-                onRefresh: _refresh,
-              ),
+              itemBuilder: (context, index) => _hideRead == null
+                  ? const SizedBox.shrink()
+                  : _FeedPane(
+                      services: _services,
+                      kind: tabs[index].kind,
+                      days: _days[tabs[index].kind],
+                      picked: _picked,
+                      keepDays: _keepDays,
+                      hideRead: _hideRead ?? false,
+                      onRefresh: _refresh,
+                      onShowRead: _showRead,
+                    ),
             ),
           ),
         ],
@@ -260,7 +287,9 @@ class _FeedPane extends StatelessWidget {
     required this.days,
     required this.picked,
     required this.keepDays,
+    required this.hideRead,
     required this.onRefresh,
+    required this.onShowRead,
   });
 
   final AppServices services;
@@ -268,7 +297,9 @@ class _FeedPane extends StatelessWidget {
   final Stream<List<LocalDay>>? days;
   final LocalDay? picked;
   final int keepDays;
+  final bool hideRead;
   final Future<void> Function() onRefresh;
+  final VoidCallback onShowRead;
 
   @override
   Widget build(BuildContext context) {
@@ -279,7 +310,9 @@ class _FeedPane extends StatelessWidget {
         kind: null,
         day: null,
         storeEmpty: false,
+        hideRead: false,
         onRefresh: onRefresh,
+        onShowRead: onShowRead,
       );
     }
     return StreamBuilder<List<LocalDay>>(
@@ -292,7 +325,9 @@ class _FeedPane extends StatelessWidget {
           kind: kind,
           day: shownDay(daysInWindow(stored, today, keepDays), picked, today),
           storeEmpty: stored.isEmpty,
+          hideRead: hideRead,
           onRefresh: onRefresh,
+          onShowRead: onShowRead,
         );
       },
     );
