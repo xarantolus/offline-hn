@@ -40,6 +40,13 @@ abstract final class FilterSources {
         "Peter Lowe's ad servers",
     'https://easylist-downloads.adblockplus.org/antiadblockfilters.txt':
         'Adblock Warning Removal',
+    'https://easylist.to/easylist/fanboy-newsletter.txt': "Fanboy's Newsletter",
+    'https://filters.adtidy.org/extension/ublock/filters/4.txt':
+        'AdGuard: Social media',
+    'https://raw.githubusercontent.com/yokoffing/filterlists/main/annoyance_list.txt':
+        "yokoffing's Annoyance List",
+    'https://raw.githubusercontent.com/DandelionSprout/adfilt/master/BrowseWebsitesWithoutLoggingIn.txt':
+        "Dandelion Sprout's Browse websites without logging in",
   };
 
   static const defaultLists = [
@@ -61,6 +68,10 @@ abstract final class FilterSources {
     'https://filters.adtidy.org/extension/ublock/filters/22.txt',
     'https://pgl.yoyo.org/adservers/serverlist.php?hostformat=adblockplus&showintro=1&mimetype=plaintext',
     'https://easylist-downloads.adblockplus.org/antiadblockfilters.txt',
+    'https://easylist.to/easylist/fanboy-newsletter.txt',
+    'https://filters.adtidy.org/extension/ublock/filters/4.txt',
+    'https://raw.githubusercontent.com/yokoffing/filterlists/main/annoyance_list.txt',
+    'https://raw.githubusercontent.com/DandelionSprout/adfilt/master/BrowseWebsitesWithoutLoggingIn.txt',
   ];
 
   /// Where in the filter lists directory the resources are kept.
