@@ -8,18 +8,24 @@ import java.io.File
 import java.io.IOException
 import java.util.concurrent.Executors
 
-/** Loads the filter lists and the consent script, keeping them for a while between captures. */
+/** Loads the filter lists and the consent and procedural filter scripts, keeping them for a while between captures. */
 class CaptureTooling(private val context: Context, private val assetPrefix: String) {
     private val executor = Executors.newSingleThreadExecutor()
     private val main = Handler(Looper.getMainLooper())
     private var cachedFilters: Pair<String, AdblockEngine>? = null
     private var cachedConsent: ConsentAssets? = null
+    private var cachedProcedural: ProceduralScript? = null
     private val release = Runnable { dropCached() }
+
+    /** Changes with every install and update of the app. */
+    private val build: String by lazy {
+        context.packageManager.getPackageInfo(context.packageName, 0).lastUpdateTime.toString()
+    }
 
     /** Loads on a worker thread and hands the tools to [then] on the main thread. */
     fun prepare(request: CaptureRequest, then: (CaptureTools) -> Unit) {
         executor.execute {
-            val tools = CaptureTools(filters(request), consent(request))
+            val tools = CaptureTools(filters(request), consent(request), procedural(request))
             main.post {
                 main.removeCallbacks(release)
                 main.postDelayed(release, KEEP_MILLIS)
@@ -33,6 +39,7 @@ class CaptureTooling(private val context: Context, private val assetPrefix: Stri
         cachedFilters?.second?.close()
         cachedFilters = null
         cachedConsent = null
+        cachedProcedural = null
     }
 
     /** The engine comes back leased; [CaptureTools.release] gives it back. */
@@ -48,7 +55,7 @@ class CaptureTooling(private val context: Context, private val assetPrefix: Stri
         val key = (files + resources).joinToString { "${it.name}:${it.length()}:${it.lastModified()}" }
         cachedFilters?.takeIf { it.first == key }?.let { return it.second.acquire() }
         return try {
-            AdblockEngine.open(files, File(directory, STORED_ENGINE), File(directory, STORED_KEY), resources)
+            AdblockEngine.open(build, files, File(directory, STORED_ENGINE), File(directory, STORED_KEY), resources)
                 ?.also {
                     cachedFilters?.second?.close()
                     cachedFilters = key to it
@@ -66,6 +73,18 @@ class CaptureTooling(private val context: Context, private val assetPrefix: Stri
         return try {
             ConsentAssets(read("autoconsent/autoconsent.js"), read("autoconsent/rules.json"))
                 .also { cachedConsent = it }
+        } catch (e: IOException) {
+            null
+        }
+    }
+
+    @Synchronized
+    private fun procedural(request: CaptureRequest): ProceduralScript? {
+        if (!request.hideElements) return null
+        cachedProcedural?.let { return it }
+        return try {
+            ProceduralScript(read("procedural/procedural_filters.js"), read("procedural/apply.js"))
+                .also { cachedProcedural = it }
         } catch (e: IOException) {
             null
         }

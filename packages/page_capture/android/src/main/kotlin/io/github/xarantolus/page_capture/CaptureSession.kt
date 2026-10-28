@@ -18,6 +18,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.webkit.RenderProcessGoneDetail
 import io.github.xarantolus.page_capture.filter.AdblockEngine
+import io.github.xarantolus.page_capture.filter.CosmeticResources
 import org.json.JSONArray
 import org.json.JSONObject
 import org.json.JSONTokener
@@ -26,7 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 
 /** What one capture needs besides the request, loaded before the WebView exists. */
-class CaptureTools(val filters: AdblockEngine?, val consent: ConsentAssets?) {
+class CaptureTools(val filters: AdblockEngine?, val consent: ConsentAssets?, val procedural: ProceduralScript?) {
     fun release() {
         filters?.release()
     }
@@ -214,18 +215,28 @@ class CaptureSession(
     /** Last thing before the save, from the page as it is now: popups and banners the page's own scripts add late bring names no earlier look saw. A page that owns its DOM breaks when pieces vanish while it still runs. */
     private fun removeThenSave() {
         if (!request.hideElements) return save()
-        hiddenSelectors { selectors ->
-            if (selectors.isEmpty()) return@hiddenSelectors save()
+        val engine = tools.filters ?: return save()
+        val cosmetic = engine.cosmetic(mainUrl)
+        hiddenSelectors(engine, cosmetic) { selectors ->
+            if (selectors.isEmpty()) return@hiddenSelectors applyProcedural(cosmetic)
             evaluate(PageScripts.removeElements(selectors)) { count ->
                 removed += count.toIntOrNull() ?: 0
-                save()
+                applyProcedural(cosmetic)
             }
         }
     }
 
-    private fun hiddenSelectors(then: (List<String>) -> Unit) {
-        val engine = tools.filters ?: return then(emptyList())
-        val cosmetic = engine.cosmetic(mainUrl)
+    /** Rules with an operator or an action, applied by Brave's page script. */
+    private fun applyProcedural(cosmetic: CosmeticResources) {
+        val script = tools.procedural
+        if (script == null || cosmetic.procedural.length() == 0) return save()
+        evaluate(script.forRules(cosmetic.procedural)) { count ->
+            removed += count.toIntOrNull() ?: 0
+            save()
+        }
+    }
+
+    private fun hiddenSelectors(engine: AdblockEngine, cosmetic: CosmeticResources, then: (List<String>) -> Unit) {
         if (cosmetic.genericHidden) return then(cosmetic.hide)
         evaluate(PageScripts.PAGE_NAMES) { raw ->
             val names = parseNames(raw)

@@ -1,12 +1,22 @@
 Ad, tracker and annoyance blocking rules are downloaded when the app runs;
-none of them is part of the app. The default lists are EasyList, EasyPrivacy
-and Fanboy's Annoyance List (which includes the EasyList Cookie List), all
-from https://easylist.to/ and copyright the EasyList authors, dual licensed
-under the Creative Commons Attribution-ShareAlike 3.0 Unported license and
-the GNU General Public License v3 or later (see
-https://easylist.to/pages/licence.html), and uBlock Origin's cookie notice
-and annoyance lists from https://github.com/uBlockOrigin/uAssets, GNU General
-Public License v3.
+none of them is part of the app. The default lists, each under the terms its
+maintainers state:
+
+- EasyList, EasyPrivacy, Fanboy's Annoyance List (which includes the EasyList
+  Cookie List), Fanboy's Newsletter List and Adblock Warning Removal, from
+  https://easylist.to/, copyright the EasyList authors, under the Creative
+  Commons Attribution-ShareAlike 3.0 Unported license and the GNU General
+  Public License v3 or later (https://easylist.to/pages/licence.html).
+- uBlock Origin's filters, privacy, badware, unbreak, quick fix, cookie
+  notice and annoyance lists, from https://github.com/uBlockOrigin/uAssets,
+  GNU General Public License v3.
+- AdGuard's mobile ads, cookie notice, popup, mobile app banner, annoyance,
+  widget and social media filters, from
+  https://github.com/AdguardTeam/AdguardFilters, GNU General Public License v3.
+- Peter Lowe's ad server list, from https://pgl.yoyo.org/adservers/.
+- yokoffing's Annoyance List, from https://github.com/yokoffing/filterlists.
+- Dandelion Sprout's Browse websites without logging in, from
+  https://github.com/DandelionSprout/adfilt.
 
 Scriptlets and redirect resources are likewise downloaded: the uBlock Origin
 resources (GNU General Public License v3, https://github.com/gorhill/uBlock)

@@ -25,6 +25,7 @@ flutter:
     - assets/adblock/
     - assets/autoconsent/
     - assets/filters/
+    - assets/procedural/
   plugin:
     platforms:
       android:

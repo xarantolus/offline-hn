@@ -88,46 +88,21 @@ pub fn check(engine: &Engine, url: &str, source: &str, kind: &str) -> Verdict {
     }
 }
 
-/// The selector of a rule that only hides or removes what a plain CSS
-/// selector matches: `:style(display: none !important)` and `:remove()`.
-/// Anything with a procedural operator is left to a page-side engine we do not
-/// have.
-fn hiding_selector(procedural: &str) -> Option<String> {
-    let rule: serde_json::Value = serde_json::from_str(procedural).ok()?;
-    let parts = rule["selector"].as_array()?;
-    let [part] = parts.as_slice() else { return None };
-    if part["type"] != "css-selector" {
-        return None;
-    }
-    let hides = match &rule["action"] {
-        serde_json::Value::Null => true,
-        action => match action["type"].as_str() {
-            Some("remove") => true,
-            Some("style") => {
-                let style: String = action["arg"]
-                    .as_str()?
-                    .chars()
-                    .filter(|c| !c.is_whitespace())
-                    .collect::<String>()
-                    .to_lowercase();
-                style.trim_end_matches(';') == "display:none!important"
-            }
-            _ => false,
-        },
-    };
-    hides.then(|| part["arg"].as_str().map(str::to_string))?
-}
-
+/// `procedural` holds the rules with an operator or an action, as the engine
+/// encodes them, for Brave's page-side script to apply.
 pub fn cosmetic(engine: &Engine, url: &str) -> String {
     let resources = engine.url_cosmetic_resources(url);
-    let mut hide: Vec<String> = resources.hide_selectors.iter().cloned().collect();
-    hide.extend(resources.procedural_actions.iter().filter_map(|rule| hiding_selector(rule)));
+    let procedural: Vec<serde_json::Value> = resources
+        .procedural_actions
+        .iter()
+        .filter_map(|rule| serde_json::from_str(rule).ok())
+        .collect();
     json!({
-        "hide": hide,
+        "hide": resources.hide_selectors,
         "exceptions": resources.exceptions,
         "script": resources.injected_script,
         "generichide": resources.generichide,
-        "procedural": resources.procedural_actions.len(),
+        "procedural": procedural,
     })
     .to_string()
 }
@@ -214,22 +189,22 @@ mod tests {
     }
 
     #[test]
-    fn style_rules_that_only_hide_count_as_hiding() {
+    fn procedural_rules_and_actions_go_to_the_page_script() {
         let engine = build(&[
-            "news.test##.gone:style(display: none !important;)\nnews.test##.zap:remove()\nnews.test##.tint:style(color: red !important)\nnews.test##.row:has-text(Ad)\n".to_string(),
+            "news.test##.zap:remove()\nnews.test##.tint:style(color: red !important)\nnews.test##.row:has-text(Ad)\nnews.test##.plain\nother.test##.elsewhere:has-text(Ad)\n".to_string(),
         ]);
         let here: serde_json::Value =
             serde_json::from_str(&cosmetic(&engine, "https://news.test/a")).unwrap();
-        let mut hide: Vec<String> = here["hide"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|v| v.as_str().unwrap().to_string())
-            .collect();
-        hide.sort();
-        assert!(hide.contains(&".gone".to_string()));
-        assert!(hide.contains(&".zap".to_string()));
-        assert!(!hide.contains(&".tint".to_string()));
+        assert_eq!(here["hide"], json!([".plain"]));
+        let procedural = here["procedural"].as_array().unwrap();
+        assert_eq!(procedural.len(), 3);
+        for rule in [
+            json!({"selector": [{"type": "css-selector", "arg": ".row"}, {"type": "has-text", "arg": "Ad"}]}),
+            json!({"selector": [{"type": "css-selector", "arg": ".tint"}], "action": {"type": "style", "arg": "color: red !important"}}),
+            json!({"selector": [{"type": "css-selector", "arg": ".zap"}], "action": {"type": "remove"}}),
+        ] {
+            assert!(procedural.contains(&rule), "missing {rule}");
+        }
     }
 
     #[test]

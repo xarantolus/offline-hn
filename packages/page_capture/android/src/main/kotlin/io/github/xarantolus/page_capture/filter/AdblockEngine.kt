@@ -16,6 +16,8 @@ class CosmeticResources(
     val exceptions: List<String>,
     val script: String,
     val genericHidden: Boolean,
+    /** The rules with an operator or an action, as a JSON array for Brave's page script. */
+    val procedural: JSONArray,
 )
 
 sealed interface Verdict {
@@ -87,6 +89,7 @@ class AdblockEngine private constructor(private val handle: Long) {
             exceptions = strings(json.getJSONArray("exceptions")),
             script = json.getString("script"),
             genericHidden = json.getBoolean("generichide"),
+            procedural = json.getJSONArray("procedural"),
         )
     }
 
@@ -97,14 +100,18 @@ class AdblockEngine private constructor(private val handle: Long) {
 
     companion object {
         private const val TAG = "PageCapture"
-        private const val EMPTY_COSMETIC = """{"hide":[],"exceptions":[],"script":"","generichide":false}"""
+        private const val EMPTY_COSMETIC = """{"hide":[],"exceptions":[],"script":"","generichide":false,"procedural":[]}"""
         private val DATA_URL = Regex("data:([^;,]+);base64,(.*)", RegexOption.DOT_MATCHES_ALL)
 
         private fun strings(array: JSONArray) = List(array.length()) { array.getString(it) }
 
-        /** Loads the stored engine when it matches [lists]; builds it from them and stores it otherwise. Scriptlets and redirects come from [resources] when it exists. */
-        fun open(lists: List<File>, stored: File, storedKey: File, resources: File?): AdblockEngine? {
-            val engine = openLists(lists, stored, storedKey) ?: return null
+        /**
+         * Loads the stored engine when it matches [lists] and [build]; builds it from them and stores it otherwise.
+         * [build] names the app build, since a new one may parse the same lists differently. Scriptlets and
+         * redirects come from [resources] when it exists.
+         */
+        fun open(build: String, lists: List<File>, stored: File, storedKey: File, resources: File?): AdblockEngine? {
+            val engine = openLists(build, lists, stored, storedKey) ?: return null
             if (resources != null && resources.isFile) {
                 val count = AdblockNative.useResources(engine.handle, resources.readText())
                 Log.i(TAG, "adblock resources: $count")
@@ -112,8 +119,8 @@ class AdblockEngine private constructor(private val handle: Long) {
             return engine
         }
 
-        private fun openLists(lists: List<File>, stored: File, storedKey: File): AdblockEngine? {
-            val key = lists.joinToString { "${it.name}:${it.length()}:${it.lastModified()}" }
+        private fun openLists(build: String, lists: List<File>, stored: File, storedKey: File): AdblockEngine? {
+            val key = "$build|" + lists.joinToString { "${it.name}:${it.length()}:${it.lastModified()}" }
             val began = SystemClock.elapsedRealtime()
             if (stored.isFile && storedKey.isFile && storedKey.readText() == key) {
                 val handle = AdblockNative.load(stored.readBytes())

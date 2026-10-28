@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Refreshes Brave's procedural cosmetic filter module in the page_capture
+# plugin: procedural_filters.ts from brave-core, transpiled unchanged to a
+# script that defines the global BraveProcedural, plus the MPL-2.0 text.
+# adblock-rust matches procedural rules; this is what applies them in a page.
+# Needs curl and npx.
+# Optional argument: the brave-core commit (default: master).
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+target="$root/packages/page_capture/assets/procedural"
+ref="${1:-master}"
+esbuild_version=0.28.2
+
+work="$(mktemp -d)"
+trap 'rm -r "$work"' EXIT
+
+commit="$(curl -sSf -H 'Accept: application/vnd.github.sha' \
+  "https://api.github.com/repos/brave/brave-core/commits/$ref")"
+source="https://raw.githubusercontent.com/brave/brave-core/$commit"
+curl -sSf -o "$work/procedural_filters.ts" \
+  "$source/components/cosmetic_filters/resources/data/procedural_filters.ts"
+curl -sSf -o "$target/LICENSE" https://www.mozilla.org/media/MPL/2.0/index.txt
+
+{
+  sed -n '1,/^$/p' "$work/procedural_filters.ts"
+  echo "// From brave-core $commit,"
+  echo "// components/cosmetic_filters/resources/data/procedural_filters.ts,"
+  echo "// transpiled by tool/update-procedural-filters without changes."
+  echo
+  npx --yes "esbuild@$esbuild_version" "$work/procedural_filters.ts" \
+    --bundle --format=iife --global-name=BraveProcedural --target=es2020 \
+    --log-level=warning
+} > "$target/procedural_filters.js"
+echo "$commit" > "$target/VERSION"
+echo "brave-core $commit"
