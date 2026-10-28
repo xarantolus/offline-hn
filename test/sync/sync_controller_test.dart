@@ -122,9 +122,9 @@ void main() {
       },
     );
 
-    test('the first update on an empty store does not wait', () async {
+    test('the first update on an empty store waits for a charger', () async {
       await controller.catchUpIfStale();
-      expect(queue.syncs.single.$2.charging, isFalse);
+      expect(queue.syncs.single.$2.charging, isTrue);
     });
 
     test(
@@ -146,20 +146,29 @@ void main() {
   });
 
   group('whether the empty screen must offer the fetch', () {
-    test('Wi-Fi lets the catch-up run by itself', () async {
-      expect(await controller.canFetchAutomatically(), isTrue);
+    test('by default the catch-up waits for a charger', () async {
+      expect(await controller.automaticHoldsNow(), {AutomaticHold.charger});
     });
 
-    test('mobile data with Wi-Fi only does not', () async {
+    test('Wi-Fi without the charging rule lets it run by itself', () async {
+      await settings.set(Settings.chargingOnly, false);
+      expect(await controller.automaticHoldsNow(), isEmpty);
+    });
+
+    test('mobile data with Wi-Fi only waits for Wi-Fi', () async {
+      await settings.set(Settings.chargingOnly, false);
       probe.kind = ConnectionKind.mobile;
-      expect(await controller.canFetchAutomatically(), isFalse);
+      expect(await controller.automaticHoldsNow(), {AutomaticHold.connection});
       await settings.set(Settings.wifiOnly, false);
-      expect(await controller.canFetchAutomatically(), isTrue);
+      expect(await controller.automaticHoldsNow(), isEmpty);
     });
 
-    test('being offline does not', () async {
+    test('offline with the charging rule waits for both', () async {
       probe.kind = ConnectionKind.none;
-      expect(await controller.canFetchAutomatically(), isFalse);
+      expect(await controller.automaticHoldsNow(), {
+        AutomaticHold.connection,
+        AutomaticHold.charger,
+      });
     });
 
     test('the connection stream starts with where things stand', () async {

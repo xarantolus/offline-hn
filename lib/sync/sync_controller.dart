@@ -64,20 +64,21 @@ class SyncController {
     yield* _probe.changes;
   }
 
-  /// Whether the catch-up on open can run over the current connection. When it
-  /// cannot, the empty screen offers the fetch itself.
-  Future<bool> canFetchAutomatically() async =>
+  /// What keeps the catch-up on open from starting now. When anything does,
+  /// the empty screen offers the fetch itself.
+  Future<Set<AutomaticHold>> automaticHoldsNow() async {
+    final settings = await _settings.load();
+    return automaticHolds(
       syncAllowance(
         trigger: SyncTrigger.catchUp,
         connection: await _probe.current(),
-        settings: await _settings.load(),
-      ) !=
-      SyncAllowance.nothing;
+        settings: settings,
+      ),
+      settings,
+    );
+  }
 
-  Future<SyncRequest> requestSync(
-    SyncTrigger trigger, {
-    bool firstUpdate = false,
-  }) async {
+  Future<SyncRequest> requestSync(SyncTrigger trigger) async {
     final settings = await _settings.load();
     final allowance = syncAllowance(
       trigger: trigger,
@@ -87,7 +88,7 @@ class SyncController {
     if (allowance == SyncAllowance.nothing) return SyncRequest.noConnection;
     await _queue.enqueueSync(
       trigger,
-      requirementsFor(trigger, settings, firstUpdate: firstUpdate),
+      requirementsFor(trigger, settings),
       replaceWaiting: trigger.userInitiated && !await _syncs.isExecuting(),
     );
     return SyncRequest.queued;
@@ -95,9 +96,8 @@ class SyncController {
 
   /// An empty store counts as stale.
   Future<void> catchUpIfStale() async {
-    final last = await _syncs.lastSuccessfulSync();
-    if (isStale(last, _clock())) {
-      await requestSync(SyncTrigger.catchUp, firstUpdate: last == null);
+    if (isStale(await _syncs.lastSuccessfulSync(), _clock())) {
+      await requestSync(SyncTrigger.catchUp);
     }
   }
 

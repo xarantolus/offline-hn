@@ -2,12 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:offline_hn/app_services.dart';
 import 'package:offline_hn/data/model/sync_enums.dart';
 import 'package:offline_hn/data/repository/sync_repository.dart';
+import 'package:offline_hn/sync/schedule_policy.dart';
 import 'package:offline_hn/ui/tokens.dart';
+
+/// "Wi-Fi", "a charger" or both, for what automatic updates wait for.
+String waitingFor(Set<AutomaticHold> holds) => [
+  if (holds.contains(AutomaticHold.connection)) 'Wi-Fi',
+  if (holds.contains(AutomaticHold.charger)) 'a charger',
+].join(' and ');
 
 /// What a feed shows when it has no stories. Nothing stored at all is an
 /// ordinary state: the first update starts by itself, so the screen says it is
-/// coming. Only when it cannot start (no connection, or mobile data with
-/// Wi-Fi only) is there a button.
+/// coming. When it waits for Wi-Fi or a charger there is a button.
 class EmptyFeed extends StatefulWidget {
   const EmptyFeed({
     super.key,
@@ -51,10 +57,11 @@ class _EmptyFeedState extends State<EmptyFeed> {
         }
         return StreamBuilder<ConnectionKind>(
           stream: _connection,
-          builder: (context, _) => FutureBuilder<bool>(
-            future: widget.services.sync.canFetchAutomatically(),
-            builder: (context, automatic) {
-              if (automatic.data ?? true) {
+          builder: (context, _) => FutureBuilder<Set<AutomaticHold>>(
+            future: widget.services.sync.automaticHoldsNow(),
+            builder: (context, holds) {
+              final waiting = holds.data ?? const {};
+              if (waiting.isEmpty) {
                 return EmptyMessage(
                   title: 'Nothing downloaded yet',
                   hint: 'The first update starts by itself.',
@@ -64,8 +71,8 @@ class _EmptyFeedState extends State<EmptyFeed> {
               return EmptyMessage(
                 title: 'Nothing downloaded yet',
                 hint:
-                    'Automatic updates wait for Wi-Fi. You can fetch the '
-                    'stories now.',
+                    'Automatic updates wait for ${waitingFor(waiting)}. You '
+                    'can fetch the stories now.',
                 tokens: t,
                 action: FilledButton.tonal(
                   onPressed: widget.onFetch,

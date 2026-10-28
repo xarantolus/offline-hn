@@ -165,12 +165,12 @@ void main() {
       }
     });
 
-    test('the first update ever does not wait for a charger', () {
+    test('the catch-up waits for Wi-Fi and a charger by default', () {
       expect(
-        requirementsFor(SyncTrigger.catchUp, defaults, firstUpdate: true),
+        requirementsFor(SyncTrigger.catchUp, defaults),
         const WorkRequirements(
           network: NetworkRequirement.unmetered,
-          charging: false,
+          charging: true,
         ),
       );
     });
