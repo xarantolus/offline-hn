@@ -78,6 +78,9 @@ androidComponents {
         val release = variant.buildType != "debug"
         val output = layout.buildDirectory.dir("rustJniLibs/${variant.name}")
         val cargoBin = File(System.getenv("CARGO_HOME") ?: "${System.getProperty("user.home")}/.cargo", "bin")
+        // The executable is looked up on Gradle's own PATH, not the one set
+        // below for the child, so name it by path when rustup put it here.
+        val cargo = File(cargoBin, "cargo").takeIf { it.canExecute() }?.absolutePath ?: "cargo"
         val build = tasks.register<Exec>("buildRust$name") {
             inputs.files(fileTree(rustDir) { include("Cargo.toml", "Cargo.lock", "src/**") })
             inputs.property("abis", rustAbis)
@@ -89,7 +92,7 @@ androidComponents {
                 environment("ANDROID_NDK_HOME", android.ndkDirectory.absolutePath)
             }
             commandLine(
-                listOf("cargo", "ndk") + rustAbis.flatMap { listOf("-t", it) } +
+                listOf(cargo, "ndk") + rustAbis.flatMap { listOf("-t", it) } +
                     listOf("-o", output.get().asFile.absolutePath, "build", "--locked") +
                     if (release) listOf("--release") else emptyList(),
             )
