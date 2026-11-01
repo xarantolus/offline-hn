@@ -60,6 +60,12 @@ flutter pub get
 flutter build apk --debug    # or: flutter run
 ```
 
+Or work in the dev container, which has Flutter, the Android SDK and NDK, Rust with `cargo-ndk`, a headless emulator (`.devcontainer/emulator.sh`) and Claude Code, at pinned versions. It needs podman, and the emulator needs your user in the `kvm` group:
+
+```sh
+./run-container.sh
+```
+
 Generated code is committed; regenerate it after changing models or the database with `dart run build_runner build`. Rust tests: `cargo test --locked` in `packages/page_capture/rust`.
 
 Vendored code is updated by scripts in `tool/` (`update-autoconsent`, `update-procedural-filters`, `update-rust-notice`).
