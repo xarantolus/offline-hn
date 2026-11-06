@@ -15,6 +15,18 @@ if (keystorePropertiesFile.exists()) {
 val releaseStorePath: String? =
     keystoreProperties.getProperty("storeFile") ?: System.getenv("X_KEYSTORE_PATH")
 
+// Flutter builds its own libraries only for --target-platform, but plugins
+// bring prebuilt ones for every ABI. A lone 32-bit library would let a
+// 32-bit phone install the app and then crash without libflutter.so.
+val packagedAbis = (findProperty("target-platform") as String?)?.split(',')?.mapNotNull {
+    when (it.trim()) {
+        "android-arm64" -> "arm64-v8a"
+        "android-arm" -> "armeabi-v7a"
+        "android-x64" -> "x86_64"
+        else -> null
+    }
+}
+
 android {
     namespace = "io.github.xarantolus.offlinehn"
     compileSdk = flutter.compileSdkVersion
@@ -45,6 +57,17 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+    }
+
+    // Not abiFilters: the Flutter plugin replaces those with its full list.
+    if (packagedAbis != null) {
+        packaging {
+            jniLibs {
+                excludes += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
+                    .filter { it !in packagedAbis }
+                    .map { "lib/$it/**" }
+            }
+        }
     }
 
     buildTypes {
