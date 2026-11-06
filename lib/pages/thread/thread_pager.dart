@@ -85,6 +85,47 @@ class _ThreadPagerState extends State<ThreadPager> {
   );
   late int _current = widget._start.index;
   late bool _articlePending = widget.openArticle;
+  final _pages = <int, GlobalKey<ThreadPageState>>{};
+  final _refreshing = <int>{};
+
+  Future<void> _refresh(int storyId) async {
+    final page = _pages[storyId]?.currentState;
+    if (page == null || !_refreshing.add(storyId)) return;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() {});
+    final said = await page.refresh();
+    if (!mounted) return;
+    setState(() => _refreshing.remove(storyId));
+    if (said.isEmpty) return;
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(said)));
+  }
+
+  Widget _refreshButton(int storyId) {
+    if (_refreshing.contains(storyId)) {
+      // Built inside the app bar, so it takes the bar's icon colour.
+      return Builder(
+        builder: (context) => SizedBox.square(
+          dimension: 48,
+          child: Center(
+            child: SizedBox.square(
+              dimension: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: IconTheme.of(context).color,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    return IconButton(
+      tooltip: 'Refresh comments',
+      icon: const Icon(Icons.refresh),
+      onPressed: () => unawaited(_refresh(storyId)),
+    );
+  }
 
   @override
   void dispose() {
@@ -106,7 +147,10 @@ class _ThreadPagerState extends State<ThreadPager> {
   Widget build(BuildContext context) {
     final ids = widget._start.ids;
     return Scaffold(
-      appBar: AppBar(title: const Text('Comments')),
+      appBar: AppBar(
+        title: const Text('Comments'),
+        actions: [_refreshButton(ids[_current])],
+      ),
       body: NotificationListener<ScrollEndNotification>(
         onNotification: _settled,
         child: PageView.builder(
@@ -114,7 +158,7 @@ class _ThreadPagerState extends State<ThreadPager> {
           physics: const BouncingScrollPhysics(),
           itemCount: ids.length,
           itemBuilder: (context, index) => ThreadPage(
-            key: ValueKey(ids[index]),
+            key: _pages.putIfAbsent(ids[index], GlobalKey.new),
             storyId: ids[index],
             focusCommentId: index == widget._start.index
                 ? widget.focusCommentId

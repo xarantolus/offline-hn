@@ -9,6 +9,7 @@ import 'package:offline_hn/data/db/database.dart';
 import 'package:offline_hn/data/model/open_thread.dart';
 import 'package:offline_hn/data/model/page_enums.dart';
 import 'package:offline_hn/data/model/settings.dart';
+import 'package:offline_hn/data/model/sync_enums.dart';
 import 'package:offline_hn/data/model/thread_view.dart';
 import 'package:offline_hn/data/policy/comment_arrangement.dart';
 import 'package:offline_hn/data/repository/thread_state_repository.dart';
@@ -17,6 +18,7 @@ import 'package:offline_hn/pages/thread/copy_info.dart';
 import 'package:offline_hn/pages/thread/thread_header_view.dart';
 import 'package:offline_hn/pages/thread/thread_pager.dart';
 import 'package:offline_hn/ui/comment_tile.dart';
+import 'package:offline_hn/ui/flash.dart';
 import 'package:offline_hn/ui/reveal.dart';
 import 'package:offline_hn/ui/saved_links.dart';
 import 'package:offline_hn/ui/selection_guard.dart';
@@ -45,10 +47,10 @@ class ThreadPage extends StatefulWidget {
   final bool active;
 
   @override
-  State<ThreadPage> createState() => _ThreadPageState();
+  State<ThreadPage> createState() => ThreadPageState();
 }
 
-class _ThreadPageState extends State<ThreadPage> {
+class ThreadPageState extends State<ThreadPage> {
   final _open = OpenThread();
   final _positions = ItemPositionsListener.create();
   final _scroll = ItemScrollController();
@@ -57,6 +59,9 @@ class _ThreadPageState extends State<ThreadPage> {
   StreamSubscription<List<CommentRow>>? _comments;
   final _selection = SelectionGuard();
   Timer? _settle;
+  Timer? _flashEnd;
+  int? _flashId;
+  int _flashes = 0;
   Set<int> _closing = {};
   Set<int> _entering = {};
 
@@ -92,6 +97,7 @@ class _ThreadPageState extends State<ThreadPage> {
   @override
   void dispose() {
     _settle?.cancel();
+    _flashEnd?.cancel();
     unawaited(_comments?.cancel());
     for (final subscription in _subscriptions) {
       unawaited(subscription.cancel());
@@ -118,8 +124,9 @@ class _ThreadPageState extends State<ThreadPage> {
     _settings = settings;
     _open.receive(rows);
     _rearrange();
-    _focusIndex = _indexOfComment(widget.focusCommentId);
+    _focusIndex = _reveal(widget.focusCommentId);
     setState(() => _ready = true);
+    if (_focusIndex != null) unawaited(_flashOnArrival(widget.focusCommentId!));
 
     if (_open.shown.isEmpty) {
       _comments = _services.stories.watchComments(id).listen(_onComments);
@@ -170,6 +177,53 @@ class _ThreadPageState extends State<ThreadPage> {
     if (_opened) unawaited(_markOpened());
   }
 
+  /// Fetches the thread again and shows it only if that worked, keeping the
+  /// comment at the top of the screen where it is. Says what happened.
+  Future<String> refresh() async {
+    final connection = await _services.sync.connection.first;
+    if (connection == ConnectionKind.none) {
+      return 'You are offline. Refreshing needs a connection.';
+    }
+    final error = await _services.threads.refresh(
+      widget.storyId,
+      DateTime.now(),
+    );
+    if (error != null) return 'Could not fetch the comments.';
+    final rows = await _services.stories.watchComments(widget.storyId).first;
+    if (!mounted) return '';
+    final (anchor, alignment) = _topOfScreen();
+    final added = _open.replace(rows);
+    _blocks.clear();
+    _finishSettling();
+    _rearrange();
+    setState(() {});
+    await WidgetsBinding.instance.endOfFrame;
+    if (mounted) {
+      _scroll.jumpTo(
+        index: _indexOfComment(anchor) ?? 0,
+        alignment: anchor == null ? 0 : alignment,
+      );
+    }
+    if (_opened) unawaited(_markOpened());
+    return switch (added) {
+      0 => 'No new comments',
+      1 => '1 new comment',
+      _ => '$added new comments',
+    };
+  }
+
+  /// The comment at the top of the screen and how far it is scrolled, or
+  /// null when the header is.
+  (int?, double) _topOfScreen() {
+    final onScreen = _positions.itemPositions.value.where(
+      (p) => p.itemTrailingEdge > 0,
+    );
+    if (onScreen.isEmpty) return (null, 0);
+    final top = onScreen.reduce((a, b) => a.index < b.index ? a : b);
+    if (top.index == 0 || top.index > _visible.length) return (null, 0);
+    return (_visible[top.index - 1].row.id, top.itemLeadingEdge);
+  }
+
   void _onSettings(AppSettings settings) {
     final reorder = settings.commentOrder != _settings.commentOrder;
     _settings = settings;
@@ -201,6 +255,49 @@ class _ThreadPageState extends State<ThreadPage> {
     if (id == null) return null;
     final at = _visible.indexWhere((c) => c.row.id == id);
     return at < 0 ? null : at + 1;
+  }
+
+  /// The index of [id], opening whatever collapsed comments hide it.
+  int? _reveal(int? id) {
+    if (id == null) return null;
+    final parents = {for (final c in _open.shown) c.id: c.parentId};
+    final hiding = collapsedAbove(id, _collapsed, parentOf: (c) => parents[c]);
+    if (hiding.isNotEmpty) {
+      _collapsed.removeAll(hiding);
+      _rearrange();
+      unawaited(
+        _services.threadStates.setCollapsed(widget.storyId, {
+          ..._collapsed,
+        }, DateTime.now()),
+      );
+    }
+    return _indexOfComment(id);
+  }
+
+  /// Once the page has slid in, so the highlight is not spent on the way.
+  Future<void> _flashOnArrival(int id) async {
+    final animation = ModalRoute.of(context)?.animation;
+    if (animation != null && !animation.isCompleted) {
+      final arrived = Completer<void>();
+      void listener(AnimationStatus status) {
+        if (!status.isAnimating && !arrived.isCompleted) arrived.complete();
+      }
+
+      animation.addStatusListener(listener);
+      await arrived.future;
+      animation.removeStatusListener(listener);
+    }
+    await WidgetsBinding.instance.endOfFrame;
+    if (mounted) setState(() => _flash(id));
+  }
+
+  void _flash(int id) {
+    _flashEnd?.cancel();
+    _flashId = id;
+    _flashes++;
+    _flashEnd = Timer(flashDuration, () {
+      if (mounted) setState(() => _flashId = null);
+    });
   }
 
   void _toggle(int id) {
@@ -279,7 +376,12 @@ class _ThreadPageState extends State<ThreadPage> {
     if (!mounted) return;
     final itemId = link.itemId;
     if (itemId != null) {
-      final found = await _services.stories.locateItem(itemId);
+      final anchor = hnCommentAnchor(link.uri);
+      final found =
+          (anchor == null
+              ? null
+              : await _services.stories.locateItem(anchor)) ??
+          await _services.stories.locateItem(itemId);
       if (!mounted) return;
       if (found != null) {
         _goTo(found.storyId, found.commentId);
@@ -304,13 +406,23 @@ class _ThreadPageState extends State<ThreadPage> {
       );
       return;
     }
-    final index = _indexOfComment(commentId) ?? 0;
-    unawaited(
-      _scroll.scrollTo(
-        index: index,
-        duration: const Duration(milliseconds: 300),
-      ),
+    _finishSettling();
+    final index = _reveal(commentId);
+    setState(() {});
+    unawaited(_scrollThenFlash(index, commentId));
+  }
+
+  /// Waits a frame first: opening collapsed comments changes the list, and
+  /// the index is only valid once it is built.
+  Future<void> _scrollThenFlash(int? index, int? commentId) async {
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
+    await _scroll.scrollTo(
+      index: index ?? 0,
+      duration: const Duration(milliseconds: 300),
     );
+    if (index == null || commentId == null || !mounted) return;
+    setState(() => _flash(commentId));
   }
 
   int get _firstVisibleIndex {
@@ -419,7 +531,7 @@ class _ThreadPageState extends State<ThreadPage> {
         final entry = _visible[index - 1];
         final row = entry.row;
         final time = row.time;
-        final tile = CommentTile(
+        final comment = CommentTile(
           key: ValueKey(row.id),
           author: row.author ?? '[removed]',
           age: time == null ? Duration.zero : now.difference(time),
@@ -439,6 +551,9 @@ class _ThreadPageState extends State<ThreadPage> {
           onToggle: () => _toggle(row.id),
           onLink: (link) => unawaited(_openLink(link)),
         );
+        final tile = row.id == _flashId
+            ? Flash(key: ValueKey('flash $_flashes'), child: comment)
+            : comment;
         final closing = _closing.contains(row.id);
         if (!closing && !_entering.contains(row.id)) return tile;
         return Reveal(

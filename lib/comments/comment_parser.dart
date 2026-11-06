@@ -187,6 +187,11 @@ int? hnItemId(Uri uri) {
   return int.tryParse(uri.queryParameters['id'] ?? '');
 }
 
+/// The comment an HN item link points into. HN's "context" links name the
+/// thread and put the comment in the fragment: `item?id=<story>#<comment>`.
+int? hnCommentAnchor(Uri uri) =>
+    hnItemId(uri) == null ? null : int.tryParse(uri.fragment);
+
 /// HN cuts long link text at 70 characters and adds "...", which can end
 /// mid-word; the real address is shown instead, shortened to fit a line.
 String shortLinkLabel(Uri uri, String label) {

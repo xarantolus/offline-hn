@@ -15,4 +15,12 @@ class OpenThread {
     _shown = rows;
     return true;
   }
+
+  /// For the refresh button, the one time the reader asks for the comments
+  /// to move. Returns how many of [rows] were not shown before.
+  int replace(List<CommentRow> rows) {
+    final before = {for (final c in _shown) c.id};
+    _shown = rows;
+    return rows.where((c) => !before.contains(c.id)).length;
+  }
 }

@@ -70,6 +70,41 @@ void main() {
     });
   });
 
+  group('collapsedAbove', () {
+    const parents = {1: null, 2: 1, 3: 2, 4: 1};
+    Set<int> above(int id, Set<int> collapsed) =>
+        collapsedAbove(id, collapsed, parentOf: (id) => parents[id]);
+
+    test('names every collapsed ancestor, not the comment itself', () {
+      expect(above(3, {1, 2, 3}), {1, 2});
+      expect(above(3, {1}), {1});
+    });
+
+    test('collapsed comments off the path do not count', () {
+      expect(above(3, {4}), isEmpty);
+      expect(above(1, {1}), isEmpty);
+    });
+
+    test('opening what it names makes the comment visible', () {
+      final flat = flattenComments([
+        _c(1, [
+          _c(2, [_c(3)]),
+        ]),
+      ]);
+      final collapsed = {1, 2};
+      collapsed.removeAll(above(3, collapsed));
+      expect(
+        visibleEntries(
+          flat,
+          collapsed: collapsed,
+          idOf: (f) => f.comment.id,
+          depthOf: (f) => f.depth,
+        ).map((f) => f.comment.id),
+        contains(3),
+      );
+    });
+  });
+
   group('countNewComments', () {
     final seen = DateTime.utc(2026, 10, 10, 12);
 

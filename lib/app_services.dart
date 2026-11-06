@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:offline_hn/capture/filter_lists.dart';
 import 'package:offline_hn/data/db/database.dart';
+import 'package:offline_hn/data/api/hn_source.dart';
 import 'package:offline_hn/data/model/daily_time.dart';
 import 'package:offline_hn/data/repository/link_repository.dart';
 import 'package:offline_hn/data/repository/overview_repository.dart';
@@ -21,6 +22,7 @@ import 'package:offline_hn/sync/scheduler.dart';
 import 'package:offline_hn/sync/sync_controller.dart';
 import 'package:offline_hn/sync/sync_notifier.dart';
 import 'package:offline_hn/sync/sync_task_handler.dart';
+import 'package:offline_hn/sync/thread_fetcher.dart';
 import 'package:offline_hn/sync/work_queue.dart';
 import 'package:workmanager/workmanager.dart';
 
@@ -46,6 +48,7 @@ class AppServices {
     required this.notifier,
     required this.pageFiles,
     required this.filterListUpdate,
+    required this.threads,
   });
 
   final AppDatabase db;
@@ -61,6 +64,9 @@ class AppServices {
   final PageFiles pageFiles;
   final FilterListUpdate filterListUpdate;
 
+  /// For the refresh button on a thread; updates fetch through the runner.
+  final ThreadFetcher threads;
+
   static Future<AppServices> open() async {
     await Workmanager().initialize(syncCallbackDispatcher);
     final db = AppDatabase.open();
@@ -75,10 +81,12 @@ class AppServices {
     await notifier.initialize();
     const queue = WorkmanagerQueue();
     final probe = PluginConnectionProbe();
+    final stories = StoryRepository(db);
     return AppServices._(
       db: db,
       settings: settings,
-      stories: StoryRepository(db),
+      stories: stories,
+      threads: ThreadFetcher(HnSource.create(), stories),
       pages: PageRepository(db),
       links: LinkRepository(db),
       overview: OverviewRepository(db),

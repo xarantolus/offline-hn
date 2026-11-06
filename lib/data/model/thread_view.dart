@@ -24,3 +24,18 @@ int countNewComments(Iterable<DateTime?> times, DateTime? seenUpTo) {
   if (seenUpTo == null) return 0;
   return times.where((t) => t != null && t.isAfter(seenUpTo)).length;
 }
+
+/// The ancestors of [id] in [collapsed], which hide it. [parentOf] answers
+/// null at the top of the thread.
+Set<int> collapsedAbove(
+  int id,
+  Set<int> collapsed, {
+  required int? Function(int) parentOf,
+}) {
+  final out = <int>{};
+  final seen = <int>{id};
+  for (var at = parentOf(id); at != null && seen.add(at); at = parentOf(at)) {
+    if (collapsed.contains(at)) out.add(at);
+  }
+  return out;
+}

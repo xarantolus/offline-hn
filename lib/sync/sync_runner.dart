@@ -5,7 +5,6 @@ import 'package:offline_hn/comments/comment_parser.dart';
 import 'package:offline_hn/data/api/hn_reader.dart';
 import 'package:offline_hn/data/api/models.dart';
 import 'package:offline_hn/data/db/database.dart';
-import 'package:offline_hn/data/model/comment_tree.dart';
 import 'package:offline_hn/data/model/feed_kind.dart';
 import 'package:offline_hn/data/model/page_enums.dart';
 import 'package:offline_hn/data/model/settings.dart';
@@ -28,6 +27,7 @@ import 'package:offline_hn/sync/page_files.dart';
 import 'package:offline_hn/sync/page_saver.dart';
 import 'package:offline_hn/sync/run_budget.dart';
 import 'package:offline_hn/sync/sync_notifier.dart';
+import 'package:offline_hn/sync/thread_fetcher.dart';
 import 'package:pool/pool.dart';
 
 enum SyncResult {
@@ -118,11 +118,12 @@ class SyncRunner {
     required this._files,
     required this._notifier,
     DateTime Function()? clock,
-  }) : _clock = clock ?? DateTime.now;
+  }) : _clock = clock ?? DateTime.now,
+       _threads = ThreadFetcher(_source, _stories);
 
   static const _rankingWorstCase = Duration(seconds: 30);
   static const _metadataWorstCase = Duration(seconds: 90);
-  static const _commentWorstCase = Duration(seconds: 60);
+  static const _commentWorstCase = ThreadFetcher.worstCase;
   static const _pageWorstCase = Duration(minutes: 3);
   static const _listsTimeout = Duration(minutes: 4);
   static const _pruneTimeout = Duration(minutes: 2);
@@ -147,6 +148,7 @@ class SyncRunner {
   final PageFiles _files;
   final RunNotifier _notifier;
   final DateTime Function() _clock;
+  final ThreadFetcher _threads;
 
   var _stopRequested = false;
   int? _activeRun;
@@ -421,7 +423,7 @@ class SyncRunner {
       work: (id) async {
         final closed = await _gate(context, pages: false);
         if (closed != null) return closed;
-        final error = await _refreshThread(id);
+        final error = await _threads.refresh(id, _clock());
         await _syncs.markItem(
           context.run.id,
           SyncItemKind.comments,
@@ -434,45 +436,6 @@ class SyncRunner {
         return null;
       },
     );
-  }
-
-  /// The error text, or null when the thread was stored.
-  Future<String?> _refreshThread(int id) async {
-    try {
-      final thread = await _loadThread(id).timeout(_commentWorstCase);
-      if (thread == null) return 'not found';
-      if (thread.comments.isEmpty && (thread.story.commentCount ?? 0) > 0) {
-        return 'comments not indexed yet';
-      }
-      await _stories.replaceThread(thread, _clock());
-      return null;
-    } on Exception catch (e) {
-      return '$e';
-    }
-  }
-
-  Future<RemoteThread?> _loadThread(int id) async {
-    final thread = await _source.thread(id);
-    return thread == null ? null : _inHnOrder(thread);
-  }
-
-  Future<RemoteThread> _inHnOrder(RemoteThread thread) async {
-    final id = thread.story.id;
-    final ranked = thread.comments.length < 2
-        ? const <int>[]
-        : await _rankedOrEmpty(id);
-    return RemoteThread(
-      story: thread.story,
-      comments: orderTopLevel(thread.comments, ranked),
-    );
-  }
-
-  Future<List<int>> _rankedOrEmpty(int id) async {
-    try {
-      return await _source.rankedTopLevel(id);
-    } on Exception {
-      return const [];
-    }
   }
 
   /// Checked before every item, since the connection can change mid-run.
@@ -679,7 +642,7 @@ class SyncRunner {
       if (thread == null || thread.story.title == null) {
         return failed('not found');
       }
-      await _stories.replaceThread(await _inHnOrder(thread), _clock());
+      await _stories.replaceThread(await _threads.inHnOrder(thread), _clock());
     }
     await _links.recordThread(id: linkId, now: _clock());
     return const _LinkOutcome(LinkStatus.ok, asThread: true);

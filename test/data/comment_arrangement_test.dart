@@ -134,5 +134,16 @@ void main() {
       expect(open.receive(_thread()), isTrue);
       expect(open.shown, hasLength(7));
     });
+
+    test('a refresh replaces them and counts the new ones', () {
+      final open = OpenThread()..receive(_thread());
+      final refreshed = [
+        ..._thread().skip(1),
+        _comment(40, position: 7, minute: 20),
+        _comment(41, position: 8, minute: 21),
+      ];
+      expect(open.replace(refreshed), 2);
+      expect(open.shown, refreshed);
+    });
   });
 }

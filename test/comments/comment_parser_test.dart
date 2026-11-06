@@ -130,6 +130,22 @@ void main() {
     );
   });
 
+  test('a context link points at the comment in its fragment', () {
+    final context = Uri.parse(
+      'https://news.ycombinator.com/item?id=41072330#41073001',
+    );
+    expect(hnItemId(context), 41072330);
+    expect(hnCommentAnchor(context), 41073001);
+    expect(
+      hnCommentAnchor(Uri.parse('https://news.ycombinator.com/item?id=7')),
+      isNull,
+    );
+    expect(
+      hnCommentAnchor(Uri.parse('https://example.com/item?id=7#8')),
+      isNull,
+    );
+  });
+
   test('empty and missing text give no blocks', () {
     expect(parseCommentHtml(null), isEmpty);
     expect(parseCommentHtml('  '), isEmpty);
