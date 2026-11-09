@@ -70,12 +70,39 @@ void main() {
     expect(order, [3, 1]);
   });
 
-  test('a stored thread on no feed that nobody opened is left alone', () {
+  test('a young stored thread off every feed comes after the feeds', () {
+    final fetched = _now.subtract(const Duration(days: 1));
     final order = selectCommentTargets(
       feedOrder: [1],
       stored: [
         _thread(1),
-        _thread(2, fetched: _now.subtract(const Duration(days: 1))),
+        _thread(
+          2,
+          fetched: fetched,
+          posted: _now.subtract(const Duration(days: 1)),
+        ),
+        _thread(
+          3,
+          fetched: fetched,
+          posted: _now.subtract(const Duration(hours: 3)),
+        ),
+      ],
+      now: _now,
+      keepFrom: _longAgo,
+    );
+    expect(order, [1, 3, 2]);
+  });
+
+  test('an older stored thread off every feed is left alone', () {
+    final order = selectCommentTargets(
+      feedOrder: [1],
+      stored: [
+        _thread(1),
+        _thread(
+          2,
+          fetched: _now.subtract(const Duration(days: 1)),
+          posted: _now.subtract(const Duration(days: 3)),
+        ),
       ],
       now: _now,
       keepFrom: _longAgo,

@@ -12,6 +12,10 @@ const commentsFreshFor = Duration(minutes: 30);
 /// it was opened this recently; older ones have stopped moving.
 const savedRefreshWindow = Duration(days: 14);
 
+/// Any stored thread is kept current while its story is this young, on a feed
+/// or not; most discussions have settled by then.
+const storedRefreshWindow = Duration(days: 2);
+
 class ThreadCandidate {
   const ThreadCandidate({
     required this.storyId,
@@ -47,9 +51,9 @@ List<int> interleavedByRank(Map<FeedKind, List<int>> rankings) {
   return chosen.toList();
 }
 
-/// Threads the user opened since [keepFrom] come first, newest first, then saved ones, then
-/// the feeds in rank order. Stored threads that are on no feed and were
-/// neither opened nor saved are not refreshed.
+/// Threads the user opened since [keepFrom] come first, newest first, then
+/// saved ones, then the feeds in rank order, then every other stored thread
+/// younger than [storedRefreshWindow], newest first.
 List<int> selectCommentTargets({
   required List<int> feedOrder,
   required List<ThreadCandidate> stored,
@@ -64,10 +68,21 @@ List<int> selectCommentTargets({
     (t) => t.saved && t.commentsFetchedAt != null && _stillMoving(t, now),
   );
 
+  final young =
+      stored
+          .where(
+            (t) =>
+                t.storyTime != null &&
+                now.difference(t.storyTime!) < storedRefreshWindow,
+          )
+          .toList()
+        ..sort((a, b) => b.storyTime!.compareTo(a.storyTime!));
+
   final ordered = <int>{
     for (final t in opened) t.storyId,
     for (final t in saved) t.storyId,
     ...feedOrder,
+    for (final t in young) t.storyId,
   };
   return [
     for (final id in ordered)
