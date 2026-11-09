@@ -53,7 +53,8 @@ void main() {
     probe = FakeProbe();
     notifier = FakeNotifier();
     lists = FakeLists();
-    saver = FakeSaver(pages, clock, LinkRepository(db));
+    final files = tempPageFiles();
+    saver = FakeSaver(pages, clock, LinkRepository(db), files);
     runner = SyncRunner(
       syncs: syncs,
       stories: stories,
@@ -65,7 +66,7 @@ void main() {
       saver: saver,
       lists: lists,
       prune: PruneService(RetentionRepository(db)),
-      files: tempPageFiles(),
+      files: files,
       notifier: notifier,
       clock: clock,
     );
@@ -720,6 +721,7 @@ void main() {
   });
 
   test('a page that is already saved is not captured again', () async {
+    await stories.upsertStories([const RemoteStory(id: 1, title: 's')], now);
     await pages.recordCaptured(
       storyId: 1,
       kind: PageKind.mhtml,

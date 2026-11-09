@@ -946,6 +946,9 @@ class $CommentsTable extends Comments
     false,
     type: DriftSqlType.int,
     requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES stories (id) ON DELETE CASCADE',
+    ),
   );
   static const VerificationMeta _parentIdMeta = const VerificationMeta(
     'parentId',
@@ -1688,6 +1691,8 @@ class $FeedSnapshotsTable extends FeedSnapshots
 class SnapshotRow extends DataClass implements Insertable<SnapshotRow> {
   final int fetchId;
   final FeedKind feedKind;
+
+  /// No reference: a ranking is recorded before its stories are fetched.
   final int storyId;
   final int rank;
   final DateTime fetchedAt;
@@ -1944,6 +1949,9 @@ class $PageCopiesTable extends PageCopies
     false,
     type: DriftSqlType.int,
     requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES stories (id) ON DELETE CASCADE',
+    ),
   );
   @override
   late final GeneratedColumnWithTypeConverter<PageKind, String> kind =
@@ -3030,6 +3038,9 @@ class $LinkReferencesTable extends LinkReferences
     false,
     type: DriftSqlType.int,
     requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES stories (id) ON DELETE CASCADE',
+    ),
   );
   static const VerificationMeta _linkIdMeta = const VerificationMeta('linkId');
   @override
@@ -3039,6 +3050,9 @@ class $LinkReferencesTable extends LinkReferences
     false,
     type: DriftSqlType.int,
     requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES link_copies (id) ON DELETE CASCADE',
+    ),
   );
   @override
   List<GeneratedColumn> get $columns => [storyId, linkId];
@@ -3246,6 +3260,9 @@ class $ThreadStatesTable extends ThreadStates
     false,
     type: DriftSqlType.int,
     requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES stories (id) ON DELETE CASCADE',
+    ),
   );
   static const VerificationMeta _lastOpenedAtMeta = const VerificationMeta(
     'lastOpenedAt',
@@ -5172,6 +5189,44 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     snapshotsByTime,
     snapshotsByStory,
   ];
+  @override
+  StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'stories',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('comments', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'stories',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('page_copies', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'stories',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('link_references', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'link_copies',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('link_references', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'stories',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('thread_states', kind: UpdateKind.delete)],
+    ),
+  ]);
 }
 
 typedef $$StoriesTableCreateCompanionBuilder = StoriesCompanion Function({
@@ -5212,6 +5267,83 @@ typedef $$StoriesTableUpdateCompanionBuilder = StoriesCompanion Function({
   Value<DateTime?> savedAt,
   Value<bool> hidden,
 });
+
+final class $$StoriesTableReferences
+    extends BaseReferences<_$AppDatabase, $StoriesTable, StoryRow> {
+  $$StoriesTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static MultiTypedResultKey<$CommentsTable, List<CommentRow>>
+  _commentsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.comments,
+    aliasName: 'stories__id__comments__story_id',
+  );
+
+  $$CommentsTableProcessedTableManager get commentsRefs {
+    final manager = $$CommentsTableTableManager(
+      $_db,
+      $_db.comments,
+    ).filter((f) => f.storyId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_commentsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$PageCopiesTable, List<PageCopyRow>>
+  _pageCopiesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.pageCopies,
+    aliasName: 'stories__id__page_copies__story_id',
+  );
+
+  $$PageCopiesTableProcessedTableManager get pageCopiesRefs {
+    final manager = $$PageCopiesTableTableManager(
+      $_db,
+      $_db.pageCopies,
+    ).filter((f) => f.storyId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_pageCopiesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$LinkReferencesTable, List<LinkReferenceRow>>
+  _linkReferencesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.linkReferences,
+    aliasName: 'stories__id__link_references__story_id',
+  );
+
+  $$LinkReferencesTableProcessedTableManager get linkReferencesRefs {
+    final manager = $$LinkReferencesTableTableManager(
+      $_db,
+      $_db.linkReferences,
+    ).filter((f) => f.storyId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_linkReferencesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$ThreadStatesTable, List<ThreadStateRow>>
+  _threadStatesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.threadStates,
+    aliasName: 'stories__id__thread_states__story_id',
+  );
+
+  $$ThreadStatesTableProcessedTableManager get threadStatesRefs {
+    final manager = $$ThreadStatesTableTableManager(
+      $_db,
+      $_db.threadStates,
+    ).filter((f) => f.storyId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_threadStatesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
 
 class $$StoriesTableFilterComposer
     extends Composer<_$AppDatabase, $StoriesTable> {
@@ -5306,6 +5438,106 @@ class $$StoriesTableFilterComposer
     column: $table.hidden,
     builder: (column) => ColumnFilters(column),
   );
+
+  Expression<bool> commentsRefs(
+    Expression<bool> Function($$CommentsTableFilterComposer f) f,
+  ) {
+    final $$CommentsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.comments,
+      getReferencedColumn: (t) => t.storyId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CommentsTableFilterComposer(
+            $db: $db,
+            $table: $db.comments,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> pageCopiesRefs(
+    Expression<bool> Function($$PageCopiesTableFilterComposer f) f,
+  ) {
+    final $$PageCopiesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.pageCopies,
+      getReferencedColumn: (t) => t.storyId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PageCopiesTableFilterComposer(
+            $db: $db,
+            $table: $db.pageCopies,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> linkReferencesRefs(
+    Expression<bool> Function($$LinkReferencesTableFilterComposer f) f,
+  ) {
+    final $$LinkReferencesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.linkReferences,
+      getReferencedColumn: (t) => t.storyId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LinkReferencesTableFilterComposer(
+            $db: $db,
+            $table: $db.linkReferences,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> threadStatesRefs(
+    Expression<bool> Function($$ThreadStatesTableFilterComposer f) f,
+  ) {
+    final $$ThreadStatesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.threadStates,
+      getReferencedColumn: (t) => t.storyId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ThreadStatesTableFilterComposer(
+            $db: $db,
+            $table: $db.threadStates,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$StoriesTableOrderingComposer
@@ -5466,6 +5698,106 @@ class $$StoriesTableAnnotationComposer
 
   GeneratedColumn<bool> get hidden =>
       $composableBuilder(column: $table.hidden, builder: (column) => column);
+
+  Expression<T> commentsRefs<T extends Object>(
+    Expression<T> Function($$CommentsTableAnnotationComposer a) f,
+  ) {
+    final $$CommentsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.comments,
+      getReferencedColumn: (t) => t.storyId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CommentsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.comments,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> pageCopiesRefs<T extends Object>(
+    Expression<T> Function($$PageCopiesTableAnnotationComposer a) f,
+  ) {
+    final $$PageCopiesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.pageCopies,
+      getReferencedColumn: (t) => t.storyId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PageCopiesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.pageCopies,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> linkReferencesRefs<T extends Object>(
+    Expression<T> Function($$LinkReferencesTableAnnotationComposer a) f,
+  ) {
+    final $$LinkReferencesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.linkReferences,
+      getReferencedColumn: (t) => t.storyId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LinkReferencesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.linkReferences,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> threadStatesRefs<T extends Object>(
+    Expression<T> Function($$ThreadStatesTableAnnotationComposer a) f,
+  ) {
+    final $$ThreadStatesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.threadStates,
+      getReferencedColumn: (t) => t.storyId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ThreadStatesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.threadStates,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$StoriesTableTableManager
@@ -5479,9 +5811,14 @@ class $$StoriesTableTableManager
           $$StoriesTableAnnotationComposer,
           $$StoriesTableCreateCompanionBuilder,
           $$StoriesTableUpdateCompanionBuilder,
-          (StoryRow, BaseReferences<_$AppDatabase, $StoriesTable, StoryRow>),
+          (StoryRow, $$StoriesTableReferences),
           StoryRow,
-          PrefetchHooks Function()
+          PrefetchHooks Function({
+            bool commentsRefs,
+            bool pageCopiesRefs,
+            bool linkReferencesRefs,
+            bool threadStatesRefs,
+          })
         > {
   $$StoriesTableTableManager(_$AppDatabase db, $StoriesTable table)
     : super(
@@ -5574,15 +5911,116 @@ class $$StoriesTableTableManager
               .map(
                 (e) => (
                   e.readTable<$StoriesTable, StoryRow>(table),
-                  BaseReferences<_$AppDatabase, $StoriesTable, StoryRow>(
-                    db,
-                    table,
-                    e,
-                  ),
+                  $$StoriesTableReferences(db, table, e),
                 ),
               )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback:
+              ({
+                commentsRefs = false,
+                pageCopiesRefs = false,
+                linkReferencesRefs = false,
+                threadStatesRefs = false,
+              }) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (commentsRefs) db.comments,
+                    if (pageCopiesRefs) db.pageCopies,
+                    if (linkReferencesRefs) db.linkReferences,
+                    if (threadStatesRefs) db.threadStates,
+                  ],
+                  addJoins: null,
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (commentsRefs)
+                        await $_getPrefetchedData<
+                          StoryRow,
+                          $StoriesTable,
+                          CommentRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$StoriesTableReferences
+                              ._commentsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$StoriesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).commentsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.storyId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (pageCopiesRefs)
+                        await $_getPrefetchedData<
+                          StoryRow,
+                          $StoriesTable,
+                          PageCopyRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$StoriesTableReferences
+                              ._pageCopiesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$StoriesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).pageCopiesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.storyId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (linkReferencesRefs)
+                        await $_getPrefetchedData<
+                          StoryRow,
+                          $StoriesTable,
+                          LinkReferenceRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$StoriesTableReferences
+                              ._linkReferencesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$StoriesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).linkReferencesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.storyId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (threadStatesRefs)
+                        await $_getPrefetchedData<
+                          StoryRow,
+                          $StoriesTable,
+                          ThreadStateRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$StoriesTableReferences
+                              ._threadStatesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$StoriesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).threadStatesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.storyId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
+              },
         ),
       );
 }
@@ -5597,9 +6035,14 @@ typedef $$StoriesTableProcessedTableManager =
       $$StoriesTableAnnotationComposer,
       $$StoriesTableCreateCompanionBuilder,
       $$StoriesTableUpdateCompanionBuilder,
-      (StoryRow, BaseReferences<_$AppDatabase, $StoriesTable, StoryRow>),
+      (StoryRow, $$StoriesTableReferences),
       StoryRow,
-      PrefetchHooks Function()
+      PrefetchHooks Function({
+        bool commentsRefs,
+        bool pageCopiesRefs,
+        bool linkReferencesRefs,
+        bool threadStatesRefs,
+      })
     >;
 typedef $$CommentsTableCreateCompanionBuilder = CommentsCompanion Function({
   Value<int> id,
@@ -5626,6 +6069,28 @@ typedef $$CommentsTableUpdateCompanionBuilder = CommentsCompanion Function({
   Value<bool> deleted,
 });
 
+final class $$CommentsTableReferences
+    extends BaseReferences<_$AppDatabase, $CommentsTable, CommentRow> {
+  $$CommentsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $StoriesTable _storyIdTable(_$AppDatabase db) =>
+      db.stories.createAlias('comments__story_id__stories__id');
+
+  $$StoriesTableProcessedTableManager get storyId {
+    final $_column = $_itemColumn<int>('story_id')!;
+
+    final manager = $$StoriesTableTableManager(
+      $_db,
+      $_db.stories,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_storyIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
 class $$CommentsTableFilterComposer
     extends Composer<_$AppDatabase, $CommentsTable> {
   $$CommentsTableFilterComposer({
@@ -5637,11 +6102,6 @@ class $$CommentsTableFilterComposer
   });
   ColumnFilters<int> get id => $composableBuilder(
     column: $table.id,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get storyId => $composableBuilder(
-    column: $table.storyId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5684,6 +6144,29 @@ class $$CommentsTableFilterComposer
     column: $table.deleted,
     builder: (column) => ColumnFilters(column),
   );
+
+  $$StoriesTableFilterComposer get storyId {
+    final $$StoriesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.storyId,
+      referencedTable: $db.stories,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$StoriesTableFilterComposer(
+            $db: $db,
+            $table: $db.stories,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$CommentsTableOrderingComposer
@@ -5697,11 +6180,6 @@ class $$CommentsTableOrderingComposer
   });
   ColumnOrderings<int> get id => $composableBuilder(
     column: $table.id,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get storyId => $composableBuilder(
-    column: $table.storyId,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -5744,6 +6222,29 @@ class $$CommentsTableOrderingComposer
     column: $table.deleted,
     builder: (column) => ColumnOrderings(column),
   );
+
+  $$StoriesTableOrderingComposer get storyId {
+    final $$StoriesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.storyId,
+      referencedTable: $db.stories,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$StoriesTableOrderingComposer(
+            $db: $db,
+            $table: $db.stories,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$CommentsTableAnnotationComposer
@@ -5757,9 +6258,6 @@ class $$CommentsTableAnnotationComposer
   });
   GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
-
-  GeneratedColumn<int> get storyId =>
-      $composableBuilder(column: $table.storyId, builder: (column) => column);
 
   GeneratedColumn<int> get parentId =>
       $composableBuilder(column: $table.parentId, builder: (column) => column);
@@ -5784,6 +6282,29 @@ class $$CommentsTableAnnotationComposer
 
   GeneratedColumn<bool> get deleted =>
       $composableBuilder(column: $table.deleted, builder: (column) => column);
+
+  $$StoriesTableAnnotationComposer get storyId {
+    final $$StoriesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.storyId,
+      referencedTable: $db.stories,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$StoriesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.stories,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$CommentsTableTableManager
@@ -5797,12 +6318,9 @@ class $$CommentsTableTableManager
           $$CommentsTableAnnotationComposer,
           $$CommentsTableCreateCompanionBuilder,
           $$CommentsTableUpdateCompanionBuilder,
-          (
-            CommentRow,
-            BaseReferences<_$AppDatabase, $CommentsTable, CommentRow>,
-          ),
+          (CommentRow, $$CommentsTableReferences),
           CommentRow,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool storyId})
         > {
   $$CommentsTableTableManager(_$AppDatabase db, $CommentsTable table)
     : super(
@@ -5867,15 +6385,49 @@ class $$CommentsTableTableManager
               .map(
                 (e) => (
                   e.readTable<$CommentsTable, CommentRow>(table),
-                  BaseReferences<_$AppDatabase, $CommentsTable, CommentRow>(
-                    db,
-                    table,
-                    e,
-                  ),
+                  $$CommentsTableReferences(db, table, e),
                 ),
               )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({storyId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (storyId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.storyId,
+                        referencedTable: $$CommentsTableReferences
+                            ._storyIdTable(db),
+                        referencedColumn: $$CommentsTableReferences
+                            ._storyIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
         ),
       );
 }
@@ -5890,9 +6442,9 @@ typedef $$CommentsTableProcessedTableManager =
       $$CommentsTableAnnotationComposer,
       $$CommentsTableCreateCompanionBuilder,
       $$CommentsTableUpdateCompanionBuilder,
-      (CommentRow, BaseReferences<_$AppDatabase, $CommentsTable, CommentRow>),
+      (CommentRow, $$CommentsTableReferences),
       CommentRow,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool storyId})
     >;
 typedef $$FeedSnapshotsTableCreateCompanionBuilder =
     FeedSnapshotsCompanion Function({
@@ -6144,6 +6696,28 @@ typedef $$PageCopiesTableUpdateCompanionBuilder = PageCopiesCompanion Function({
   Value<DateTime?> lastOpenedAt,
 });
 
+final class $$PageCopiesTableReferences
+    extends BaseReferences<_$AppDatabase, $PageCopiesTable, PageCopyRow> {
+  $$PageCopiesTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $StoriesTable _storyIdTable(_$AppDatabase db) =>
+      db.stories.createAlias('page_copies__story_id__stories__id');
+
+  $$StoriesTableProcessedTableManager get storyId {
+    final $_column = $_itemColumn<int>('story_id')!;
+
+    final manager = $$StoriesTableTableManager(
+      $_db,
+      $_db.stories,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_storyIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
 class $$PageCopiesTableFilterComposer
     extends Composer<_$AppDatabase, $PageCopiesTable> {
   $$PageCopiesTableFilterComposer({
@@ -6153,11 +6727,6 @@ class $$PageCopiesTableFilterComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnFilters<int> get storyId => $composableBuilder(
-    column: $table.storyId,
-    builder: (column) => ColumnFilters(column),
-  );
-
   ColumnWithTypeConverterFilters<PageKind, PageKind, String> get kind =>
       $composableBuilder(
         column: $table.kind,
@@ -6194,6 +6763,29 @@ class $$PageCopiesTableFilterComposer
     column: $table.lastOpenedAt,
     builder: (column) => ColumnFilters(column),
   );
+
+  $$StoriesTableFilterComposer get storyId {
+    final $$StoriesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.storyId,
+      referencedTable: $db.stories,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$StoriesTableFilterComposer(
+            $db: $db,
+            $table: $db.stories,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$PageCopiesTableOrderingComposer
@@ -6205,11 +6797,6 @@ class $$PageCopiesTableOrderingComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnOrderings<int> get storyId => $composableBuilder(
-    column: $table.storyId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<String> get kind => $composableBuilder(
     column: $table.kind,
     builder: (column) => ColumnOrderings(column),
@@ -6244,6 +6831,29 @@ class $$PageCopiesTableOrderingComposer
     column: $table.lastOpenedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  $$StoriesTableOrderingComposer get storyId {
+    final $$StoriesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.storyId,
+      referencedTable: $db.stories,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$StoriesTableOrderingComposer(
+            $db: $db,
+            $table: $db.stories,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$PageCopiesTableAnnotationComposer
@@ -6255,9 +6865,6 @@ class $$PageCopiesTableAnnotationComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  GeneratedColumn<int> get storyId =>
-      $composableBuilder(column: $table.storyId, builder: (column) => column);
-
   GeneratedColumnWithTypeConverter<PageKind, String> get kind =>
       $composableBuilder(column: $table.kind, builder: (column) => column);
 
@@ -6284,6 +6891,29 @@ class $$PageCopiesTableAnnotationComposer
     column: $table.lastOpenedAt,
     builder: (column) => column,
   );
+
+  $$StoriesTableAnnotationComposer get storyId {
+    final $$StoriesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.storyId,
+      referencedTable: $db.stories,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$StoriesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.stories,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$PageCopiesTableTableManager
@@ -6297,12 +6927,9 @@ class $$PageCopiesTableTableManager
           $$PageCopiesTableAnnotationComposer,
           $$PageCopiesTableCreateCompanionBuilder,
           $$PageCopiesTableUpdateCompanionBuilder,
-          (
-            PageCopyRow,
-            BaseReferences<_$AppDatabase, $PageCopiesTable, PageCopyRow>,
-          ),
+          (PageCopyRow, $$PageCopiesTableReferences),
           PageCopyRow,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool storyId})
         > {
   $$PageCopiesTableTableManager(_$AppDatabase db, $PageCopiesTable table)
     : super(
@@ -6359,15 +6986,49 @@ class $$PageCopiesTableTableManager
               .map(
                 (e) => (
                   e.readTable<$PageCopiesTable, PageCopyRow>(table),
-                  BaseReferences<_$AppDatabase, $PageCopiesTable, PageCopyRow>(
-                    db,
-                    table,
-                    e,
-                  ),
+                  $$PageCopiesTableReferences(db, table, e),
                 ),
               )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({storyId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (storyId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.storyId,
+                        referencedTable: $$PageCopiesTableReferences
+                            ._storyIdTable(db),
+                        referencedColumn: $$PageCopiesTableReferences
+                            ._storyIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
         ),
       );
 }
@@ -6382,12 +7043,9 @@ typedef $$PageCopiesTableProcessedTableManager =
       $$PageCopiesTableAnnotationComposer,
       $$PageCopiesTableCreateCompanionBuilder,
       $$PageCopiesTableUpdateCompanionBuilder,
-      (
-        PageCopyRow,
-        BaseReferences<_$AppDatabase, $PageCopiesTable, PageCopyRow>,
-      ),
+      (PageCopyRow, $$PageCopiesTableReferences),
       PageCopyRow,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool storyId})
     >;
 typedef $$LinkCopiesTableCreateCompanionBuilder = LinkCopiesCompanion Function({
   Value<int> id,
@@ -6411,6 +7069,29 @@ typedef $$LinkCopiesTableUpdateCompanionBuilder = LinkCopiesCompanion Function({
   Value<String?> error,
   Value<DateTime?> lastOpenedAt,
 });
+
+final class $$LinkCopiesTableReferences
+    extends BaseReferences<_$AppDatabase, $LinkCopiesTable, LinkCopyRow> {
+  $$LinkCopiesTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static MultiTypedResultKey<$LinkReferencesTable, List<LinkReferenceRow>>
+  _linkReferencesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.linkReferences,
+    aliasName: 'link_copies__id__link_references__link_id',
+  );
+
+  $$LinkReferencesTableProcessedTableManager get linkReferencesRefs {
+    final manager = $$LinkReferencesTableTableManager(
+      $_db,
+      $_db.linkReferences,
+    ).filter((f) => f.linkId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_linkReferencesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
 
 class $$LinkCopiesTableFilterComposer
     extends Composer<_$AppDatabase, $LinkCopiesTable> {
@@ -6467,6 +7148,31 @@ class $$LinkCopiesTableFilterComposer
     column: $table.lastOpenedAt,
     builder: (column) => ColumnFilters(column),
   );
+
+  Expression<bool> linkReferencesRefs(
+    Expression<bool> Function($$LinkReferencesTableFilterComposer f) f,
+  ) {
+    final $$LinkReferencesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.linkReferences,
+      getReferencedColumn: (t) => t.linkId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LinkReferencesTableFilterComposer(
+            $db: $db,
+            $table: $db.linkReferences,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$LinkCopiesTableOrderingComposer
@@ -6565,6 +7271,31 @@ class $$LinkCopiesTableAnnotationComposer
     column: $table.lastOpenedAt,
     builder: (column) => column,
   );
+
+  Expression<T> linkReferencesRefs<T extends Object>(
+    Expression<T> Function($$LinkReferencesTableAnnotationComposer a) f,
+  ) {
+    final $$LinkReferencesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.linkReferences,
+      getReferencedColumn: (t) => t.linkId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LinkReferencesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.linkReferences,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$LinkCopiesTableTableManager
@@ -6578,12 +7309,9 @@ class $$LinkCopiesTableTableManager
           $$LinkCopiesTableAnnotationComposer,
           $$LinkCopiesTableCreateCompanionBuilder,
           $$LinkCopiesTableUpdateCompanionBuilder,
-          (
-            LinkCopyRow,
-            BaseReferences<_$AppDatabase, $LinkCopiesTable, LinkCopyRow>,
-          ),
+          (LinkCopyRow, $$LinkCopiesTableReferences),
           LinkCopyRow,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool linkReferencesRefs})
         > {
   $$LinkCopiesTableTableManager(_$AppDatabase db, $LinkCopiesTable table)
     : super(
@@ -6644,15 +7372,42 @@ class $$LinkCopiesTableTableManager
               .map(
                 (e) => (
                   e.readTable<$LinkCopiesTable, LinkCopyRow>(table),
-                  BaseReferences<_$AppDatabase, $LinkCopiesTable, LinkCopyRow>(
-                    db,
-                    table,
-                    e,
-                  ),
+                  $$LinkCopiesTableReferences(db, table, e),
                 ),
               )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({linkReferencesRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [
+                if (linkReferencesRefs) db.linkReferences,
+              ],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (linkReferencesRefs)
+                    await $_getPrefetchedData<
+                      LinkCopyRow,
+                      $LinkCopiesTable,
+                      LinkReferenceRow
+                    >(
+                      currentTable: table,
+                      referencedTable: $$LinkCopiesTableReferences
+                          ._linkReferencesRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$LinkCopiesTableReferences(
+                            db,
+                            table,
+                            p0,
+                          ).linkReferencesRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.linkId == item.id),
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
         ),
       );
 }
@@ -6667,12 +7422,9 @@ typedef $$LinkCopiesTableProcessedTableManager =
       $$LinkCopiesTableAnnotationComposer,
       $$LinkCopiesTableCreateCompanionBuilder,
       $$LinkCopiesTableUpdateCompanionBuilder,
-      (
-        LinkCopyRow,
-        BaseReferences<_$AppDatabase, $LinkCopiesTable, LinkCopyRow>,
-      ),
+      (LinkCopyRow, $$LinkCopiesTableReferences),
       LinkCopyRow,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool linkReferencesRefs})
     >;
 typedef $$LinkReferencesTableCreateCompanionBuilder =
     LinkReferencesCompanion Function({
@@ -6687,6 +7439,50 @@ typedef $$LinkReferencesTableUpdateCompanionBuilder =
       Value<int> rowid,
     });
 
+final class $$LinkReferencesTableReferences
+    extends
+        BaseReferences<_$AppDatabase, $LinkReferencesTable, LinkReferenceRow> {
+  $$LinkReferencesTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $StoriesTable _storyIdTable(_$AppDatabase db) =>
+      db.stories.createAlias('link_references__story_id__stories__id');
+
+  $$StoriesTableProcessedTableManager get storyId {
+    final $_column = $_itemColumn<int>('story_id')!;
+
+    final manager = $$StoriesTableTableManager(
+      $_db,
+      $_db.stories,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_storyIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $LinkCopiesTable _linkIdTable(_$AppDatabase db) =>
+      db.linkCopies.createAlias('link_references__link_id__link_copies__id');
+
+  $$LinkCopiesTableProcessedTableManager get linkId {
+    final $_column = $_itemColumn<int>('link_id')!;
+
+    final manager = $$LinkCopiesTableTableManager(
+      $_db,
+      $_db.linkCopies,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_linkIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
 class $$LinkReferencesTableFilterComposer
     extends Composer<_$AppDatabase, $LinkReferencesTable> {
   $$LinkReferencesTableFilterComposer({
@@ -6696,15 +7492,51 @@ class $$LinkReferencesTableFilterComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnFilters<int> get storyId => $composableBuilder(
-    column: $table.storyId,
-    builder: (column) => ColumnFilters(column),
-  );
+  $$StoriesTableFilterComposer get storyId {
+    final $$StoriesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.storyId,
+      referencedTable: $db.stories,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$StoriesTableFilterComposer(
+            $db: $db,
+            $table: $db.stories,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 
-  ColumnFilters<int> get linkId => $composableBuilder(
-    column: $table.linkId,
-    builder: (column) => ColumnFilters(column),
-  );
+  $$LinkCopiesTableFilterComposer get linkId {
+    final $$LinkCopiesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.linkId,
+      referencedTable: $db.linkCopies,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LinkCopiesTableFilterComposer(
+            $db: $db,
+            $table: $db.linkCopies,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$LinkReferencesTableOrderingComposer
@@ -6716,15 +7548,51 @@ class $$LinkReferencesTableOrderingComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnOrderings<int> get storyId => $composableBuilder(
-    column: $table.storyId,
-    builder: (column) => ColumnOrderings(column),
-  );
+  $$StoriesTableOrderingComposer get storyId {
+    final $$StoriesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.storyId,
+      referencedTable: $db.stories,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$StoriesTableOrderingComposer(
+            $db: $db,
+            $table: $db.stories,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 
-  ColumnOrderings<int> get linkId => $composableBuilder(
-    column: $table.linkId,
-    builder: (column) => ColumnOrderings(column),
-  );
+  $$LinkCopiesTableOrderingComposer get linkId {
+    final $$LinkCopiesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.linkId,
+      referencedTable: $db.linkCopies,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LinkCopiesTableOrderingComposer(
+            $db: $db,
+            $table: $db.linkCopies,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$LinkReferencesTableAnnotationComposer
@@ -6736,11 +7604,51 @@ class $$LinkReferencesTableAnnotationComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  GeneratedColumn<int> get storyId =>
-      $composableBuilder(column: $table.storyId, builder: (column) => column);
+  $$StoriesTableAnnotationComposer get storyId {
+    final $$StoriesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.storyId,
+      referencedTable: $db.stories,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$StoriesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.stories,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 
-  GeneratedColumn<int> get linkId =>
-      $composableBuilder(column: $table.linkId, builder: (column) => column);
+  $$LinkCopiesTableAnnotationComposer get linkId {
+    final $$LinkCopiesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.linkId,
+      referencedTable: $db.linkCopies,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LinkCopiesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.linkCopies,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$LinkReferencesTableTableManager
@@ -6754,16 +7662,9 @@ class $$LinkReferencesTableTableManager
           $$LinkReferencesTableAnnotationComposer,
           $$LinkReferencesTableCreateCompanionBuilder,
           $$LinkReferencesTableUpdateCompanionBuilder,
-          (
-            LinkReferenceRow,
-            BaseReferences<
-              _$AppDatabase,
-              $LinkReferencesTable,
-              LinkReferenceRow
-            >,
-          ),
+          (LinkReferenceRow, $$LinkReferencesTableReferences),
           LinkReferenceRow,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool storyId, bool linkId})
         > {
   $$LinkReferencesTableTableManager(
     _$AppDatabase db,
@@ -6802,15 +7703,60 @@ class $$LinkReferencesTableTableManager
               .map(
                 (e) => (
                   e.readTable<$LinkReferencesTable, LinkReferenceRow>(table),
-                  BaseReferences<
-                    _$AppDatabase,
-                    $LinkReferencesTable,
-                    LinkReferenceRow
-                  >(db, table, e),
+                  $$LinkReferencesTableReferences(db, table, e),
                 ),
               )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({storyId = false, linkId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (storyId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.storyId,
+                        referencedTable: $$LinkReferencesTableReferences
+                            ._storyIdTable(db),
+                        referencedColumn: $$LinkReferencesTableReferences
+                            ._storyIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+                    if (linkId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.linkId,
+                        referencedTable: $$LinkReferencesTableReferences
+                            ._linkIdTable(db),
+                        referencedColumn: $$LinkReferencesTableReferences
+                            ._linkIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
         ),
       );
 }
@@ -6825,12 +7771,9 @@ typedef $$LinkReferencesTableProcessedTableManager =
       $$LinkReferencesTableAnnotationComposer,
       $$LinkReferencesTableCreateCompanionBuilder,
       $$LinkReferencesTableUpdateCompanionBuilder,
-      (
-        LinkReferenceRow,
-        BaseReferences<_$AppDatabase, $LinkReferencesTable, LinkReferenceRow>,
-      ),
+      (LinkReferenceRow, $$LinkReferencesTableReferences),
       LinkReferenceRow,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool storyId, bool linkId})
     >;
 typedef $$ThreadStatesTableCreateCompanionBuilder =
     ThreadStatesCompanion Function({
@@ -6847,6 +7790,28 @@ typedef $$ThreadStatesTableUpdateCompanionBuilder =
       Value<String> collapsedIds,
     });
 
+final class $$ThreadStatesTableReferences
+    extends BaseReferences<_$AppDatabase, $ThreadStatesTable, ThreadStateRow> {
+  $$ThreadStatesTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $StoriesTable _storyIdTable(_$AppDatabase db) =>
+      db.stories.createAlias('thread_states__story_id__stories__id');
+
+  $$StoriesTableProcessedTableManager get storyId {
+    final $_column = $_itemColumn<int>('story_id')!;
+
+    final manager = $$StoriesTableTableManager(
+      $_db,
+      $_db.stories,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_storyIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
 class $$ThreadStatesTableFilterComposer
     extends Composer<_$AppDatabase, $ThreadStatesTable> {
   $$ThreadStatesTableFilterComposer({
@@ -6856,11 +7821,6 @@ class $$ThreadStatesTableFilterComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnFilters<int> get storyId => $composableBuilder(
-    column: $table.storyId,
-    builder: (column) => ColumnFilters(column),
-  );
-
   ColumnFilters<DateTime> get lastOpenedAt => $composableBuilder(
     column: $table.lastOpenedAt,
     builder: (column) => ColumnFilters(column),
@@ -6875,6 +7835,29 @@ class $$ThreadStatesTableFilterComposer
     column: $table.collapsedIds,
     builder: (column) => ColumnFilters(column),
   );
+
+  $$StoriesTableFilterComposer get storyId {
+    final $$StoriesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.storyId,
+      referencedTable: $db.stories,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$StoriesTableFilterComposer(
+            $db: $db,
+            $table: $db.stories,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$ThreadStatesTableOrderingComposer
@@ -6886,11 +7869,6 @@ class $$ThreadStatesTableOrderingComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnOrderings<int> get storyId => $composableBuilder(
-    column: $table.storyId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<DateTime> get lastOpenedAt => $composableBuilder(
     column: $table.lastOpenedAt,
     builder: (column) => ColumnOrderings(column),
@@ -6905,6 +7883,29 @@ class $$ThreadStatesTableOrderingComposer
     column: $table.collapsedIds,
     builder: (column) => ColumnOrderings(column),
   );
+
+  $$StoriesTableOrderingComposer get storyId {
+    final $$StoriesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.storyId,
+      referencedTable: $db.stories,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$StoriesTableOrderingComposer(
+            $db: $db,
+            $table: $db.stories,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$ThreadStatesTableAnnotationComposer
@@ -6916,9 +7917,6 @@ class $$ThreadStatesTableAnnotationComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  GeneratedColumn<int> get storyId =>
-      $composableBuilder(column: $table.storyId, builder: (column) => column);
-
   GeneratedColumn<DateTime> get lastOpenedAt => $composableBuilder(
     column: $table.lastOpenedAt,
     builder: (column) => column,
@@ -6933,6 +7931,29 @@ class $$ThreadStatesTableAnnotationComposer
     column: $table.collapsedIds,
     builder: (column) => column,
   );
+
+  $$StoriesTableAnnotationComposer get storyId {
+    final $$StoriesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.storyId,
+      referencedTable: $db.stories,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$StoriesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.stories,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$ThreadStatesTableTableManager
@@ -6946,12 +7967,9 @@ class $$ThreadStatesTableTableManager
           $$ThreadStatesTableAnnotationComposer,
           $$ThreadStatesTableCreateCompanionBuilder,
           $$ThreadStatesTableUpdateCompanionBuilder,
-          (
-            ThreadStateRow,
-            BaseReferences<_$AppDatabase, $ThreadStatesTable, ThreadStateRow>,
-          ),
+          (ThreadStateRow, $$ThreadStatesTableReferences),
           ThreadStateRow,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool storyId})
         > {
   $$ThreadStatesTableTableManager(_$AppDatabase db, $ThreadStatesTable table)
     : super(
@@ -6992,15 +8010,49 @@ class $$ThreadStatesTableTableManager
               .map(
                 (e) => (
                   e.readTable<$ThreadStatesTable, ThreadStateRow>(table),
-                  BaseReferences<
-                    _$AppDatabase,
-                    $ThreadStatesTable,
-                    ThreadStateRow
-                  >(db, table, e),
+                  $$ThreadStatesTableReferences(db, table, e),
                 ),
               )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({storyId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (storyId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.storyId,
+                        referencedTable: $$ThreadStatesTableReferences
+                            ._storyIdTable(db),
+                        referencedColumn: $$ThreadStatesTableReferences
+                            ._storyIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
         ),
       );
 }
@@ -7015,12 +8067,9 @@ typedef $$ThreadStatesTableProcessedTableManager =
       $$ThreadStatesTableAnnotationComposer,
       $$ThreadStatesTableCreateCompanionBuilder,
       $$ThreadStatesTableUpdateCompanionBuilder,
-      (
-        ThreadStateRow,
-        BaseReferences<_$AppDatabase, $ThreadStatesTable, ThreadStateRow>,
-      ),
+      (ThreadStateRow, $$ThreadStatesTableReferences),
       ThreadStateRow,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool storyId})
     >;
 typedef $$SyncRunsTableCreateCompanionBuilder = SyncRunsCompanion Function({
   Value<int> id,

@@ -4,6 +4,16 @@ import 'package:offline_hn/data/policy/keep_window.dart';
 import 'package:offline_hn/data/policy/prune_policy.dart';
 import 'package:offline_hn/data/repository/retention_repository.dart';
 
+/// Where the saved copies are, by paths relative to one root.
+abstract interface class StoredFiles {
+  Future<List<({String path, DateTime modified, int bytes})>> list();
+  bool exists(String relativePath);
+  Future<void> delete(String relativePath);
+}
+
+/// A file no row names is left this long first, in case it is being written.
+const strayFileGrace = Duration(hours: 1);
+
 class PruneResult {
   const PruneResult({
     required this.pages,
@@ -11,6 +21,8 @@ class PruneResult {
     required this.stories,
     required this.threadStates,
     required this.snapshotFetches,
+    required this.strayFiles,
+    required this.lostCopies,
     required this.bytes,
   });
 
@@ -20,7 +32,13 @@ class PruneResult {
   final int threadStates;
   final int snapshotFetches;
 
-  /// Weight of the saved copies removed.
+  /// Files no row named, left by a crash or a capture that changed kind.
+  final int strayFiles;
+
+  /// Rows whose file or discussion was gone, now owed again.
+  final int lostCopies;
+
+  /// Weight of the saved copies and stray files removed.
   final int bytes;
 }
 
@@ -29,15 +47,17 @@ class PruneService {
 
   final RetentionRepository _retention;
 
-  /// Rows go before files, so a crash in between leaves an orphan file rather
-  /// than a row pointing at nothing. Linked pages go before article copies,
-  /// and the copies of an expired story go with its text.
+  /// Rows go before files, so a crash in between leaves a stray file rather
+  /// than a row pointing at nothing; the stray files go at the end. Linked
+  /// pages go before article copies, and the copies of an expired story go
+  /// with its text.
   Future<PruneResult> run({
     required AppSettings settings,
     required DateTime now,
-    required Future<void> Function(String relativePath) deleteFile,
+    required StoredFiles files,
     UtcOffsetAt offsetAt = deviceOffsetAt,
   }) async {
+    final deleteFile = files.delete;
     final keepFrom = keepWindowStart(
       now,
       settings.keepDays,
@@ -69,6 +89,7 @@ class PruneService {
     final stories = storiesToPrune(
       await _retention.textCandidates(),
       keepFrom: keepFrom,
+      linkedFrom: await _retention.linkedDiscussions(),
     );
     final expiredPages = await _retention.deletePages(stories);
     await _retention.deleteStories(stories);
@@ -89,17 +110,34 @@ class PruneService {
     );
     await _retention.deleteSnapshotFetches(fetches);
 
+    final named = await _retention.copyPaths();
+    var strayFiles = 0;
+    var strayBytes = 0;
+    for (final file in await files.list()) {
+      if (named.contains(file.path) ||
+          now.difference(file.modified) < strayFileGrace) {
+        continue;
+      }
+      await deleteFile(file.path);
+      strayFiles++;
+      strayBytes += file.bytes;
+    }
+    final lostCopies = await _retention.forgetMissing(files.exists);
+
     return PruneResult(
       pages: pages.length + expiredPages.paths.length,
       links: links.length + orphaned.paths.length,
       stories: stories.length,
       threadStates: states.length,
       snapshotFetches: fetches.length,
+      strayFiles: strayFiles,
+      lostCopies: lostCopies,
       bytes:
           linkFiles.bytes +
           pageFiles.bytes +
           expiredPages.bytes +
-          orphaned.bytes,
+          orphaned.bytes +
+          strayBytes,
     );
   }
 }

@@ -220,6 +220,56 @@ void main() {
     test('a story with a saved copy goes with it once it has expired', () {
       expect(prune([_text(1, ageDays: 5)]), [1]);
     });
+
+    group('a discussion saved as a link', () {
+      List<int> prune(List<TextCandidate> c, Map<int, Set<int>> linkedFrom) =>
+          storiesToPrune(
+            c,
+            keepFrom: _now.subtract(const Duration(days: 3)),
+            linkedFrom: linkedFrom,
+          );
+
+      test('stays while a story linking to it stays', () {
+        expect(
+          prune(
+            [_text(1, saved: true), _text(50, ageDays: 10)],
+            {
+              50: {1},
+            },
+          ),
+          isEmpty,
+        );
+      });
+
+      test('goes with the stories linking to it', () {
+        expect(
+          prune(
+            [_text(1, ageDays: 10), _text(50, ageDays: 10)],
+            {
+              50: {1},
+            },
+          ),
+          [1, 50],
+        );
+      });
+
+      test('keeps the discussions it links to in turn', () {
+        expect(
+          prune(
+            [
+              _text(1, saved: true),
+              _text(50, ageDays: 10),
+              _text(60, ageDays: 10),
+            ],
+            {
+              50: {1},
+              60: {50},
+            },
+          ),
+          isEmpty,
+        );
+      });
+    });
   });
 
   group('thread state', () {

@@ -399,6 +399,7 @@ void main() {
       () async {
         final states = ThreadStateRepository(db);
         final seen = DateTime.utc(2026, 10, 9, 10);
+        await stories.upsertStories([_story(1)], t0);
         await states.markOpened(1, t0, seenUpToCommentTime: seen);
         await states.markOpened(
           1,
@@ -414,6 +415,7 @@ void main() {
     test('collapsing keeps the marker and does not count as opening', () async {
       final states = ThreadStateRepository(db);
       final seen = DateTime.utc(2026, 10, 9, 10);
+      await stories.upsertStories([_story(1)], t0);
       await states.markOpened(1, t0, seenUpToCommentTime: seen);
       await states.setCollapsed(1, {4, 9}, t0.add(const Duration(days: 1)));
       final row = (await states.watch(1).first)!;
@@ -426,7 +428,59 @@ void main() {
     });
   });
 
+  group('deleting', () {
+    test('a story takes everything that belongs to it', () async {
+      await stories.replaceThread(
+        RemoteThread(
+          story: _story(1),
+          comments: [const RemoteComment(id: 10, text: 'x')],
+        ),
+        t0,
+      );
+      await stories.upsertStories([_story(2)], t0);
+      await pages.recordCaptured(
+        storyId: 1,
+        kind: PageKind.mhtml,
+        relativePath: 'a',
+        bytes: 1,
+        now: t0,
+      );
+      final links = LinkRepository(db);
+      final ids = await links.prepare([Uri.parse('https://example.com/')]);
+      await links.replaceReferences({
+        1: ids.values.toSet(),
+        2: ids.values.toSet(),
+      });
+      await ThreadStateRepository(db).markOpened(1, t0);
+
+      await RetentionRepository(db).deleteStories([1]);
+
+      expect(await stories.watchComments(1).first, isEmpty);
+      expect(await pages.watch(1).first, isNull);
+      expect(await ThreadStateRepository(db).watch(1).first, isNull);
+      final references = await db.select(db.linkReferences).get();
+      expect([for (final r in references) r.storyId], [2]);
+    });
+
+    test('a link takes the references to it', () async {
+      await stories.upsertStories([_story(1)], t0);
+      final links = LinkRepository(db);
+      final ids = await links.prepare([Uri.parse('https://example.com/')]);
+      await links.replaceReferences({1: ids.values.toSet()});
+
+      await RetentionRepository(db).deleteLinks(ids.values.toList());
+
+      expect(await db.select(db.linkReferences).get(), isEmpty);
+    });
+  });
+
   group('page copies', () {
+    setUp(
+      () => stories.upsertStories([
+        for (var id = 1; id <= 4; id++) _story(id),
+      ], t0),
+    );
+
     test('total counts only stored pages', () async {
       await pages.recordCaptured(
         storyId: 1,
@@ -826,7 +880,7 @@ void main() {
           Settings.keepDays.key: '7',
         }),
         now: now,
-        deleteFile: (path) async => deleted.add(path),
+        files: FakeFiles(deleted),
       );
 
       expect(deleted, ['pages/links/one.mhtml']);
@@ -894,11 +948,8 @@ void main() {
 
       final settings = AppSettings.fromRaw({Settings.keepDays.key: '2'});
       final deleted = <String>[];
-      final result = await PruneService(RetentionRepository(db)).run(
-        settings: settings,
-        now: now,
-        deleteFile: (path) async => deleted.add(path),
-      );
+      final result = await PruneService(RetentionRepository(db))
+          .run(settings: settings, now: now, files: FakeFiles(deleted));
 
       expect(deleted, ['one.mhtml']);
       expect(result.pages, 1);
@@ -907,6 +958,105 @@ void main() {
       expect(await stories.watchStory(3).first, isNotNull);
       expect(await stories.watchStory(4).first, isNotNull);
       expect(await ThreadStateRepository(db).watch(2).first, isNotNull);
+    });
+
+    final now = DateTime.utc(2026, 10, 20, 12);
+    final old = now.subtract(const Duration(days: 10));
+    Future<PruneResult> prune(FakeFiles files) =>
+        PruneService(RetentionRepository(db)).run(
+          settings: AppSettings.fromRaw({Settings.keepDays.key: '2'}),
+          now: now,
+          files: files,
+        );
+
+    test('a bookmarked story keeps the discussion it links to', () async {
+      await stories.upsertStories([_story(1)], old);
+      await stories.setSaved(1, value: true);
+      await stories.replaceThread(
+        RemoteThread(
+          story: _story(50),
+          comments: [const RemoteComment(id: 51, text: 'x')],
+        ),
+        old,
+      );
+      final links = LinkRepository(db);
+      final address = Uri.parse('https://news.ycombinator.com/item?id=51');
+      final ids = await links.prepare([address]);
+      await links.replaceReferences({1: ids.values.toSet()});
+      await links.recordThread(id: ids.values.single, now: old);
+
+      await prune(FakeFiles([]));
+
+      expect(await stories.watchStory(50).first, isNotNull);
+      expect((await links.copyFor(address))!.status, LinkStatus.ok);
+    });
+
+    test('files no row names go once they are not new', () async {
+      await stories.upsertStories([_story(1)], now);
+      await pages.recordCaptured(
+        storyId: 1,
+        kind: PageKind.mhtml,
+        relativePath: 'pages/1.mhtml',
+        bytes: 5,
+        now: now,
+      );
+      final deleted = <String>[];
+      final stale = now.subtract(const Duration(days: 1));
+      final result = await prune(
+        FakeFiles(
+          deleted,
+          stored: [
+            (path: 'pages/1.mhtml', modified: stale, bytes: 5),
+            (path: 'pages/1.pdf', modified: stale, bytes: 7),
+            (path: 'pages/links/9.mhtml', modified: now, bytes: 3),
+          ],
+        ),
+      );
+      expect(deleted, ['pages/1.pdf']);
+      expect((result.strayFiles, result.bytes), (1, 7));
+    });
+
+    test('a copy whose file is gone is owed again', () async {
+      await stories.upsertStories([_story(1)], now);
+      await pages.recordCaptured(
+        storyId: 1,
+        kind: PageKind.mhtml,
+        relativePath: 'pages/1.mhtml',
+        bytes: 5,
+        now: now,
+      );
+      final links = LinkRepository(db);
+      final address = Uri.parse('https://example.com/');
+      final ids = await links.prepare([address]);
+      await links.replaceReferences({1: ids.values.toSet()});
+      await links.recordCaptured(
+        id: ids.values.single,
+        kind: PageKind.mhtml,
+        relativePath: 'pages/links/1.mhtml',
+        bytes: 5,
+        now: now,
+      );
+
+      final result = await prune(
+        FakeFiles([], missing: {'pages/1.mhtml', 'pages/links/1.mhtml'}),
+      );
+
+      expect(result.lostCopies, 2);
+      expect(await pages.watch(1).first, isNull);
+      expect((await links.copyFor(address))!.status, LinkStatus.pending);
+    });
+
+    test('a discussion saved as a link that is gone is owed again', () async {
+      await stories.upsertStories([_story(1)], now);
+      final links = LinkRepository(db);
+      final address = Uri.parse('https://news.ycombinator.com/item?id=77');
+      final ids = await links.prepare([address]);
+      await links.replaceReferences({1: ids.values.toSet()});
+      await links.recordThread(id: ids.values.single, now: now);
+
+      await prune(FakeFiles([]));
+
+      expect((await links.copyFor(address))!.status, LinkStatus.pending);
     });
   });
 }

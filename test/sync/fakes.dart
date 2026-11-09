@@ -142,10 +142,11 @@ class FakeLists implements FilterListSync {
 
 /// Records pages the way the real saver does, without a WebView.
 class FakeSaver implements StoryPageSaver {
-  FakeSaver(this.pages, this.clock, this.links);
+  FakeSaver(this.pages, this.clock, this.links, this.files);
 
   final PageRepository pages;
   final LinkRepository links;
+  final PageFiles files;
   final savedLinks = <String>[];
   final failingLinks = <String>{};
   final DateTime Function() clock;
@@ -186,11 +187,18 @@ class FakeSaver implements StoryPageSaver {
     await pages.recordCaptured(
       storyId: story.id,
       kind: PageKind.mhtml,
-      relativePath: 'pages/${story.id}.mhtml',
+      relativePath: _write('pages/${story.id}.mhtml'),
       bytes: 1000,
       now: clock(),
     );
     return PageStatus.ok;
+  }
+
+  String _write(String path) {
+    files.fileFor(path)
+      ..createSync(recursive: true)
+      ..writeAsStringSync('page');
+    return path;
   }
 
   @override
@@ -208,7 +216,7 @@ class FakeSaver implements StoryPageSaver {
     await links.recordCaptured(
       id: link.id,
       kind: PageKind.mhtml,
-      relativePath: 'pages/links/${link.id}.mhtml',
+      relativePath: _write('pages/links/${link.id}.mhtml'),
       bytes: 1000,
       now: clock(),
     );

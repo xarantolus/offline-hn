@@ -82,7 +82,7 @@ class AppDatabase extends _$AppDatabase {
   );
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -113,8 +113,40 @@ class AppDatabase extends _$AppDatabase {
         await m.addColumn(feedSnapshots, feedSnapshots.published);
         await m.createIndex(snapshotsByStory);
       }
+      if (from < 9) await _addReferences(m);
     },
+    // Not in the connection setup: migrations rebuild tables with the
+    // references off, as SQLite asks.
+    beforeOpen: (_) => customStatement('PRAGMA foreign_keys = ON'),
   );
+
+  /// SQLite adds a reference only by rebuilding the table. Rows whose story or
+  /// link is already gone would break it, so they go first; files they named
+  /// are left for the pruning to find.
+  Future<void> _addReferences(Migrator m) async {
+    for (final table in [
+      'comments',
+      'page_copies',
+      'link_references',
+      'thread_states',
+    ]) {
+      await customStatement(
+        'DELETE FROM $table WHERE story_id NOT IN (SELECT id FROM stories)',
+      );
+    }
+    await customStatement(
+      'DELETE FROM link_references '
+      'WHERE link_id NOT IN (SELECT id FROM link_copies)',
+    );
+    for (final table in <TableInfo<Table, Object?>>[
+      comments,
+      pageCopies,
+      linkReferences,
+      threadStates,
+    ]) {
+      await m.alterTable(TableMigration(table));
+    }
+  }
 
   Future<void> _createSearchIndex() async {
     for (final statement in storySearchIndexStatements) {

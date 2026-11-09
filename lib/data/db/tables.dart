@@ -3,6 +3,9 @@ import 'package:offline_hn/data/model/feed_kind.dart';
 import 'package:offline_hn/data/model/page_enums.dart';
 import 'package:offline_hn/data/model/sync_enums.dart';
 
+// What belongs to a story references it with ON DELETE CASCADE, so it goes
+// when the story does.
+
 @DataClassName('StoryRow')
 class Stories extends Table {
   IntColumn get id => integer()();
@@ -31,7 +34,8 @@ class Stories extends Table {
 @TableIndex(name: 'comments_by_story', columns: {#storyId, #position})
 class Comments extends Table {
   IntColumn get id => integer()();
-  IntColumn get storyId => integer()();
+  IntColumn get storyId =>
+      integer().references(Stories, #id, onDelete: KeyAction.cascade)();
   IntColumn get parentId => integer().nullable()();
   TextColumn get author => text().nullable()();
   TextColumn get html => text().nullable()();
@@ -51,6 +55,8 @@ class Comments extends Table {
 class FeedSnapshots extends Table {
   IntColumn get fetchId => integer()();
   TextColumn get feedKind => textEnum<FeedKind>()();
+
+  /// No reference: a ranking is recorded before its stories are fetched.
   IntColumn get storyId => integer()();
   IntColumn get rank => integer()();
   DateTimeColumn get fetchedAt => dateTime()();
@@ -64,7 +70,8 @@ class FeedSnapshots extends Table {
 
 @DataClassName('PageCopyRow')
 class PageCopies extends Table {
-  IntColumn get storyId => integer()();
+  IntColumn get storyId =>
+      integer().references(Stories, #id, onDelete: KeyAction.cascade)();
   TextColumn get kind => textEnum<PageKind>()();
   TextColumn get relativePath => text().nullable()();
   IntColumn get bytes => integer().withDefault(const Constant(0))();
@@ -96,8 +103,10 @@ class LinkCopies extends Table {
 
 @DataClassName('LinkReferenceRow')
 class LinkReferences extends Table {
-  IntColumn get storyId => integer()();
-  IntColumn get linkId => integer()();
+  IntColumn get storyId =>
+      integer().references(Stories, #id, onDelete: KeyAction.cascade)();
+  IntColumn get linkId =>
+      integer().references(LinkCopies, #id, onDelete: KeyAction.cascade)();
 
   @override
   Set<Column<Object>> get primaryKey => {storyId, linkId};
@@ -105,7 +114,8 @@ class LinkReferences extends Table {
 
 @DataClassName('ThreadStateRow')
 class ThreadStates extends Table {
-  IntColumn get storyId => integer()();
+  IntColumn get storyId =>
+      integer().references(Stories, #id, onDelete: KeyAction.cascade)();
   DateTimeColumn get lastOpenedAt => dateTime()();
   DateTimeColumn get seenUpToCommentTime => dateTime().nullable()();
   TextColumn get collapsedIds => text().withDefault(const Constant(''))();

@@ -1,8 +1,10 @@
 import 'package:drift/drift.dart';
+import 'package:offline_hn/comments/comment_parser.dart';
 import 'package:offline_hn/data/db/database.dart';
 import 'package:offline_hn/data/model/feed_kind.dart';
 import 'package:offline_hn/data/model/page_enums.dart';
 import 'package:offline_hn/data/policy/prune_policy.dart';
+import 'package:offline_hn/data/repository/story_repository.dart';
 
 /// Files a deletion left behind to remove, and what they weighed.
 class RemovedFiles {
@@ -16,6 +18,84 @@ class RetentionRepository {
   const RetentionRepository(this._db);
 
   final AppDatabase _db;
+
+  /// For each stored discussion saved as a link, the stories that link to it.
+  Future<Map<int, Set<int>>> linkedDiscussions() async {
+    final rows =
+        await (_db.select(_db.linkCopies).join([
+              innerJoin(
+                _db.linkReferences,
+                _db.linkReferences.linkId.equalsExp(_db.linkCopies.id),
+              ),
+            ])..where(
+              _db.linkCopies.kind.equalsValue(PageKind.thread) &
+                  _db.linkCopies.status.equalsValue(LinkStatus.ok),
+            ))
+            .get();
+    final linked = <int, Set<int>>{};
+    for (final row in rows) {
+      final story = await _discussionOf(row.readTable(_db.linkCopies).url);
+      if (story == null) continue;
+      linked
+          .putIfAbsent(story, () => {})
+          .add(row.readTable(_db.linkReferences).storyId);
+    }
+    return linked;
+  }
+
+  /// The paths every copy row names, whatever its status.
+  Future<Set<String>> copyPaths() async => {
+    for (final row in await _db.select(_db.pageCopies).get()) ?row.relativePath,
+    for (final row in await _db.select(_db.linkCopies).get()) ?row.relativePath,
+  };
+
+  /// Copies whose file is gone, and discussions saved as links whose thread
+  /// is gone, become owed again so the next update fetches them. Returns how
+  /// many.
+  Future<int> forgetMissing(bool Function(String relativePath) exists) =>
+      _db.transaction(() async {
+        final pages = await (_db.select(
+          _db.pageCopies,
+        )..where((p) => p.status.equalsValue(PageStatus.ok))).get();
+        final lostPages = [
+          for (final page in pages)
+            if (!_present(page.relativePath, exists)) page.storyId,
+        ];
+        await (_db.delete(
+          _db.pageCopies,
+        )..where((p) => p.storyId.isIn(lostPages))).go();
+
+        final links = await (_db.select(
+          _db.linkCopies,
+        )..where((l) => l.status.equalsValue(LinkStatus.ok))).get();
+        final lostLinks = <int>[];
+        for (final link in links) {
+          final present = link.kind == PageKind.thread
+              ? await _discussionOf(link.url) != null
+              : _present(link.relativePath, exists);
+          if (!present) lostLinks.add(link.id);
+        }
+        await (_db.update(
+          _db.linkCopies,
+        )..where((l) => l.id.isIn(lostLinks))).write(
+          const LinkCopiesCompanion(
+            status: Value(LinkStatus.pending),
+            relativePath: Value(null),
+            bytes: Value(0),
+          ),
+        );
+        return lostPages.length + lostLinks.length;
+      });
+
+  bool _present(String? path, bool Function(String) exists) =>
+      path != null && exists(path);
+
+  /// The stored story a link to an HN item opens, if it is stored.
+  Future<int?> _discussionOf(String url) async {
+    final item = hnItemId(Uri.parse(url));
+    if (item == null) return null;
+    return (await StoryRepository(_db).locateItem(item))?.storyId;
+  }
 
   Future<List<PageCandidate>> pageCandidates() async {
     final rows = await (_db.select(_db.pageCopies).join([
@@ -66,9 +146,6 @@ class RetentionRepository {
     final rows = await (_db.select(
       _db.linkCopies,
     )..where((l) => l.id.isIn(ids))).get();
-    await (_db.delete(
-      _db.linkReferences,
-    )..where((r) => r.linkId.isIn(ids))).go();
     await (_db.delete(_db.linkCopies)..where((l) => l.id.isIn(ids))).go();
     return RemovedFiles([
       for (final row in rows) ?row.relativePath,
@@ -159,16 +236,8 @@ class RetentionRepository {
         ], rows.fold(0, (sum, row) => sum + row.bytes));
       });
 
+  /// Comments, copies, link references and thread state go with their story.
   Future<void> deleteStories(List<int> storyIds) => _db.transaction(() async {
-    await (_db.delete(
-      _db.comments,
-    )..where((c) => c.storyId.isIn(storyIds))).go();
-    await (_db.delete(
-      _db.pageCopies,
-    )..where((p) => p.storyId.isIn(storyIds))).go();
-    await (_db.delete(
-      _db.linkReferences,
-    )..where((r) => r.storyId.isIn(storyIds))).go();
     await (_db.delete(
       _db.feedSnapshots,
     )..where((s) => s.storyId.isIn(storyIds))).go();

@@ -128,12 +128,14 @@ class TextCandidate {
 
 /// Stories last seen before the window start go, with their comments and
 /// saved copies, unless bookmarked, still on a feed's newest ranking or opened
-/// since the window start.
+/// since the window start. A discussion saved as a link stays while any story
+/// linking to it ([linkedFrom], by the linked story) stays.
 List<int> storiesToPrune(
   List<TextCandidate> stories, {
   required DateTime keepFrom,
+  Map<int, Set<int>> linkedFrom = const {},
 }) {
-  return [
+  final expired = {
     for (final story in stories)
       if (!story.saved &&
           !story.onLatestSnapshot &&
@@ -141,6 +143,22 @@ List<int> storiesToPrune(
           !_within(story.threadOpenedAt, keepFrom) &&
           !_within(story.pageOpenedAt, keepFrom))
         story.storyId,
+  };
+  // A kept discussion can keep the ones it links to in turn.
+  var changed = true;
+  while (changed) {
+    changed = false;
+    for (final id in expired.toList()) {
+      final referrers = linkedFrom[id] ?? const {};
+      if (referrers.any((r) => !expired.contains(r))) {
+        expired.remove(id);
+        changed = true;
+      }
+    }
+  }
+  return [
+    for (final story in stories)
+      if (expired.contains(story.storyId)) story.storyId,
   ];
 }
 

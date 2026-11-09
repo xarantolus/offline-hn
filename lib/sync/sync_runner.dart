@@ -678,11 +678,7 @@ class SyncRunner {
   Future<void> _pruneStore(_Context context) async {
     try {
       final result = await _prune
-          .run(
-            settings: context.settings,
-            now: _clock(),
-            deleteFile: _files.delete,
-          )
+          .run(settings: context.settings, now: _clock(), files: _files)
           .timeout(_pruneTimeout);
       await _syncs.recordPruned(
         context.run.id,
