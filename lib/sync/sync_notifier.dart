@@ -48,11 +48,20 @@ class SyncNotifier implements RunNotifier {
   static const _channelId = 'sync';
   static const stopAction = 'stop';
 
+  /// A killed process cannot take its notification down, and Android keeps an
+  /// ongoing one up for good: it would sit there, stuck, until the app is next
+  /// opened. So it expires unless posted again, and a living run posts it
+  /// again well before that.
+  static const _expiresAfter = Duration(minutes: 3);
+  static const _repostEvery = Duration(minutes: 1);
+
   final FlutterLocalNotificationsPlugin _plugin;
   final ForegroundMarker _marker;
   final Stream<SyncProgress?> Function() _progress;
   final _pace = NotifyPace();
   StreamSubscription<SyncProgress?>? _following;
+  Timer? _keepAlive;
+  ({int percent, String text})? _shown;
 
   Future<void> initialize() => _plugin.initialize(
     settings: const InitializationSettings(
@@ -75,7 +84,7 @@ class SyncNotifier implements RunNotifier {
   Future<void> runStarted() async {
     await _plugin.cancel(id: _id);
     _pace.reset();
-    _follow();
+    _follow(keepAlive: true);
   }
 
   @override
@@ -87,7 +96,7 @@ class SyncNotifier implements RunNotifier {
   @override
   Future<void> appLeft() async {
     _pace.reset();
-    _follow();
+    _follow(keepAlive: false);
   }
 
   @override
@@ -96,19 +105,31 @@ class SyncNotifier implements RunNotifier {
     await _plugin.cancel(id: _id);
   }
 
-  void _follow() {
+  /// Only the process doing the run keeps the notification alive. The app's
+  /// own copy would carry on posting a run that was stopped under it.
+  void _follow({required bool keepAlive}) {
     _following ??= _progress().listen(_onProgress);
+    if (!keepAlive) return;
+    _keepAlive ??= Timer.periodic(_repostEvery, (_) {
+      final shown = _shown;
+      if (shown == null || _marker.isForeground) return;
+      unawaited(_show(shown.percent, shown.text));
+    });
   }
 
   Future<void> _unfollow() async {
     final following = _following;
     _following = null;
+    _keepAlive?.cancel();
+    _keepAlive = null;
+    _shown = null;
     await following?.cancel();
   }
 
   void _onProgress(SyncProgress? progress) {
     if (progress == null) {
       _pace.reset();
+      _shown = null;
       unawaited(_plugin.cancel(id: _id));
       return;
     }
@@ -118,26 +139,30 @@ class SyncNotifier implements RunNotifier {
     unawaited(_show(percent, runStageText(progress.phase)));
   }
 
-  Future<void> _show(int percent, String text) => _plugin.show(
-    id: _id,
-    title: appName,
-    body: text,
-    notificationDetails: NotificationDetails(
-      android: AndroidNotificationDetails(
-        _channelId,
-        'Updating stories',
-        importance: Importance.low,
-        priority: Priority.low,
-        ongoing: true,
-        onlyAlertOnce: true,
-        showProgress: true,
-        maxProgress: 100,
-        progress: percent,
-        actions: const [AndroidNotificationAction(stopAction, 'Stop')],
-        playSound: false,
-        enableVibration: false,
-        channelShowBadge: false,
+  Future<void> _show(int percent, String text) {
+    _shown = (percent: percent, text: text);
+    return _plugin.show(
+      id: _id,
+      title: appName,
+      body: text,
+      notificationDetails: NotificationDetails(
+        android: AndroidNotificationDetails(
+          _channelId,
+          'Updating stories',
+          importance: Importance.low,
+          priority: Priority.low,
+          ongoing: true,
+          timeoutAfter: _expiresAfter.inMilliseconds,
+          onlyAlertOnce: true,
+          showProgress: true,
+          maxProgress: 100,
+          progress: percent,
+          actions: const [AndroidNotificationAction(stopAction, 'Stop')],
+          playSound: false,
+          enableVibration: false,
+          channelShowBadge: false,
+        ),
       ),
-    ),
-  );
+    );
+  }
 }

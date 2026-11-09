@@ -160,11 +160,13 @@ class SyncRunner {
   }
 
   /// [requestStop], and hands the run back at once for when the process is
-  /// about to be torn down before the checkpoint is reached.
+  /// about to be torn down before the checkpoint is reached. The progress
+  /// notification goes too: the `finally` in [run] never gets to clear it.
   Future<void> stopNow() async {
     requestStop();
     final run = _activeRun;
     if (run != null) await _syncs.setExecuting(run, value: false);
+    await _notifier.runEnded();
   }
 
   Future<SyncResult> run(SyncTrigger trigger) async {

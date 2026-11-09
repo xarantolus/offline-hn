@@ -606,6 +606,17 @@ void main() {
     expect(run.finishedAt, isNull);
   });
 
+  test('stopping now clears the progress notification itself', () async {
+    // The engine is torn down once stopNow returns, so the run's own cleanup
+    // may never happen.
+    late Future<bool> endedByStop;
+    saver.onSave = (_) => endedByStop = runner.stopNow().then(
+      (_) => notifier.events.contains('ended'),
+    );
+    await runner.run(SyncTrigger.manual);
+    expect(await endedByStop, isTrue);
+  });
+
   test('only a finished run is not retried', () {
     final retried = [
       for (final result in SyncResult.values)
