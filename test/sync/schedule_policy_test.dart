@@ -1,7 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:offline_hn/data/model/daily_time.dart';
+import 'package:offline_hn/data/model/local_day.dart';
 import 'package:offline_hn/data/model/settings.dart';
 import 'package:offline_hn/data/model/sync_enums.dart';
+import 'package:offline_hn/data/model/update_pause.dart';
 import 'package:offline_hn/sync/schedule_policy.dart';
 import 'package:offline_hn/sync/scheduler.dart';
 
@@ -249,6 +251,56 @@ void main() {
         offsetAt: berlin,
       ).apply(AppSettings.fromRaw({Settings.dailyTime.key: '23:30'}));
       expect(queue.daily.single.$1, const Duration(hours: 9, minutes: 30));
+    });
+  });
+
+  group('pausing automatic updates', () {
+    const resumeOn = UpdatePause.until(LocalDay(2026, 11, 20));
+    // 00:00 on the 20th in Berlin.
+    final berlinMidnight = DateTime.utc(2026, 11, 19, 23);
+
+    test('nothing is held back without a pause', () {
+      final now = DateTime.utc(2026, 11, 13, 9);
+      expect(automaticUpdatesFrom(null, now, offsetAt: berlin), now);
+      expect(automaticUpdatesPaused(null, now, offsetAt: berlin), isFalse);
+    });
+
+    test('a pause until a date lasts until that day begins locally', () {
+      final before = berlinMidnight.subtract(const Duration(minutes: 1));
+      expect(
+        automaticUpdatesPaused(resumeOn, before, offsetAt: berlin),
+        isTrue,
+      );
+      expect(
+        automaticUpdatesFrom(resumeOn, before, offsetAt: berlin),
+        berlinMidnight,
+      );
+      expect(
+        automaticUpdatesPaused(resumeOn, berlinMidnight, offsetAt: berlin),
+        isFalse,
+      );
+    });
+
+    test('a pause whose day has passed holds nothing back', () {
+      final later = DateTime.utc(2026, 12, 1);
+      expect(automaticUpdatesFrom(resumeOn, later, offsetAt: berlin), later);
+    });
+
+    test('a pause without a date lasts until it is lifted', () {
+      const pause = UpdatePause.indefinitely();
+      final farOff = DateTime.utc(2030);
+      expect(automaticUpdatesFrom(pause, farOff, offsetAt: berlin), isNull);
+      expect(automaticUpdatesPaused(pause, farOff, offsetAt: berlin), isTrue);
+    });
+
+    test('is stored and read back', () {
+      for (final pause in [null, resumeOn, const UpdatePause.indefinitely()]) {
+        final raw = {
+          Settings.updatePause.key: Settings.updatePause.encode(pause),
+        };
+        expect(AppSettings.fromRaw(raw).updatePause, pause);
+      }
+      expect(AppSettings.defaults().updatePause, isNull);
     });
   });
 }

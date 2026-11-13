@@ -107,12 +107,17 @@ String filterListsLine(
 }
 
 /// When the daily update is next due, as [when] writes it.
-String nextDailyText({
+/// The next daily update with its charging note, or that there is none.
+String nextDailyLine({
   required AppSettings settings,
   required DateTime now,
   required String Function(DateTime) when,
   UtcOffsetAt offsetAt = deviceOffsetAt,
-}) => when(nextDailyRun(settings.dailyTime, now, offsetAt: offsetAt));
+}) {
+  final daily = _nextDaily(settings, now, when, offsetAt);
+  if (daily == null) return 'Automatic updates are paused';
+  return 'Next daily update: $daily${chargingNote(settings)}';
+}
 
 /// Appended to a time that an automatic update only keeps while charging.
 String chargingNote(AppSettings settings) =>
@@ -125,15 +130,31 @@ String nextUpdateText({
   required String Function(DateTime) when,
   UtcOffsetAt offsetAt = deviceOffsetAt,
 }) {
-  final daily = nextDailyText(
-    settings: settings,
-    now: now,
-    when: when,
-    offsetAt: offsetAt,
-  );
+  final daily = _nextDaily(settings, now, when, offsetAt);
+  if (daily == null) return 'Paused until turned back on';
   final hours = settings.intervalHours;
   final times = hours == null ? daily : '$daily · and every $hours h';
   return '$times${chargingNote(settings)}';
+}
+
+/// Null while automatic updates are off until turned back on. A pause until
+/// a date moves the next one to that day; the day itself is included.
+String? _nextDaily(
+  AppSettings settings,
+  DateTime now,
+  String Function(DateTime) when,
+  UtcOffsetAt offsetAt,
+) {
+  final from = automaticUpdatesFrom(
+    settings.updatePause,
+    now,
+    offsetAt: offsetAt,
+  );
+  if (from == null) return null;
+  final since = from == now
+      ? now
+      : from.subtract(const Duration(microseconds: 1));
+  return when(nextDailyRun(settings.dailyTime, since, offsetAt: offsetAt));
 }
 
 /// "today and yesterday", "the last 4 days".

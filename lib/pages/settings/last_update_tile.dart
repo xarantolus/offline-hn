@@ -39,7 +39,7 @@ class _LastUpdateTileState extends State<LastUpdateTile> {
         builder: (context, progress) {
           final run = latest.data;
           final now = DateTime.now();
-          final next = nextDailyText(
+          final next = nextDailyLine(
             settings: widget.settings,
             now: now,
             when: (at) => whenText(context, at),
@@ -55,10 +55,7 @@ class _LastUpdateTileState extends State<LastUpdateTile> {
                       : runTitle(context, run, now, progress.data),
                   style: t.hint,
                 ),
-                Text(
-                  'Next daily update: $next${chargingNote(widget.settings)}',
-                  style: t.hint,
-                ),
+                Text(next, style: t.hint),
               ],
             ),
             trailing: const Icon(Icons.chevron_right),

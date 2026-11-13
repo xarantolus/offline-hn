@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
+import 'package:offline_hn/data/model/settings.dart';
 import 'package:offline_hn/data/model/sync_enums.dart';
 import 'package:offline_hn/sync/background_environment.dart';
 import 'package:offline_hn/sync/schedule_policy.dart';
@@ -57,6 +58,14 @@ abstract final class SyncTaskHandler {
     final trigger = SyncTrigger.values.byName(
       input?[SyncTasks.triggerKey] as String? ?? SyncTrigger.periodic.name,
     );
+    if (!trigger.userInitiated &&
+        automaticUpdatesPaused(
+          await environment.settings.read(Settings.updatePause),
+          DateTime.now(),
+        )) {
+      debugPrintSynchronously('sync $trigger: paused');
+      return true;
+    }
     _running = environment.runner;
     final result = await environment.runner.run(trigger);
     debugPrintSynchronously('sync $trigger: ${result.name}');

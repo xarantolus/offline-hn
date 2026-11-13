@@ -68,11 +68,12 @@ class _EmptyFeedState extends State<EmptyFeed> {
                   tokens: t,
                 );
               }
+              final why = waiting.contains(AutomaticHold.paused)
+                  ? 'Automatic updates are paused'
+                  : 'Automatic updates wait for ${waitingFor(waiting)}';
               return EmptyMessage(
                 title: 'Nothing downloaded yet',
-                hint:
-                    'Automatic updates wait for ${waitingFor(waiting)}. You '
-                    'can fetch the stories now.',
+                hint: '$why. You can fetch the stories now.',
                 tokens: t,
                 action: FilledButton.tonal(
                   onPressed: widget.onFetch,

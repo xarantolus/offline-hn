@@ -1,6 +1,7 @@
 import 'package:offline_hn/data/model/daily_time.dart';
 import 'package:offline_hn/data/model/settings.dart';
 import 'package:offline_hn/data/model/sync_enums.dart';
+import 'package:offline_hn/data/model/update_pause.dart';
 import 'package:offline_hn/data/policy/day_grouping.dart';
 import 'package:offline_hn/data/policy/network_policy.dart';
 
@@ -21,6 +22,30 @@ DateTime nextDailyRun(
     final candidate = wall.subtract(offsetAt(guess));
     if (candidate.isAfter(instant)) return candidate;
   }
+}
+
+/// When automatic updates may start again: [now] when they are not paused,
+/// the start of the day they resume on when that is still ahead, and null
+/// while they are off until turned back on.
+DateTime? automaticUpdatesFrom(
+  UpdatePause? pause,
+  DateTime now, {
+  UtcOffsetAt offsetAt = deviceOffsetAt,
+}) {
+  if (pause == null) return now;
+  final resumeOn = pause.resumeOn;
+  if (resumeOn == null) return null;
+  final start = dayBoundsUtc(resumeOn, offsetAt: offsetAt).startUtc;
+  return start.isAfter(now) ? start : now;
+}
+
+bool automaticUpdatesPaused(
+  UpdatePause? pause,
+  DateTime now, {
+  UtcOffsetAt offsetAt = deviceOffsetAt,
+}) {
+  final from = automaticUpdatesFrom(pause, now, offsetAt: offsetAt);
+  return from == null || from.isAfter(now);
 }
 
 /// What must hold before the system starts the work.
@@ -57,7 +82,7 @@ WorkRequirements requirementsFor(SyncTrigger trigger, AppSettings settings) {
 }
 
 /// What an automatic update may be waiting for.
-enum AutomaticHold { connection, charger }
+enum AutomaticHold { paused, connection, charger }
 
 /// Empty when the catch-up can start right away. The charger is a requirement
 /// rather than a known battery state: on a phone that is already charging the
@@ -65,7 +90,9 @@ enum AutomaticHold { connection, charger }
 Set<AutomaticHold> automaticHolds(
   SyncAllowance allowance,
   AppSettings settings,
+  DateTime now,
 ) => {
+  if (automaticUpdatesPaused(settings.updatePause, now)) AutomaticHold.paused,
   if (allowance == SyncAllowance.nothing) AutomaticHold.connection,
   if (settings.chargingOnly) AutomaticHold.charger,
 };

@@ -188,4 +188,46 @@ void main() {
       );
     });
   });
+
+  group('while paused', () {
+    String when(DateTime d) => d.toUtc().toIso8601String();
+    Duration utc(DateTime _) => Duration.zero;
+    final now = DateTime.utc(2026, 11, 13, 6);
+
+    test('the next update is the daily one on the day updates resume', () {
+      final paused = settings({'updatePause': '2026-11-20'});
+      expect(
+        nextUpdateText(settings: paused, now: now, when: when, offsetAt: utc),
+        '2026-11-20T05:00:00.000Z · and every 2 h, when charging',
+      );
+      expect(
+        nextDailyLine(settings: paused, now: now, when: when, offsetAt: utc),
+        'Next daily update: 2026-11-20T05:00:00.000Z, when charging',
+      );
+    });
+
+    test('a daily time of midnight still runs on that day', () {
+      final paused = settings({
+        'updatePause': '2026-11-20',
+        'dailyTime': '00:00',
+        'chargingOnly': 'false',
+      });
+      expect(
+        nextUpdateText(settings: paused, now: now, when: when, offsetAt: utc),
+        '2026-11-20T00:00:00.000Z · and every 2 h',
+      );
+    });
+
+    test('with no date there is no next update', () {
+      final paused = settings({'updatePause': 'indefinitely'});
+      expect(
+        nextUpdateText(settings: paused, now: now, when: when, offsetAt: utc),
+        'Paused until turned back on',
+      );
+      expect(
+        nextDailyLine(settings: paused, now: now, when: when, offsetAt: utc),
+        'Automatic updates are paused',
+      );
+    });
+  });
 }

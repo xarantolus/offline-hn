@@ -4,6 +4,7 @@ import 'package:offline_hn/data/model/comment_order.dart';
 import 'package:offline_hn/data/model/daily_time.dart';
 import 'package:offline_hn/data/model/feed_kind.dart';
 import 'package:offline_hn/data/model/filter_list_status.dart';
+import 'package:offline_hn/data/model/update_pause.dart';
 import 'package:offline_hn/data/model/viewer_kind.dart';
 import 'package:offline_hn/data/policy/keep_window.dart';
 import 'package:page_capture/filters.dart';
@@ -41,6 +42,14 @@ abstract final class Settings {
     2,
     _decodeInterval,
     _encodeInterval,
+  );
+
+  /// Null lets automatic updates run.
+  static const updatePause = Setting<UpdatePause?>(
+    'updatePause',
+    null,
+    _decodePause,
+    _encodePause,
   );
 
   static const wifiOnly = Setting<bool>(
@@ -161,6 +170,11 @@ abstract final class Settings {
 
   static String _encodeInterval(int? value) => value?.toString() ?? _off;
 
+  static UpdatePause? _decodePause(String raw) =>
+      raw == _off ? null : UpdatePause.decode(raw);
+
+  static String _encodePause(UpdatePause? value) => value?.encode() ?? _off;
+
   static bool _decodeBool(String raw) => switch (raw) {
     'true' => true,
     'false' => false,
@@ -204,6 +218,7 @@ class AppSettings {
   const AppSettings({
     required this.dailyTime,
     required this.intervalHours,
+    this.updatePause,
     required this.wifiOnly,
     required this.chargingOnly,
     required this.pagesOnMobile,
@@ -225,6 +240,7 @@ class AppSettings {
   factory AppSettings.fromRaw(Map<String, String> raw) => AppSettings(
     dailyTime: Settings.dailyTime.read(raw),
     intervalHours: Settings.intervalHours.read(raw),
+    updatePause: Settings.updatePause.read(raw),
     wifiOnly: Settings.wifiOnly.read(raw),
     chargingOnly: Settings.chargingOnly.read(raw),
     pagesOnMobile: Settings.pagesOnMobile.read(raw),
@@ -243,6 +259,7 @@ class AppSettings {
 
   final DailyTime dailyTime;
   final int? intervalHours;
+  final UpdatePause? updatePause;
   final bool wifiOnly;
   final bool chargingOnly;
   final bool pagesOnMobile;

@@ -8,6 +8,7 @@ import 'package:offline_hn/data/model/daily_time.dart';
 import 'package:offline_hn/data/model/settings.dart';
 import 'package:offline_hn/data/repository/settings_store.dart';
 import 'package:offline_hn/pages/settings/last_update_tile.dart';
+import 'package:offline_hn/pages/settings/pause_tile.dart';
 import 'package:offline_hn/ui/settings_section.dart';
 import 'package:offline_hn/ui/tokens.dart';
 
@@ -72,6 +73,7 @@ class UpdatesSection extends StatelessWidget {
           trailing: const Icon(Icons.refresh),
           onTap: () => unawaited(_updateAll(context)),
         ),
+        PauseTile(store: store, settings: settings),
         ListTile(
           title: Text('Refresh each day at', style: t.label),
           subtitle: Text(

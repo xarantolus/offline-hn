@@ -1,3 +1,4 @@
+import 'package:offline_hn/data/model/settings.dart';
 import 'package:offline_hn/data/model/sync_enums.dart';
 import 'package:offline_hn/data/policy/network_policy.dart';
 import 'package:offline_hn/data/policy/run_policy.dart';
@@ -75,6 +76,7 @@ class SyncController {
         settings: settings,
       ),
       settings,
+      _clock(),
     );
   }
 
@@ -96,7 +98,14 @@ class SyncController {
 
   /// An empty store counts as stale.
   Future<void> catchUpIfStale() async {
-    if (isStale(await _syncs.lastSuccessfulSync(), _clock())) {
+    final now = _clock();
+    if (automaticUpdatesPaused(
+      await _settings.read(Settings.updatePause),
+      now,
+    )) {
+      return;
+    }
+    if (isStale(await _syncs.lastSuccessfulSync(), now)) {
       await requestSync(SyncTrigger.catchUp);
     }
   }

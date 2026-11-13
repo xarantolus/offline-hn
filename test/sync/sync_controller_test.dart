@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:offline_hn/data/db/database.dart';
 import 'package:offline_hn/data/model/settings.dart';
 import 'package:offline_hn/data/model/sync_enums.dart';
+import 'package:offline_hn/data/model/update_pause.dart';
 import 'package:offline_hn/data/repository/settings_store.dart';
 import 'package:offline_hn/data/repository/sync_repository.dart';
 import 'package:offline_hn/sync/connection_probe.dart';
@@ -181,6 +182,19 @@ void main() {
     test('an empty store counts as stale', () async {
       await controller.catchUpIfStale();
       expect(queue.syncs.single.$1, SyncTrigger.catchUp);
+    });
+
+    test('nothing is queued while automatic updates are paused', () async {
+      await settings.set(
+        Settings.updatePause,
+        const UpdatePause.indefinitely(),
+      );
+      await controller.catchUpIfStale();
+      expect(queue.syncs, isEmpty);
+      expect(
+        await controller.automaticHoldsNow(),
+        contains(AutomaticHold.paused),
+      );
     });
 
     test('data from the last two hours is left alone', () async {
