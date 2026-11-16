@@ -24,6 +24,7 @@ void main() {
   late AppDatabase db;
   late FakeHn hn;
   late FakeProbe probe;
+  late FakePower power;
   late FakeNotifier notifier;
   late FakeLists lists;
   late FakeSaver saver;
@@ -51,6 +52,7 @@ void main() {
       ..rankings[FeedKind.ask] = [5]
       ..rankings[FeedKind.show] = [];
     probe = FakeProbe();
+    power = FakePower();
     notifier = FakeNotifier();
     lists = FakeLists();
     final files = tempPageFiles();
@@ -63,6 +65,7 @@ void main() {
       settings: settings,
       source: hn,
       probe: probe,
+      power: power,
       saver: saver,
       lists: lists,
       prune: PruneService(RetentionRepository(db)),
@@ -442,6 +445,20 @@ void main() {
       expect(notifier.events, isEmpty);
     },
   );
+
+  test('battery saver holds back automatic runs, not requested ones', () async {
+    power.on = true;
+    for (final trigger in [
+      SyncTrigger.scheduled,
+      SyncTrigger.periodic,
+      SyncTrigger.catchUp,
+    ]) {
+      expect(await runner.run(trigger), SyncResult.skipped);
+    }
+    expect(await runs(), isEmpty);
+    expect(hn.rankingCalls, 0);
+    expect(await runner.run(SyncTrigger.manual), SyncResult.completed);
+  });
 
   test('offline does nothing', () async {
     probe.kind = ConnectionKind.none;

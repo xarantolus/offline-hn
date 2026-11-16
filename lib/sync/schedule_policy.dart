@@ -82,7 +82,7 @@ WorkRequirements requirementsFor(SyncTrigger trigger, AppSettings settings) {
 }
 
 /// What an automatic update may be waiting for.
-enum AutomaticHold { paused, connection, charger }
+enum AutomaticHold { paused, batterySaver, connection, charger }
 
 /// Empty when the catch-up can start right away. The charger is a requirement
 /// rather than a known battery state: on a phone that is already charging the
@@ -90,9 +90,11 @@ enum AutomaticHold { paused, connection, charger }
 Set<AutomaticHold> automaticHolds(
   SyncAllowance allowance,
   AppSettings settings,
-  DateTime now,
-) => {
+  DateTime now, {
+  required bool batterySaver,
+}) => {
   if (automaticUpdatesPaused(settings.updatePause, now)) AutomaticHold.paused,
+  if (batterySaver) AutomaticHold.batterySaver,
   if (allowance == SyncAllowance.nothing) AutomaticHold.connection,
   if (settings.chargingOnly) AutomaticHold.charger,
 };

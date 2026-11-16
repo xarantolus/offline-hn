@@ -13,6 +13,7 @@ import 'package:offline_hn/sync/connection_probe.dart';
 import 'package:offline_hn/sync/filter_list_sync.dart';
 import 'package:offline_hn/sync/page_files.dart';
 import 'package:offline_hn/sync/page_saver.dart';
+import 'package:offline_hn/sync/power_saver.dart';
 import 'package:offline_hn/sync/schedule_policy.dart';
 import 'package:offline_hn/sync/sync_notifier.dart';
 import 'package:offline_hn/sync/work_queue.dart';
@@ -109,6 +110,13 @@ class FakeProbe implements ConnectionProbe {
 
   @override
   Stream<ConnectionKind> get changes => const Stream.empty();
+}
+
+class FakePower implements PowerSaver {
+  var on = false;
+
+  @override
+  Future<bool> isOn() async => on;
 }
 
 class FakeNotifier implements RunNotifier {

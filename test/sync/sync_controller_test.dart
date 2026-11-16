@@ -23,6 +23,7 @@ void main() {
   late AppDatabase db;
   late FakeQueue queue;
   late FakeProbe probe;
+  late FakePower power;
   late FakeNotifier notifier;
   late SettingsStore settings;
   late SyncRepository syncs;
@@ -35,6 +36,7 @@ void main() {
     db = AppDatabase(NativeDatabase.memory());
     queue = FakeQueue();
     probe = FakeProbe();
+    power = FakePower();
     notifier = FakeNotifier();
     settings = SettingsStore(db);
     syncs = SyncRepository(db);
@@ -46,6 +48,7 @@ void main() {
       syncs: syncs,
       settings: settings,
       probe: probe,
+      power: power,
       queue: queue,
       notifier: notifier,
       marker: marker,
@@ -194,6 +197,16 @@ void main() {
       expect(
         await controller.automaticHoldsNow(),
         contains(AutomaticHold.paused),
+      );
+    });
+
+    test('nothing is queued while battery saver is on', () async {
+      power.on = true;
+      await controller.catchUpIfStale();
+      expect(queue.syncs, isEmpty);
+      expect(
+        await controller.automaticHoldsNow(),
+        contains(AutomaticHold.batterySaver),
       );
     });
 

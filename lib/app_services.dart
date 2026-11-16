@@ -18,6 +18,7 @@ import 'package:offline_hn/sync/filter_list_update.dart';
 import 'package:offline_hn/sync/foreground_marker.dart';
 import 'package:offline_hn/sync/live_progress.dart';
 import 'package:offline_hn/sync/page_files.dart';
+import 'package:offline_hn/sync/power_saver.dart';
 import 'package:offline_hn/sync/scheduler.dart';
 import 'package:offline_hn/sync/sync_controller.dart';
 import 'package:offline_hn/sync/sync_notifier.dart';
@@ -105,6 +106,7 @@ class AppServices {
         syncs: syncs,
         settings: settings,
         probe: probe,
+        power: PluginPowerSaver(),
         queue: queue,
         notifier: notifier,
         marker: marker,

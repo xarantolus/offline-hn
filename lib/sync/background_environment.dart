@@ -14,6 +14,7 @@ import 'package:offline_hn/sync/filter_list_sync.dart';
 import 'package:offline_hn/sync/foreground_marker.dart';
 import 'package:offline_hn/sync/live_progress.dart';
 import 'package:offline_hn/sync/page_files.dart';
+import 'package:offline_hn/sync/power_saver.dart';
 import 'package:offline_hn/sync/page_saver.dart';
 import 'package:offline_hn/sync/pdf_downloader.dart';
 import 'package:offline_hn/sync/scheduler.dart';
@@ -69,6 +70,7 @@ class BackgroundEnvironment {
         settings: settings,
         source: HnSource.create(),
         probe: probe,
+        power: PluginPowerSaver(),
         saver: PageSaver(
           files: files,
           pages: pages,

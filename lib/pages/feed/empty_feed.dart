@@ -93,6 +93,8 @@ class _NotStartedState extends State<_NotStarted> {
           }
           final why = waiting.contains(AutomaticHold.paused)
               ? 'Automatic updates are paused'
+              : waiting.contains(AutomaticHold.batterySaver)
+              ? 'Automatic updates wait until battery saver is off'
               : 'Automatic updates wait for ${waitingFor(waiting)}';
           return EmptyMessage(
             title: 'Nothing downloaded yet',

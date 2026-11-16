@@ -8,6 +8,7 @@ import 'package:offline_hn/data/repository/sync_repository.dart';
 import 'package:offline_hn/sync/connection_probe.dart';
 import 'package:offline_hn/sync/foreground_marker.dart';
 import 'package:offline_hn/sync/live_progress.dart';
+import 'package:offline_hn/sync/power_saver.dart';
 import 'package:offline_hn/sync/schedule_policy.dart';
 import 'package:offline_hn/sync/sync_notifier.dart';
 import 'package:offline_hn/sync/work_queue.dart';
@@ -39,6 +40,7 @@ class SyncController {
     required this._syncs,
     required this._settings,
     required this._probe,
+    required this._power,
     required this._queue,
     required this._notifier,
     required this._marker,
@@ -48,6 +50,7 @@ class SyncController {
   final SyncRepository _syncs;
   final SettingsStore _settings;
   final ConnectionProbe _probe;
+  final PowerSaver _power;
   final WorkQueue _queue;
   final RunNotifier _notifier;
   final ForegroundMarker _marker;
@@ -77,6 +80,7 @@ class SyncController {
       ),
       settings,
       _clock(),
+      batterySaver: await _power.isOn(),
     );
   }
 
@@ -105,6 +109,7 @@ class SyncController {
     )) {
       return;
     }
+    if (await _power.isOn()) return;
     if (isStale(await _syncs.lastSuccessfulSync(), now)) {
       await requestSync(SyncTrigger.catchUp);
     }

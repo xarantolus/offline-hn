@@ -24,6 +24,7 @@ import 'package:offline_hn/data/repository/sync_repository.dart';
 import 'package:offline_hn/sync/connection_probe.dart';
 import 'package:offline_hn/sync/filter_list_sync.dart';
 import 'package:offline_hn/sync/page_files.dart';
+import 'package:offline_hn/sync/power_saver.dart';
 import 'package:offline_hn/sync/page_saver.dart';
 import 'package:offline_hn/sync/run_budget.dart';
 import 'package:offline_hn/sync/sync_notifier.dart';
@@ -45,7 +46,8 @@ enum SyncResult {
   /// a job started the normal way continues the run.
   interrupted,
 
-  /// No usable connection for this trigger.
+  /// No usable connection for this trigger, or battery saver is on for an
+  /// automatic one.
   skipped,
 
   /// Nothing could be fetched.
@@ -112,6 +114,7 @@ class SyncRunner {
     required this._settings,
     required this._source,
     required this._probe,
+    required this._power,
     required this._saver,
     required this._lists,
     required this._prune,
@@ -142,6 +145,7 @@ class SyncRunner {
   final SettingsStore _settings;
   final HnReader _source;
   final ConnectionProbe _probe;
+  final PowerSaver _power;
   final StoryPageSaver _saver;
   final FilterListSync _lists;
   final PruneService _prune;
@@ -174,6 +178,9 @@ class SyncRunner {
     final started = _clock();
     final settings = await _settings.load();
     if (await _allowance(trigger, settings) == SyncAllowance.nothing) {
+      return SyncResult.skipped;
+    }
+    if (!trigger.userInitiated && await _power.isOn()) {
       return SyncResult.skipped;
     }
 
