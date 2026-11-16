@@ -32,8 +32,6 @@ class EmptyFeed extends StatefulWidget {
 
 class _EmptyFeedState extends State<EmptyFeed> {
   late final Stream<SyncProgress?> _progress = widget.services.sync.progress;
-  late final Stream<ConnectionKind> _connection =
-      widget.services.sync.connection;
 
   @override
   Widget build(BuildContext context) {
@@ -55,35 +53,58 @@ class _EmptyFeedState extends State<EmptyFeed> {
             tokens: t,
           );
         }
-        return StreamBuilder<ConnectionKind>(
-          stream: _connection,
-          builder: (context, _) => FutureBuilder<Set<AutomaticHold>>(
-            future: widget.services.sync.automaticHoldsNow(),
-            builder: (context, holds) {
-              final waiting = holds.data ?? const {};
-              if (waiting.isEmpty) {
-                return EmptyMessage(
-                  title: 'Nothing downloaded yet',
-                  hint: 'The first update starts by itself.',
-                  tokens: t,
-                );
-              }
-              final why = waiting.contains(AutomaticHold.paused)
-                  ? 'Automatic updates are paused'
-                  : 'Automatic updates wait for ${waitingFor(waiting)}';
-              return EmptyMessage(
-                title: 'Nothing downloaded yet',
-                hint: '$why. You can fetch the stories now.',
-                tokens: t,
-                action: FilledButton.tonal(
-                  onPressed: widget.onFetch,
-                  child: const Text('Fetch now'),
-                ),
-              );
-            },
-          ),
-        );
+        return _NotStarted(services: widget.services, onFetch: widget.onFetch);
       },
+    );
+  }
+}
+
+/// Mounted afresh each time a run ends with nothing stored, so it owns its
+/// connection stream: that stream takes a single listener.
+class _NotStarted extends StatefulWidget {
+  const _NotStarted({required this.services, required this.onFetch});
+
+  final AppServices services;
+  final VoidCallback onFetch;
+
+  @override
+  State<_NotStarted> createState() => _NotStartedState();
+}
+
+class _NotStartedState extends State<_NotStarted> {
+  late final Stream<ConnectionKind> _connection =
+      widget.services.sync.connection;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    return StreamBuilder<ConnectionKind>(
+      stream: _connection,
+      builder: (context, _) => FutureBuilder<Set<AutomaticHold>>(
+        future: widget.services.sync.automaticHoldsNow(),
+        builder: (context, holds) {
+          final waiting = holds.data ?? const {};
+          if (waiting.isEmpty) {
+            return EmptyMessage(
+              title: 'Nothing downloaded yet',
+              hint: 'The first update starts by itself.',
+              tokens: t,
+            );
+          }
+          final why = waiting.contains(AutomaticHold.paused)
+              ? 'Automatic updates are paused'
+              : 'Automatic updates wait for ${waitingFor(waiting)}';
+          return EmptyMessage(
+            title: 'Nothing downloaded yet',
+            hint: '$why. You can fetch the stories now.',
+            tokens: t,
+            action: FilledButton.tonal(
+              onPressed: widget.onFetch,
+              child: const Text('Fetch now'),
+            ),
+          );
+        },
+      ),
     );
   }
 }
